@@ -1,26 +1,215 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand — RX Clinic teal → navy gradient */
+  --rx-primary: #0891b2;
+  --rx-primary-hover: #0e7490;
+  --rx-primary-light: #ecfeff;
+  --rx-accent: #2dd4bf;
+  --rx-accent-light: #ccfbf1;
+  --rx-brand-teal: #14b8a6;
+  --rx-brand-cyan: #06b6d4;
+  --rx-brand-navy: #075985;
+  --rx-brand-deep: #0c4a6e;
+
+  /* Role themes */
+  --rx-doctor-sidebar-from: #075985;
+  --rx-doctor-sidebar-via: #0e7490;
+  --rx-doctor-sidebar-to: #134e4a;
+  --rx-admin-sidebar-from: #0c4a6e;
+  --rx-admin-sidebar-to: #082f49;
+  --rx-secretary-sidebar-from: #0f766e;
+  --rx-secretary-sidebar-to: #115e59;
+
+  /* Surfaces */
+  --rx-bg: #f0fdfa;
+  --rx-bg-subtle: #f8fffe;
+  --rx-surface: #ffffff;
+  --rx-surface-raised: #ffffff;
+  --rx-border: #ccfbf1;
+  --rx-border-subtle: #f0fdfa;
+
+  /* Text */
+  --rx-text: #0f172a;
+  --rx-text-secondary: #334155;
+  --rx-muted: #64748b;
+  --rx-muted-foreground: #94a3b8;
+
+  /* Semantic */
+  --rx-success: #059669;
+  --rx-success-bg: #ecfdf5;
+  --rx-warning: #d97706;
+  --rx-warning-bg: #fffbeb;
+  --rx-danger: #dc2626;
+  --rx-danger-bg: #fef2f2;
+  --rx-info: #0891b2;
+  --rx-info-bg: #ecfeff;
+
+  /* Prescription brand */
+  --rx-rx-color: #0e7490;
+
+  /* Radius & shadow */
+  --rx-radius-sm: 0.5rem;
+  --rx-radius: 0.75rem;
+  --rx-radius-lg: 1rem;
+  --rx-radius-xl: 1.25rem;
+  --rx-shadow-sm: 0 1px 2px 0 rgb(8 51 68 / 0.04);
+  --rx-shadow: 0 1px 3px 0 rgb(8 51 68 / 0.06), 0 1px 2px -1px rgb(8 51 68 / 0.06);
+  --rx-shadow-md: 0 4px 6px -1px rgb(8 51 68 / 0.08), 0 2px 4px -2px rgb(8 51 68 / 0.05);
+  --rx-shadow-lg: 0 10px 15px -3px rgb(8 51 68 / 0.1), 0 4px 6px -4px rgb(8 51 68 / 0.06);
+
+  /* Layout */
+  --rx-sidebar-width: 17.5rem;
+  --rx-header-height: 4rem;
+
+  /* Brand gradient */
+  --rx-gradient-brand: linear-gradient(
+    135deg,
+    var(--rx-accent) 0%,
+    var(--rx-brand-cyan) 45%,
+    var(--rx-brand-navy) 100%
+  );
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-rx-primary: var(--rx-primary);
+  --color-rx-primary-hover: var(--rx-primary-hover);
+  --color-rx-primary-light: var(--rx-primary-light);
+  --color-rx-accent: var(--rx-accent);
+  --color-rx-accent-light: var(--rx-accent-light);
+  --color-rx-bg: var(--rx-bg);
+  --color-rx-bg-subtle: var(--rx-bg-subtle);
+  --color-rx-surface: var(--rx-surface);
+  --color-rx-border: var(--rx-border);
+  --color-rx-text: var(--rx-text);
+  --color-rx-text-secondary: var(--rx-text-secondary);
+  --color-rx-muted: var(--rx-muted);
+  --color-rx-muted-foreground: var(--rx-muted-foreground);
+  --color-rx-danger: var(--rx-danger);
+  --color-rx-success: var(--rx-success);
+  --color-rx-warning: var(--rx-warning);
+  --color-rx-rx-color: var(--rx-rx-color);
+  --color-rx-sidebar-bg: var(--rx-doctor-sidebar-from);
+  --font-sans: var(--font-tajawal);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #99f6e4 transparent;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--rx-bg);
+  color: var(--rx-text);
+  font-family: var(--font-tajawal), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* App shell background */
+.rx-app-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgb(45 212 191 / 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgb(8 145 178 / 0.08), transparent),
+    var(--rx-bg);
+  min-height: 100vh;
+}
+
+/* Brand gradient utilities */
+.rx-gradient-brand {
+  background: var(--rx-gradient-brand);
+}
+
+.rx-gradient-text {
+  background: var(--rx-gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Page content area */
+.rx-page {
+  padding: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (min-width: 1024px) {
+  .rx-page {
+    padding: 1.5rem;
+  }
+}
+
+.rx-page-wide {
+  padding: 1rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+@media (min-width: 1024px) {
+  .rx-page-wide {
+    padding: 1.5rem;
+  }
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid var(--rx-primary);
+  outline-offset: 2px;
+}
+
+/* Table polish */
+.rx-table thead {
+  background: var(--rx-bg-subtle);
+}
+.rx-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+.rx-table tbody tr:hover {
+  background: var(--rx-primary-light);
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.prescription-print-page {
+    background: white !important;
+  }
+
+  [data-sonner-toaster],
+  [data-sonner-toast],
+  [data-rx-install-prompt] {
+    display: none !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .prescription-print-root {
+    background: white !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  .prescription-doc {
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
 }

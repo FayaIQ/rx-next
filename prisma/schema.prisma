@@ -1,0 +1,371 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               BigInt            @id @default(autoincrement())
+  doctorId         BigInt?           @map("doctor_id")
+  activeSessionId  String?           @map("active_session_id") @db.VarChar(255)
+  name             String            @db.VarChar(255)
+  phoneNumber      String            @unique(map: "users_phone_number_unique") @map("phone_number") @db.VarChar(255)
+  password         String            @db.VarChar(255)
+  type             String            @db.VarChar(255)
+  createdAt        DateTime?         @map("created_at") @db.Timestamp(0)
+  updatedAt        DateTime?         @updatedAt @map("updated_at") @db.Timestamp(0)
+  profileImage     String?           @map("profile_image") @db.VarChar(255)
+  isConfirmed      Boolean           @default(true) @map("is_confirmed")
+  appointments     Appointment[]
+  medicines        Medicine[]
+  medicinePresets  MedicinePreset[]
+  patientFields    PatientField[]
+  patients         Patient[]
+  prescriptions    Prescription[]
+  recipeSettings   RecipeSettings[]
+  secretaryInvites SecretaryInvite[] @relation("DoctorInvites")
+  secretaryInvite  SecretaryInvite[] @relation("SecretaryInvite")
+  activatedSubs    Subscription[]    @relation("ActivatedBy")
+  subscriptions    Subscription[]
+  doctor           User?             @relation("DoctorSecretaries", fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_doctor_id_foreign")
+  secretaries      User[]            @relation("DoctorSecretaries")
+
+  @@index([activeSessionId], map: "users_active_session_id_index")
+  @@map("users")
+}
+
+model Patient {
+  id            BigInt         @id @default(autoincrement())
+  name          String         @db.VarChar(255)
+  gender        String         @db.VarChar(255)
+  birthdate     DateTime?      @db.Date
+  diagnosis     String?
+  phone         String?        @db.VarChar(255)
+  doctorId      BigInt         @map("doctor_id")
+  createdAt     DateTime?      @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime?      @updatedAt @map("updated_at") @db.Timestamp(0)
+  appointments  Appointment[]
+  doctor        User           @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "patients_doctor_id_foreign")
+  prescriptions Prescription[]
+
+  @@map("patients")
+}
+
+model Prescription {
+  id                 BigInt                   @id @default(autoincrement())
+  patientId          BigInt                   @map("patient_id")
+  prescriptionDate   DateTime?                @map("prescription_date") @db.Date
+  doctorId           BigInt?                  @map("doctor_id")
+  diagnosis          String?
+  xrayImage          String?                  @map("xray_image") @db.VarChar(255)
+  analysisImage      String?                  @map("analysis_image") @db.VarChar(255)
+  additionalInfo     Json?                    @map("additional_info")
+  prescriptionNumber Int?                     @map("prescription_number")
+  createdAt          DateTime?                @map("created_at") @db.Timestamp(0)
+  updatedAt          DateTime?                @updatedAt @map("updated_at") @db.Timestamp(0)
+  fieldValues        PrescriptionFieldValue[]
+  items              PrescriptionItem[]
+  doctor             User?                    @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "prescriptions_doctor_id_foreign")
+  patient            Patient                  @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "prescriptions_patient_id_foreign")
+
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             BigInt       @id @default(autoincrement())
+  prescriptionId BigInt       @map("prescription_id")
+  name           String       @db.VarChar(255)
+  type           String?      @db.VarChar(255)
+  dosage         String?      @db.VarChar(255)
+  quantity       String?      @db.VarChar(255)
+  period         String?      @db.VarChar(255)
+  timeOfUse      String?      @map("time_of_use") @db.VarChar(255)
+  createdAt      DateTime?    @map("created_at") @db.Timestamp(0)
+  updatedAt      DateTime?    @updatedAt @map("updated_at") @db.Timestamp(0)
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "prescription_items_prescription_id_foreign")
+
+  @@map("prescription_items")
+}
+
+model Medicine {
+  id        BigInt    @id @default(autoincrement())
+  name      String    @db.VarChar(255)
+  type      String    @db.VarChar(255)
+  dosage    String    @db.VarChar(255)
+  quantity  String    @db.VarChar(255)
+  period    String    @db.VarChar(255)
+  timeOfUse String    @map("time_of_use") @db.VarChar(255)
+  doctorId  BigInt    @map("doctor_id")
+  createdAt DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  doctor    User      @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "medicines_doctor_id_foreign")
+
+  @@map("medicines")
+}
+
+model MedicinePreset {
+  id          BigInt    @id @default(autoincrement())
+  doctorId    BigInt    @map("doctor_id")
+  medicineKey String    @map("medicine_key") @db.VarChar(255)
+  name        String    @db.VarChar(255)
+  type        String    @default("") @db.VarChar(255)
+  dosage      String    @default("") @db.VarChar(255)
+  quantity    String    @default("") @db.VarChar(255)
+  period      String    @default("") @db.VarChar(255)
+  timeOfUse   String    @default("") @map("time_of_use") @db.VarChar(255)
+  usageCount  Int       @default(1) @map("usage_count")
+  lastUsedAt  DateTime  @default(now()) @map("last_used_at") @db.Timestamp(0)
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  doctor      User      @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "medicine_presets_doctor_id_foreign")
+
+  @@index([doctorId, medicineKey, type], map: "medicine_presets_doctor_key_type_index")
+  @@map("medicine_presets")
+}
+
+model Appointment {
+  id                  BigInt    @id @default(autoincrement())
+  doctorId            BigInt    @map("doctor_id")
+  patientId           BigInt    @map("patient_id")
+  appointmentDatetime DateTime  @map("appointment_datetime") @db.Timestamp(0)
+  bookingDate         DateTime? @map("booking_date") @db.Date
+  notes               String?
+  status              Boolean   @default(true)
+  createdAt           DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt           DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  doctor              User      @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "appointments_doctor_id_foreign")
+  patient             Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "appointments_patient_id_foreign")
+
+  @@map("appointments")
+}
+
+model PatientField {
+  id          BigInt                   @id @default(autoincrement())
+  doctorId    BigInt                   @map("doctor_id")
+  name        String                   @db.VarChar(255)
+  size        String                   @db.VarChar(255)
+  isActive    Boolean                  @default(true) @map("is_active")
+  createdAt   DateTime?                @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime?                @updatedAt @map("updated_at") @db.Timestamp(0)
+  isPrintable Boolean                  @default(false) @map("is_printable")
+  isPersonal  Boolean                  @default(false) @map("is_personal")
+  designX     Decimal?                 @map("design_x") @db.Decimal(5, 2)
+  designY     Decimal?                 @map("design_y") @db.Decimal(5, 2)
+  doctor      User                     @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "patient_fields_doctor_id_foreign")
+  fieldValues PrescriptionFieldValue[]
+
+  @@map("patient_fields")
+}
+
+model PrescriptionFieldValue {
+  id             BigInt       @id @default(autoincrement())
+  prescriptionId BigInt       @map("prescription_id")
+  patientFieldId BigInt       @map("patient_field_id")
+  value          String?      @db.VarChar(255)
+  createdAt      DateTime?    @map("created_at") @db.Timestamp(0)
+  updatedAt      DateTime?    @updatedAt @map("updated_at") @db.Timestamp(0)
+  patientField   PatientField @relation(fields: [patientFieldId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "prescription_field_values_patient_field_id_foreign")
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "prescription_field_values_prescription_id_foreign")
+
+  @@map("prescription_field_values")
+}
+
+model RecipeSettings {
+  id               BigInt    @id @default(autoincrement())
+  doctorId         BigInt    @map("doctor_id")
+  doctorName       String    @map("doctor_name") @db.VarChar(255)
+  doctorSpecialty  String    @map("doctor_specialty") @db.VarChar(255)
+  additionalText1  String?   @map("additional_text_1")
+  phoneNumber      String?   @map("phone_number") @db.VarChar(255)
+  email            String?   @db.VarChar(255)
+  fontFamily       String    @map("font_family") @db.VarChar(255)
+  fontSize         String    @map("font_size") @db.VarChar(255)
+  opacity          Decimal   @db.Decimal(3, 2)
+  paperSize        String    @default("A4") @map("paper_size") @db.VarChar(255)
+  color            String    @db.VarChar(255)
+  logoPath         String?   @map("logo_path") @db.VarChar(255)
+  designImagePath  String?   @map("design_image_path") @db.VarChar(255)
+  designMode       String    @default("design") @map("design_mode") @db.VarChar(255)
+  designImageScale Int       @default(1) @map("design_image_scale") @db.SmallInt
+  designPatientX   Decimal   @default(8.00) @map("design_patient_x") @db.Decimal(5, 2)
+  designPatientY   Decimal   @default(6.00) @map("design_patient_y") @db.Decimal(5, 2)
+  designAgeX       Decimal   @default(38.00) @map("design_age_x") @db.Decimal(5, 2)
+  designAgeY       Decimal   @default(1) @map("design_age_y") @db.Decimal(5, 2)
+  designDateX      Decimal   @default(46.00) @map("design_date_x") @db.Decimal(5, 2)
+  designDateY      Decimal   @default(1) @map("design_date_y") @db.Decimal(5, 2)
+  designItemsX     Decimal   @default(8.00) @map("design_items_x") @db.Decimal(5, 2)
+  designItemsY     Decimal   @default(1) @map("design_items_y") @db.Decimal(5, 2)
+  designItemsWidth Decimal   @default(84.00) @map("design_items_width") @db.Decimal(5, 2)
+  designItemsHeight Decimal  @default(45.00) @map("design_items_height") @db.Decimal(5, 2)
+  createdAt        DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt        DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  address          String?   @db.VarChar(255)
+  showGender       Boolean   @default(true) @map("show_gender")
+  showAge          Boolean   @default(true) @map("show_age")
+  showPhone        Boolean   @default(true) @map("show_phone")
+  printName        Boolean   @default(true) @map("print_name")
+  printAge         Boolean   @default(true) @map("print_age")
+  printGender      Boolean   @default(true) @map("print_gender")
+  printPhone       Boolean   @default(false) @map("print_phone")
+  printDiagnosis   Boolean   @default(true) @map("print_diagnosis")
+  designPhoneX     Decimal   @default(88.00) @map("design_phone_x") @db.Decimal(5, 2)
+  designPhoneY     Decimal   @default(42.00) @map("design_phone_y") @db.Decimal(5, 2)
+  doctor           User      @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "recipe_settings_doctor_id_foreign")
+
+  @@map("recipe_settings")
+}
+
+model SecretaryInvite {
+  id          BigInt    @id @default(autoincrement())
+  code        String    @unique(map: "secretary_invites_code_unique") @db.VarChar(255)
+  doctorId    BigInt    @map("doctor_id")
+  used        Boolean   @default(false)
+  expiresAt   DateTime? @map("expires_at") @db.Timestamp(0)
+  createdAt   DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  secretaryId BigInt?   @map("secretary_id")
+  doctor      User      @relation("DoctorInvites", fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "secretary_invites_doctor_id_foreign")
+  secretary   User?     @relation("SecretaryInvite", fields: [secretaryId], references: [id], onUpdate: NoAction, map: "secretary_invites_secretary_id_foreign")
+
+  @@map("secretary_invites")
+}
+
+model Package {
+  id            BigInt         @id @default(autoincrement())
+  name          String         @db.VarChar(255)
+  price         Decimal        @db.Decimal(8, 2)
+  description   String
+  image         String?        @db.VarChar(255)
+  duration      Int
+  durationUnit  String         @default("months") @map("duration_unit") @db.VarChar(255)
+  planType      String         @default("monthly") @map("plan_type") @db.VarChar(255)
+  isTrial       Boolean        @default(false) @map("is_trial")
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime?      @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime?      @updatedAt @map("updated_at") @db.Timestamp(0)
+  subscriptions Subscription[]
+
+  @@map("packages")
+}
+
+model Subscription {
+  id          BigInt    @id @default(autoincrement())
+  userId      BigInt    @map("user_id")
+  packageId   BigInt?   @map("package_id")
+  planType    String    @default("trial") @map("plan_type") @db.VarChar(255)
+  status      String    @default("active") @db.VarChar(255)
+  startsAt    DateTime  @map("starts_at") @db.Timestamp(0)
+  endsAt      DateTime  @map("ends_at") @db.Timestamp(0)
+  activatedBy BigInt?   @map("activated_by")
+  notes       String?
+  createdAt   DateTime? @map("created_at") @db.Timestamp(0)
+  updatedAt   DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  activator   User?     @relation("ActivatedBy", fields: [activatedBy], references: [id], onUpdate: NoAction, map: "subscriptions_activated_by_foreign")
+  package     Package?  @relation(fields: [packageId], references: [id], onUpdate: NoAction, map: "subscriptions_package_id_foreign")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "subscriptions_user_id_foreign")
+
+  @@index([endsAt], map: "subscriptions_ends_at_index")
+  @@index([userId, status], map: "subscriptions_user_id_status_index")
+  @@map("subscriptions")
+}
+
+model DefaultMedicineCategory {
+  id                BigInt            @id @default(autoincrement())
+  name              String            @unique(map: "default_medicine_categories_name_unique") @db.VarChar(255)
+  createdAt         DateTime?         @map("created_at") @db.Timestamp(0)
+  updatedAt         DateTime?         @updatedAt @map("updated_at") @db.Timestamp(0)
+  default_medicines DefaultMedicine[]
+
+  @@map("default_medicine_categories")
+}
+
+model DefaultMedicine {
+  id                           BigInt                  @id @default(autoincrement())
+  default_medicine_category_id BigInt
+  name                         String                  @db.VarChar(255)
+  type                         String?                 @db.VarChar(255)
+  dosage                       String?                 @db.VarChar(255)
+  quantity                     String?                 @db.VarChar(255)
+  period                       String?                 @db.VarChar(255)
+  time_of_use                  String?                 @db.VarChar(255)
+  createdAt                    DateTime?               @map("created_at") @db.Timestamp(0)
+  updatedAt                    DateTime?               @updatedAt @map("updated_at") @db.Timestamp(0)
+  default_medicine_categories  DefaultMedicineCategory @relation(fields: [default_medicine_category_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "default_medicines_default_medicine_category_id_foreign")
+
+  @@unique([default_medicine_category_id, name, type, dosage], map: "default_medicines_unique_signature")
+  @@map("default_medicines")
+}
+
+model cache {
+  key        String @id @db.VarChar(255)
+  value      String
+  expiration Int
+}
+
+model cache_locks {
+  key        String @id @db.VarChar(255)
+  owner      String @db.VarChar(255)
+  expiration Int
+}
+
+model failed_jobs {
+  id         BigInt   @id @default(autoincrement())
+  uuid       String   @unique(map: "failed_jobs_uuid_unique") @db.VarChar(255)
+  connection String
+  queue      String
+  payload    String
+  exception  String
+  failed_at  DateTime @default(now()) @db.Timestamp(0)
+}
+
+model job_batches {
+  id             String  @id @db.VarChar(255)
+  name           String  @db.VarChar(255)
+  total_jobs     Int
+  pending_jobs   Int
+  failed_jobs    Int
+  failed_job_ids String
+  options        String?
+  cancelled_at   Int?
+  created_at     Int
+  finished_at    Int?
+}
+
+model jobs {
+  id           BigInt @id @default(autoincrement())
+  queue        String @db.VarChar(255)
+  payload      String
+  attempts     Int    @db.SmallInt
+  reserved_at  Int?
+  available_at Int
+  created_at   Int
+
+  @@index([queue], map: "jobs_queue_index")
+}
+
+model migrations {
+  id        Int    @id @default(autoincrement())
+  migration String @db.VarChar(255)
+  batch     Int
+}
+
+model password_reset_tokens {
+  phone_number String    @id @db.VarChar(255)
+  token        String    @db.VarChar(255)
+  created_at   DateTime? @db.Timestamp(0)
+}
+
+model sessions {
+  id            String  @id @db.VarChar(255)
+  user_id       BigInt?
+  ip_address    String? @db.VarChar(45)
+  user_agent    String?
+  payload       String
+  last_activity Int
+
+  @@index([last_activity], map: "sessions_last_activity_index")
+  @@index([user_id], map: "sessions_user_id_index")
+}

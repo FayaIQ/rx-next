@@ -1,0 +1,364 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  doctor
+  secretary
+  admin
+}
+
+enum Gender {
+  male
+  female
+}
+
+enum FieldSize {
+  larg
+  medium
+  small
+}
+
+enum DesignMode {
+  design
+  image
+}
+
+enum PaperSize {
+  A4
+  A5
+}
+
+enum FontFamily {
+  Cairo
+  FF_Shamel
+}
+
+enum PlanType {
+  trial
+  monthly
+  quarterly
+  semi_annual
+  annual
+  custom
+}
+
+enum DurationUnit {
+  days
+  months
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+  superseded
+}
+
+model User {
+  id                Int      @id @default(autoincrement())
+  doctorId          Int?     @map("doctor_id")
+  name              String
+  phoneNumber       String   @unique @map("phone_number")
+  password          String
+  type              UserType
+  profileImage      String?  @map("profile_image")
+  isConfirmed       Boolean  @default(true) @map("is_confirmed")
+  activeSessionId   String?  @map("active_session_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  doctor            User?    @relation("DoctorSecretaries", fields: [doctorId], references: [id])
+  secretaries       User[]   @relation("DoctorSecretaries")
+
+  patients          Patient[]
+  prescriptions     Prescription[]
+  medicines         Medicine[]
+  appointments      Appointment[]
+  patientFields     PatientField[]
+  recipeSettings    RecipeSettings?
+  secretaryInvites  SecretaryInvite[] @relation("DoctorInvites")
+  secretaryInvite   SecretaryInvite?  @relation("SecretaryInvite")
+  subscriptions     Subscription[]
+  activatedSubs     Subscription[]    @relation("ActivatedBy")
+
+  @@map("users")
+}
+
+model Patient {
+  id          Int       @id @default(autoincrement())
+  name        String
+  gender      Gender
+  birthdate   DateTime?
+  diagnosis   String?
+  phone       String?
+  doctorId    Int       @map("doctor_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  doctor          User              @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  prescriptions   Prescription[]
+  pharmaceuticals Pharmaceutical[]
+  appointments    Appointment[]
+
+  @@index([doctorId])
+  @@map("patients")
+}
+
+model Prescription {
+  id                  Int      @id @default(autoincrement())
+  patientId           Int      @map("patient_id")
+  doctorId            Int      @map("doctor_id")
+  prescriptionDate    DateTime @map("prescription_date")
+  diagnosis           String?
+  xrayImage           String?  @map("xray_image")
+  analysisImage       String?  @map("analysis_image")
+  additionalInfo      String?  @map("additional_info")
+  prescriptionNumber  Int      @map("prescription_number")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  patient      Patient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor       User                     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  items        PrescriptionItem[]
+  fieldValues  PrescriptionFieldValue[]
+
+  @@unique([doctorId, prescriptionNumber])
+  @@index([doctorId])
+  @@index([patientId])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             Int      @id @default(autoincrement())
+  prescriptionId Int      @map("prescription_id")
+  name           String
+  type           String?
+  dosage         String?
+  quantity       String?
+  period         String?
+  timeOfUse      String?  @map("time_of_use")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId])
+  @@map("prescription_items")
+}
+
+model Medicine {
+  id        Int      @id @default(autoincrement())
+  doctorId  Int      @map("doctor_id")
+  name      String
+  type      String?
+  dosage    String?
+  quantity  String?
+  period    String?
+  timeOfUse String?  @map("time_of_use")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  doctor User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@map("medicines")
+}
+
+model Pharmaceutical {
+  id        Int      @id @default(autoincrement())
+  patientId Int      @map("patient_id")
+  name      String
+  type      String?
+  dosage    String?
+  quantity  String?
+  period    String?
+  timeOfUse String?  @map("time_of_use")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@map("pharmaceuticals")
+}
+
+model Appointment {
+  id                  Int      @id @default(autoincrement())
+  doctorId            Int      @map("doctor_id")
+  patientId           Int      @map("patient_id")
+  appointmentDatetime DateTime @map("appointment_datetime")
+  bookingDate         DateTime @map("booking_date")
+  notes               String?
+  status              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  doctor  User    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@index([patientId])
+  @@map("appointments")
+}
+
+model PatientField {
+  id          Int       @id @default(autoincrement())
+  doctorId    Int       @map("doctor_id")
+  name        String
+  size        FieldSize @default(medium)
+  isActive    Boolean   @default(true) @map("is_active")
+  isPrintable Boolean   @default(true) @map("is_printable")
+  isPersonal  Boolean   @default(false) @map("is_personal")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  doctor      User                     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  fieldValues PrescriptionFieldValue[]
+
+  @@index([doctorId])
+  @@map("patient_fields")
+}
+
+model PrescriptionFieldValue {
+  id             Int      @id @default(autoincrement())
+  prescriptionId Int      @map("prescription_id")
+  patientFieldId Int      @map("patient_field_id")
+  value          String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  patientField PatientField @relation(fields: [patientFieldId], references: [id], onDelete: Cascade)
+
+  @@unique([prescriptionId, patientFieldId])
+  @@map("prescription_field_values")
+}
+
+model RecipeSettings {
+  id                Int        @id @default(autoincrement())
+  doctorId          Int        @unique @map("doctor_id")
+  doctorName        String?    @map("doctor_name")
+  doctorSpecialty   String?    @map("doctor_specialty")
+  additionalText1   String?    @map("additional_text_1")
+  phoneNumber       String?    @map("phone_number")
+  email             String?
+  address           String?
+  fontFamily        FontFamily @default(Cairo) @map("font_family")
+  fontSize          Int        @default(14) @map("font_size")
+  opacity           Int        @default(20)
+  color             String     @default("#117e65")
+  logoPath          String?    @map("logo_path")
+  designImagePath   String?    @map("design_image_path")
+  designMode        DesignMode @default(design) @map("design_mode")
+  designImageScale  Int        @default(100) @map("design_image_scale")
+  designPatientX    Int        @default(10) @map("design_patient_x")
+  designPatientY    Int        @default(10) @map("design_patient_y")
+  designAgeX        Int        @default(10) @map("design_age_x")
+  designAgeY        Int        @default(20) @map("design_age_y")
+  designDateX       Int        @default(10) @map("design_date_x")
+  designDateY       Int        @default(30) @map("design_date_y")
+  designItemsX      Int        @default(10) @map("design_items_x")
+  designItemsY      Int        @default(40) @map("design_items_y")
+  paperSize         PaperSize  @default(A4) @map("paper_size")
+  printName         Boolean    @default(true) @map("print_name")
+  printAge          Boolean    @default(true) @map("print_age")
+  printGender       Boolean    @default(true) @map("print_gender")
+  printDiagnosis    Boolean    @default(true) @map("print_diagnosis")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  doctor User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("recipe_settings")
+}
+
+model SecretaryInvite {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  doctorId    Int       @map("doctor_id")
+  secretaryId Int?      @unique @map("secretary_id")
+  used        Boolean   @default(false)
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  doctor    User  @relation("DoctorInvites", fields: [doctorId], references: [id], onDelete: Cascade)
+  secretary User? @relation("SecretaryInvite", fields: [secretaryId], references: [id])
+
+  @@index([doctorId])
+  @@map("secretary_invites")
+}
+
+model Package {
+  id           Int          @id @default(autoincrement())
+  name         String
+  price        Int
+  description  String?
+  image        String?
+  duration     Int
+  durationUnit DurationUnit @map("duration_unit")
+  planType     PlanType     @map("plan_type")
+  isTrial      Boolean      @default(false) @map("is_trial")
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("packages")
+}
+
+model Subscription {
+  id          Int                @id @default(autoincrement())
+  userId      Int                @map("user_id")
+  packageId   Int?               @map("package_id")
+  planType    PlanType           @map("plan_type")
+  status      SubscriptionStatus @default(active)
+  startsAt    DateTime           @map("starts_at")
+  endsAt      DateTime           @map("ends_at")
+  activatedBy Int?               @map("activated_by")
+  notes       String?
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package   Package? @relation(fields: [packageId], references: [id])
+  activator User?    @relation("ActivatedBy", fields: [activatedBy], references: [id])
+
+  @@index([userId, status])
+  @@index([endsAt])
+  @@map("subscriptions")
+}
+
+model DefaultMedicineCategory {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  medicines DefaultMedicine[]
+
+  @@map("default_medicine_categories")
+}
+
+model DefaultMedicine {
+  id         Int      @id @default(autoincrement())
+  categoryId Int      @map("category_id")
+  name       String
+  type       String?
+  dosage     String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  category DefaultMedicineCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, name, type, dosage])
+  @@index([categoryId])
+  @@map("default_medicines")
+}
