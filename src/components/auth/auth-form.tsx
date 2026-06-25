@@ -134,7 +134,7 @@ export function AuthForm({
               className="pr-10 text-left"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+963 9XX XXX XXX"
+              placeholder="09XXXXXXXX أو 07XXXXXXXXX"
               required
               autoComplete="tel"
             />

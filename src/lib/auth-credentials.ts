@@ -1,7 +1,10 @@
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "./prisma";
-import { normalizePhone } from "./utils";
+import {
+  getPhoneLookupVariants,
+  normalizePhoneForAuth,
+} from "./patient-utils";
 import { activateTrialForDoctor } from "./subscription";
 import { fromDbId, toDbId } from "./bigint";
 import type { UserRole } from "@/types/next-auth";
@@ -16,12 +19,20 @@ export interface AuthUser {
   sessionId: string;
 }
 
+async function findUserByPhone(phone: string) {
+  const variants = getPhoneLookupVariants(phone);
+  if (variants.length === 0) return null;
+
+  return prisma.user.findFirst({
+    where: { phoneNumber: { in: variants } },
+  });
+}
+
 export async function authenticateUser(
   phone: string,
   password: string
 ): Promise<AuthUser | null> {
-  const phoneNumber = normalizePhone(phone);
-  const user = await prisma.user.findUnique({ where: { phoneNumber } });
+  const user = await findUserByPhone(phone);
   if (!user) return null;
 
   const valid = await bcrypt.compare(password, user.password);
@@ -49,8 +60,8 @@ export async function registerDoctor(data: {
   phone: string;
   password: string;
 }) {
-  const phoneNumber = normalizePhone(data.phone);
-  const existing = await prisma.user.findUnique({ where: { phoneNumber } });
+  const phoneNumber = normalizePhoneForAuth(data.phone);
+  const existing = await findUserByPhone(data.phone);
   if (existing) {
     throw new Error("رقم الهاتف مستخدم مسبقاً");
   }
@@ -86,8 +97,8 @@ export async function registerSecretary(data: {
   phone: string;
   password: string;
 }) {
-  const phoneNumber = normalizePhone(data.phone);
-  const existing = await prisma.user.findUnique({ where: { phoneNumber } });
+  const phoneNumber = normalizePhoneForAuth(data.phone);
+  const existing = await findUserByPhone(data.phone);
   if (existing) {
     throw new Error("رقم الهاتف مستخدم مسبقاً");
   }

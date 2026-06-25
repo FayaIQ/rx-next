@@ -239,6 +239,59 @@ export function phonesMatch(a: string, b: string): boolean {
   return left === right;
 }
 
+/** All DB-stored formats that may match the same Syrian/Iraqi mobile number. */
+export function getPhoneLookupVariants(phone: string): string[] {
+  const trimmed = normalizeDigits(phone).replace(/[\s\-().]/g, "").trim();
+  if (!trimmed) return [];
+
+  const variants = new Set<string>([trimmed]);
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits) variants.add(digits);
+
+  const { normalized: e164 } = parsePatientPhoneInput(trimmed);
+  if (e164) variants.add(e164);
+
+  function addRegionalVariants(prefix: "+963" | "+964", local: string) {
+    const bare = prefix.slice(1);
+    variants.add(`${prefix}${local}`);
+    variants.add(`${bare}${local}`);
+    variants.add(`0${local}`);
+    variants.add(local);
+  }
+
+  if (e164?.startsWith("+963")) {
+    addRegionalVariants("+963", e164.slice(4));
+  } else if (e164?.startsWith("+964")) {
+    addRegionalVariants("+964", e164.slice(4));
+  }
+
+  if (/^09\d{8}$/.test(digits)) {
+    addRegionalVariants("+963", digits.slice(1));
+  } else if (/^9\d{8}$/.test(digits)) {
+    addRegionalVariants("+963", digits);
+  } else if (/^07\d{9}$/.test(digits)) {
+    addRegionalVariants("+964", digits.slice(1));
+  } else if (/^7\d{9}$/.test(digits)) {
+    addRegionalVariants("+964", digits);
+  } else if (digits.startsWith("963") && digits.length >= 11) {
+    addRegionalVariants("+963", digits.slice(3));
+  } else if (digits.startsWith("964") && digits.length >= 12) {
+    addRegionalVariants("+964", digits.slice(3));
+  } else if (trimmed.startsWith("+963")) {
+    addRegionalVariants("+963", trimmed.slice(4).replace(/\D/g, ""));
+  } else if (trimmed.startsWith("+964")) {
+    addRegionalVariants("+964", trimmed.slice(4).replace(/\D/g, ""));
+  }
+
+  return [...variants].filter((v) => v.length > 0);
+}
+
+export function normalizePhoneForAuth(phone: string): string {
+  const { normalized, error } = parsePatientPhoneInput(phone);
+  if (normalized) return normalized;
+  throw new Error(error ?? "رقم الهاتف غير صالح");
+}
+
 export function normalizePatientPhoneForSave(
   phone: string | null | undefined
 ): string | null {
