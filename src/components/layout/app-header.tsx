@@ -27,10 +27,12 @@ const ConnectionStatus = dynamic(
 interface AppHeaderProps {
   title: string;
   subtitle?: string;
+  /** Extra info shown in the header bar (e.g. prescription # and date). */
+  meta?: React.ReactNode;
   actions?: React.ReactNode;
 }
 
-export function AppHeader({ title, subtitle, actions }: AppHeaderProps) {
+export function AppHeader({ title, subtitle, meta, actions }: AppHeaderProps) {
   const { pendingCount, syncing, hydrating } = useSyncStore();
   const [mounted, setMounted] = useState(false);
 
@@ -39,9 +41,9 @@ export function AppHeader({ title, subtitle, actions }: AppHeaderProps) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-rx-border/80 bg-rx-surface/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-rx-border bg-rx-surface/95 backdrop-blur-sm">
       <div className="flex h-[var(--rx-header-height)] items-center justify-between gap-4 px-4 lg:px-6">
-        <div className="min-w-0 pr-12 lg:pr-0">
+        <div className="min-w-0">
           <h1 className="truncate text-lg font-bold text-rx-text">{title}</h1>
           {subtitle && (
             <p className="truncate text-xs text-rx-muted">{subtitle}</p>
@@ -49,6 +51,7 @@ export function AppHeader({ title, subtitle, actions }: AppHeaderProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {meta}
           {actions}
 
           {mounted && (hydrating || syncing) && (

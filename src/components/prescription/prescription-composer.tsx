@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   FileText,
-  ImagePlus,
   Plus,
   Printer,
   RotateCcw,
@@ -20,9 +19,7 @@ import { PageContent } from "@/components/ui/page-shell";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   MedicineRowEditor,
   type MedicineRowData,
@@ -39,8 +36,15 @@ import {
   type MedicinePresetDto,
   type PatientDto,
   type PatientFieldDto,
+  type PrescriptionDto,
 } from "@/lib/api/rx-client";
-import { genderLabel, toDateInputValue } from "@/lib/patient-utils";
+import {
+  formatPrescriptionDateTime,
+  genderLabel,
+  toDateInputValue,
+  visitCountLabel,
+} from "@/lib/patient-utils";
+import { normalizeRecipeSettingsDto } from "@/lib/recipe-settings";
 import {
   firstCoreFieldAfterName,
   patientFieldVisibilityFromSettings,
@@ -49,7 +53,10 @@ import {
 import { useMedicineGroups } from "@/lib/medicine-utils";
 import { resolveImageUrl } from "@/lib/image-url";
 import { mergePresetsFromItems } from "@/lib/medicine-preset-utils";
-import { upsertLocalMedicinePresets } from "@/lib/sync/offline-store";
+import { upsertLocalMedicinePresets, upsertLocalMedicinesFromPrescription, syncLocalPrescriptionFromDto } from "@/lib/sync/offline-store";
+import { useFieldsOnlyTab } from "@/lib/fields-only-tab";
+import { buildPrescriptionPreviewData } from "@/lib/prescription-preview-data";
+import { PrescriptionLivePreview } from "@/components/prescription/prescription-live-preview";
 
 function emptyRow(key = "medicine-row-0"): MedicineRowData {
   return {
@@ -63,23 +70,36 @@ function emptyRow(key = "medicine-row-0"): MedicineRowData {
   };
 }
 
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <label className="rx-label">{children}</label>;
+}
+
 function PersonalFieldInputs({
   fields,
   values,
   onChange,
+  dense = false,
 }: {
   fields: PatientFieldDto[];
   values: Record<number, string>;
   onChange: (fieldId: number, value: string) => void;
+  dense?: boolean;
 }) {
   if (fields.length === 0) return null;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div
+      className={
+        dense
+          ? "grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-4"
+          : "grid gap-3 sm:grid-cols-2"
+      }
+    >
       {fields.map((field) => (
-        <div key={field.id} className="space-y-1">
-          <Label>{field.name}</Label>
+        <div key={field.id} className={dense ? "space-y-0.5" : "space-y-1"}>
+          <FieldLabel>{field.name}</FieldLabel>
           <Input
+            fieldSize="compact"
             value={values[field.id] ?? ""}
             onChange={(e) => onChange(field.id, e.target.value)}
           />
@@ -96,7 +116,10 @@ export function PrescriptionComposer() {
   const queryClient = useQueryClient();
   const nextRowKeyRef = useRef(1);
   const diagnosisRef = useRef<HTMLTextAreaElement>(null);
+  const composerRootRef = useRef<HTMLDivElement>(null);
   const pendingPatientSyncRef = useRef<Promise<PatientDto> | null>(null);
+
+  useFieldsOnlyTab(composerRootRef);
 
   function newEmptyRow() {
     const key = `medicine-row-${nextRowKeyRef.current++}`;
@@ -175,6 +198,13 @@ export function PrescriptionComposer() {
     enabled: !!editId,
   });
 
+  const editPatientId = editData?.prescription?.patientId;
+  const { data: editPatientData } = useQuery({
+    queryKey: ["patient", editPatientId],
+    queryFn: () => rxApi.patients.get(editPatientId!),
+    enabled: !!editPatientId,
+  });
+
   useEffect(() => {
     if (!editId) {
       setPrescriptionDate((current) =>
@@ -213,14 +243,29 @@ export function PrescriptionComposer() {
         : [emptyRow()]
     );
     const fv: Record<number, string> = {};
+    const personalIds = new Set(
+      (fieldsData?.fields ?? [])
+        .filter((f) => f.isPersonal)
+        .map((f) => f.id)
+    );
     p.fieldValues.forEach((f) => {
-      fv[f.patientFieldId] = f.value;
+      if (!personalIds.has(f.patientFieldId)) {
+        fv[f.patientFieldId] = f.value;
+      }
     });
     setFieldValues(fv);
     setXrayImage(p.xrayImage ?? null);
     setAnalysisImage(p.analysisImage ?? null);
-    if (p.patient) setSelectedPatient(p.patient);
-  }, [editData]);
+    if (p.patient) {
+      setPatientSearch(p.patient.name);
+    }
+  }, [editData, fieldsData]);
+
+  useEffect(() => {
+    if (!editPatientData?.patient) return;
+    setSelectedPatient(editPatientData.patient);
+    setPatientSearch(editPatientData.patient.name);
+  }, [editPatientData]);
 
   const personalFields = useMemo(
     () => fieldsData?.fields.filter((f) => f.isActive && f.isPersonal) ?? [],
@@ -231,6 +276,17 @@ export function PrescriptionComposer() {
     () => fieldsData?.fields.filter((f) => f.isActive && !f.isPersonal) ?? [],
     [fieldsData]
   );
+
+  const recipeFieldIds = useMemo(
+    () => new Set(recipeFields.map((f) => f.id)),
+    [recipeFields]
+  );
+
+  const personalFieldLabels = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const field of personalFields) map.set(field.id, field.name);
+    return map;
+  }, [personalFields]);
 
   const saveMutation = useMutation({
     mutationFn: async (action: "save" | "save_and_print") => {
@@ -264,7 +320,7 @@ export function PrescriptionComposer() {
         diagnosis: diagnosis || null,
         items: savedItems,
         fieldValues: Object.entries(fieldValues)
-          .filter(([, v]) => v.trim())
+          .filter(([id, v]) => v.trim() && recipeFieldIds.has(Number(id)))
           .map(([patientFieldId, value]) => ({
             patientFieldId: Number(patientFieldId),
             value,
@@ -319,8 +375,13 @@ export function PrescriptionComposer() {
           mergePresetsFromItems(current ?? [], savedItems, selectedPatient?.doctorId)
       );
       void upsertLocalMedicinePresets(savedItems);
+      void upsertLocalMedicinesFromPrescription(savedItems);
+      if (rx.id) {
+        void syncLocalPrescriptionFromDto(rx as PrescriptionDto);
+      }
       void queryClient.invalidateQueries({ queryKey: ["prescriptions"] });
       void queryClient.invalidateQueries({ queryKey: ["patients"] });
+      void queryClient.invalidateQueries({ queryKey: ["medicines"] });
       void fetchMedicinePresetsOfflineFirst().then((fresh) => {
         queryClient.setQueryData(["medicine-presets"], fresh);
       });
@@ -346,6 +407,19 @@ export function PrescriptionComposer() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        if (!saveMutation.isPending) {
+          saveMutation.mutate("save");
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [saveMutation]);
 
   function selectPatient(
     patient: PatientDto,
@@ -389,6 +463,12 @@ export function PrescriptionComposer() {
       return;
     }
 
+    const matches = patientsData ?? [];
+    if (matches.length > 0) {
+      selectPatient(matches[0]!, { focusDiagnosis: true });
+      return;
+    }
+
     startNewPatientFromSearch(q);
   }
 
@@ -418,271 +498,406 @@ export function PrescriptionComposer() {
   const patients = patientsData ?? [];
   const medicines = medicinesData ?? [];
   const medicineGroups = useMedicineGroups(medicines);
+  const recipeSettings = useMemo(
+    () =>
+      recipeSettingsData?.settings
+        ? normalizeRecipeSettingsDto(recipeSettingsData.settings)
+        : null,
+    [recipeSettingsData]
+  );
 
-  return (
-    <>
-      <AppHeader title="كتابة الوصفة" subtitle="وصفة طبية جديدة" />
-      <PageContent wide className="space-y-5 pb-8">
-        {/* Workbar */}
-        <Card hover>
-          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:justify-between">
-            <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="space-y-1">
-                <Label>رقم الوصفة</Label>
-                <Input
-                  value={prescriptionNumber ?? "—"}
-                  readOnly
-                  className="bg-rx-bg-subtle font-mono"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>التاريخ والوقت</Label>
-                <Input
-                  type="datetime-local"
-                  value={prescriptionDate}
-                  onChange={(e) => setPrescriptionDate(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/prescriptions">
-                  <FileText size={16} />
-                  سجل الوصفات
-                </Link>
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/recipe-settings">
-                  <Settings size={16} />
-                  إعدادات الوصفة
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+  const livePreviewData = useMemo(() => {
+    if (!recipeSettings) return null;
+    return buildPrescriptionPreviewData({
+      settings: recipeSettings,
+      prescriptionNumber,
+      prescriptionDate,
+      patientName: selectedPatient?.name ?? patientSearch,
+      patientGender: selectedPatient?.gender ?? "male",
+      patientBirthdate: selectedPatient?.birthdate ?? null,
+      patientPhone: selectedPatient?.phone ?? undefined,
+      diagnosis,
+      items,
+      recipeFields,
+      fieldValues,
+      xrayImage,
+      analysisImage,
+    });
+  }, [
+    recipeSettings,
+    prescriptionNumber,
+    prescriptionDate,
+    selectedPatient,
+    patientSearch,
+    diagnosis,
+    items,
+    recipeFields,
+    fieldValues,
+    xrayImage,
+    analysisImage,
+  ]);
 
-        {/* Patient */}
-        <Card hover>
-          <CardHeader>
-            <CardTitle>بيانات المريض</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-              <div className="space-y-2">
-                <Label>اختر مريضاً</Label>
-                <SearchInput
-                  placeholder="ابحث بالاسم... (Enter لإضافة مريض جديد)"
-                  value={patientSearch}
-                  onChange={(v) => {
-                    setPatientSearch(v);
-                    setSelectedPatient(null);
-                    if (showNewPatient) {
-                      setShowNewPatient(false);
-                      setNewPatientInitialName("");
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handlePatientSearchEnter();
-                    }
-                  }}
+  const attachmentsSection = (
+    <section className="rx-section space-y-2 text-sm">
+      <FieldLabel>مرفقات (أشعة / تحليل)</FieldLabel>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {(
+          [
+            {
+              label: "أشعة",
+              kind: "xray" as const,
+              path: xrayImage,
+              pending: pendingXray,
+              setPath: setXrayImage,
+              setPending: setPendingXray,
+            },
+            {
+              label: "تحليل",
+              kind: "analysis" as const,
+              path: analysisImage,
+              pending: pendingAnalysis,
+              setPath: setAnalysisImage,
+              setPending: setPendingAnalysis,
+            },
+          ] as const
+        ).map(({ label, kind, path, pending, setPath, setPending }) => (
+          <div key={kind} className="space-y-1">
+            <FieldLabel>{label}</FieldLabel>
+            {(path || pending) && (
+              <div className="relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    pending
+                      ? URL.createObjectURL(pending)
+                      : (resolveImageUrl(path) ?? "")
+                  }
+                  alt={label}
+                  className="max-h-24 rounded border object-contain"
                 />
-                {patientSearch.trim() && !selectedPatient && !showNewPatient && (
-                  <p className="text-xs text-rx-muted">
-                    {findPatientByExactName(patientSearch)
-                      ? "اضغط Enter لاختيار المريض"
-                      : patients.length > 0
-                        ? "لا تطابق تام — Enter لإضافة مريض جديد"
-                        : "Enter لإضافة هذا الاسم كمريض جديد"}
-                  </p>
-                )}
-                {patientSearch && !selectedPatient && !showNewPatient && patients.length > 0 && (
-                  <div className="max-h-48 overflow-y-auto rounded-xl border border-rx-border bg-rx-surface shadow-lg">
-                    {patients.slice(0, 8).map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className="block w-full border-b border-rx-border/40 px-4 py-3 text-right text-sm transition-colors last:border-0 hover:bg-rx-primary-light"
-                        onClick={() => selectPatient(p)}
-                      >
-                        <span className="font-medium">{p.name}</span>
-                        <span className="mx-2 text-rx-muted">
-                          {genderLabel(p.gender)} — {p.age}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-end">
                 <Button
-                  variant="outline"
-                  onClick={() => {
-                    setNewPatientInitialName(patientSearch.trim());
-                    setShowNewPatient(true);
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  tabIndex={-1}
+                  className="absolute left-0 top-0 size-6 bg-white/80"
+                  onClick={async () => {
+                    if (currentPrescriptionId && path) {
+                      try {
+                        await rxApi.prescriptions.deleteImage(
+                          currentPrescriptionId,
+                          kind
+                        );
+                      } catch (e) {
+                        toast.error(
+                          e instanceof Error ? e.message : "فشل الحذف"
+                        );
+                        return;
+                      }
+                    }
+                    setPath(null);
+                    setPending(null);
                   }}
                 >
-                  <Plus size={16} />
-                  مريض جديد
+                  <X size={12} />
                 </Button>
               </div>
-            </div>
+            )}
+            <Input
+              type="file"
+              accept="image/*"
+              fieldSize="compact"
+              className="py-1 text-xs file:mr-2 file:rounded file:border-0 file:bg-rx-bg-subtle file:px-2 file:text-xs"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 2 * 1024 * 1024) {
+                  toast.error("الحد الأقصى 2 ميغابايت");
+                  return;
+                }
+                if (currentPrescriptionId) {
+                  try {
+                    const res = await rxApi.prescriptions.uploadImage(
+                      currentPrescriptionId,
+                      kind,
+                      file
+                    );
+                    setPath(res.path);
+                    setPending(null);
+                    toast.success("تم رفع الصورة");
+                  } catch (err) {
+                    toast.error(
+                      err instanceof Error ? err.message : "فشل الرفع"
+                    );
+                  }
+                } else {
+                  setPending(file);
+                  toast.info("ستُرفع عند الحفظ");
+                }
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 
-            {showNewPatient && (
-              <div className="rounded-xl border border-dashed border-rx-primary/40 bg-rx-primary-light/20 p-5">
-                <p className="mb-3 text-sm font-medium text-rx-text">
-                  إضافة مريض جديد
-                </p>
-                <PatientForm
-                  key={newPatientInitialName || "new-patient"}
-                  compact
-                  initialName={newPatientInitialName}
-                  autoFocusField={newPatientAutoFocus}
-                  fieldVisibility={patientFieldVisibility}
-                  onSuccess={(p) => {
-                    selectPatient(p, { focusDiagnosis: true });
-                  }}
-                  onSyncStart={(promise) => {
-                    pendingPatientSyncRef.current = promise;
-                  }}
-                  onPatientSynced={(real) => {
-                    pendingPatientSyncRef.current = null;
-                    setSelectedPatient(real);
-                    setPatientSearch(real.name);
-                  }}
-                  onCancel={() => {
-                    pendingPatientSyncRef.current = null;
+  return (
+    <div ref={composerRootRef}>
+      <AppHeader
+        title="كتابة الوصفة"
+        subtitle={editId ? "تعديل وصفة" : "وصفة جديدة"}
+        meta={
+          <span className="hidden text-xs text-rx-muted sm:inline">
+            <span className="font-mono font-medium text-rx-text">
+              #{prescriptionNumber ?? "—"}
+            </span>
+            <span className="mx-1.5 opacity-50">·</span>
+            {formatPrescriptionDateTime(prescriptionDate)}
+          </span>
+        }
+        actions={
+          <>
+            <Button
+              size="sm"
+              tabIndex={-1}
+              onClick={() => saveMutation.mutate("save")}
+              disabled={saveMutation.isPending}
+            >
+              <Save size={14} />
+              حفظ
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              tabIndex={-1}
+              onClick={() => saveMutation.mutate("save_and_print")}
+              disabled={saveMutation.isPending}
+            >
+              <Printer size={14} />
+              طباعة
+            </Button>
+            {currentPrescriptionId && (
+              <Button size="sm" variant="outline" asChild>
+                <Link
+                  tabIndex={-1}
+                  href={`/prescriptions/${currentPrescriptionId}/preview`}
+                >
+                  معاينة
+                </Link>
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" tabIndex={-1} onClick={resetComposer}>
+              <RotateCcw size={14} />
+            </Button>
+            <span className="hidden h-4 w-px bg-rx-border lg:inline" />
+            <Button variant="ghost" size="sm" asChild className="hidden lg:inline-flex">
+              <Link tabIndex={-1} href="/prescriptions">
+                <FileText size={14} />
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild className="hidden lg:inline-flex">
+              <Link tabIndex={-1} href="/recipe-settings">
+                <Settings size={14} />
+              </Link>
+            </Button>
+          </>
+        }
+      />
+      <PageContent wide className="px-3 py-2 pb-3 lg:px-4">
+        <div className="grid gap-3 xl:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] xl:items-start">
+        <div className="rx-prescription-sheet min-w-0 space-y-0 xl:col-start-2">
+        {/* Patient */}
+        <section className="rx-section space-y-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[12rem] flex-1">
+              <FieldLabel>المريض — Enter</FieldLabel>
+              <SearchInput
+                placeholder="ابحث بالاسم..."
+                value={patientSearch}
+                onChange={(v) => {
+                  setPatientSearch(v);
+                  setSelectedPatient(null);
+                  if (showNewPatient) {
                     setShowNewPatient(false);
                     setNewPatientInitialName("");
-                  }}
-                />
-                {personalFields.length > 0 && (
-                  <div className="mt-4 space-y-2 border-t border-dashed border-rx-primary/30 pt-4">
-                    <p className="text-sm font-medium text-rx-text">
-                      حقول إضافية
-                    </p>
-                    <PersonalFieldInputs
-                      fields={personalFields}
-                      values={fieldValues}
-                      onChange={(fieldId, value) =>
-                        setFieldValues((fv) => ({ ...fv, [fieldId]: value }))
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {selectedPatient && (
-              <div className="grid gap-3 rounded-xl bg-rx-bg-subtle p-4 text-sm sm:grid-cols-4">
-                <div>
-                  <span className="text-rx-muted">الاسم: </span>
-                  {selectedPatient.name}
-                </div>
-                {patientFieldVisibility.showGender && (
-                  <div>
-                    <span className="text-rx-muted">الجنس: </span>
-                    {genderLabel(selectedPatient.gender)}
-                  </div>
-                )}
-                {patientFieldVisibility.showAge && (
-                  <div>
-                    <span className="text-rx-muted">العمر: </span>
-                    {selectedPatient.age}
-                  </div>
-                )}
-                {patientFieldVisibility.showPhone && selectedPatient.phone && (
-                  <div>
-                    <span className="text-rx-muted">الهاتف: </span>
-                    <span dir="ltr">{selectedPatient.phone}</span>
-                  </div>
-                )}
-                <div>
-                  <span className="text-rx-muted">الزيارات: </span>
-                  {selectedPatient.visitCount}
-                </div>
-              </div>
-            )}
-
-            {selectedPatient && personalFields.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-rx-text">حقول إضافية</p>
-                <PersonalFieldInputs
-                  fields={personalFields}
-                  values={fieldValues}
-                  onChange={(fieldId, value) =>
-                    setFieldValues((fv) => ({ ...fv, [fieldId]: value }))
                   }
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recipe fields */}
-        {recipeFields.length > 0 && (
-          <Card hover>
-            <CardHeader>
-              <CardTitle>حقول الوصفة</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {recipeFields.map((field) => (
-                  <div key={field.id} className="space-y-1">
-                    <Label>{field.name}</Label>
-                    <Input
-                      value={fieldValues[field.id] ?? ""}
-                      onChange={(e) =>
-                        setFieldValues((fv) => ({
-                          ...fv,
-                          [field.id]: e.target.value,
-                        }))
-                      }
-                      placeholder={
-                        field.isPrintable ? "يُطبع على الوصفة" : undefined
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Diagnosis */}
-        <Card hover>
-          <CardHeader>
-            <CardTitle>التشخيص</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Textarea
-              ref={diagnosisRef}
-              rows={3}
-              placeholder="اكتب التشخيص..."
-              value={diagnosis}
-              onChange={(e) => setDiagnosis(e.target.value)}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Medicines */}
-        <Card hover>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>الأدوية</CardTitle>
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handlePatientSearchEnter();
+                  }
+                }}
+              />
+            </div>
             <Button
               variant="outline"
               size="sm"
+              tabIndex={-1}
+              className="h-8"
+              onClick={() => {
+                setNewPatientInitialName(patientSearch.trim());
+                setShowNewPatient(true);
+              }}
+            >
+              <Plus size={14} />
+              جديد
+            </Button>
+          </div>
+
+          {patientSearch.trim() && !selectedPatient && !showNewPatient && (
+            <p className="text-xs text-rx-muted-foreground">
+              {findPatientByExactName(patientSearch) || patients.length > 0
+                ? "Enter — اختيار"
+                : "Enter — مريض جديد"}
+            </p>
+          )}
+
+          {patientSearch && !selectedPatient && !showNewPatient && patients.length > 0 && (
+            <ul className="max-h-32 overflow-y-auto rounded-md border border-rx-form-border bg-rx-surface">
+              {patients.slice(0, 6).map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    className="rx-list-item"
+                    onClick={() => selectPatient(p)}
+                  >
+                    <span className="font-medium text-rx-text">{p.name}</span>
+                    <span className="mr-2 text-xs text-rx-muted">
+                      {genderLabel(p.gender)} · {p.age} · {visitCountLabel(p.visitCount)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {showNewPatient && (
+            <div className="border-t border-rx-form-border pt-2">
+              <PatientForm
+                key={newPatientInitialName || "new-patient"}
+                compact
+                initialName={newPatientInitialName}
+                autoFocusField={newPatientAutoFocus}
+                fieldVisibility={patientFieldVisibility}
+                onSuccess={(p) => {
+                  selectPatient(p, { focusDiagnosis: true });
+                }}
+                onSyncStart={(promise) => {
+                  pendingPatientSyncRef.current = promise;
+                }}
+                onPatientSynced={(real) => {
+                  pendingPatientSyncRef.current = null;
+                  setSelectedPatient(real);
+                  setPatientSearch(real.name);
+                }}
+                onCancel={() => {
+                  pendingPatientSyncRef.current = null;
+                  setShowNewPatient(false);
+                  setNewPatientInitialName("");
+                }}
+              />
+            </div>
+          )}
+
+          {selectedPatient && !showNewPatient && (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="rx-patient-chip">
+                  <strong>{selectedPatient.name}</strong>
+                  {patientFieldVisibility.showGender && (
+                    <span className="text-rx-muted">
+                      {" "}
+                      · {genderLabel(selectedPatient.gender)}
+                    </span>
+                  )}
+                  {patientFieldVisibility.showAge && (
+                    <span className="text-rx-muted"> · {selectedPatient.age}</span>
+                  )}
+                  {patientFieldVisibility.showPhone && selectedPatient.phone && (
+                    <span className="text-rx-muted" dir="ltr">
+                      {" "}
+                      · {selectedPatient.phone}
+                    </span>
+                  )}
+                  <span className="text-rx-muted">
+                    {" "}
+                    · {visitCountLabel(selectedPatient.visitCount)}
+                  </span>
+                </p>
+                {selectedPatient.id > 0 && (
+                  <Button variant="outline" size="sm" asChild className="h-7 text-xs">
+                    <Link href={`/patients/${selectedPatient.id}/record`}>
+                      <FileText size={13} />
+                      السجل
+                    </Link>
+                  </Button>
+                )}
+              </div>
+              {(selectedPatient.fieldValues ?? []).some((fv) => fv.value.trim()) && (
+                <p className="text-xs text-rx-muted">
+                  {(selectedPatient.fieldValues ?? [])
+                    .filter((fv) => fv.value.trim())
+                    .map((fv) => {
+                      const label = personalFieldLabels.get(fv.patientFieldId);
+                      return label ? `${label}: ${fv.value}` : fv.value;
+                    })
+                    .join(" · ")}
+                </p>
+              )}
+            </>
+          )}
+        </section>
+
+        {recipeFields.length > 0 && (
+          <section className="rx-section space-y-2">
+            <FieldLabel>حقول الوصفة</FieldLabel>
+            <PersonalFieldInputs
+              dense
+              fields={recipeFields}
+              values={fieldValues}
+              onChange={(fieldId, value) =>
+                setFieldValues((fv) => ({ ...fv, [fieldId]: value }))
+              }
+            />
+          </section>
+        )}
+
+        {/* Diagnosis */}
+        <section className="rx-section space-y-2">
+          <FieldLabel>التشخيص</FieldLabel>
+          <Textarea
+            ref={diagnosisRef}
+            fieldSize="compact"
+            rows={2}
+            placeholder="التشخيص..."
+            value={diagnosis}
+            onChange={(e) => setDiagnosis(e.target.value)}
+          />
+        </section>
+
+        {/* Medicines */}
+        <section className="rx-section space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <FieldLabel>الأدوية</FieldLabel>
+            <Button
+              variant="ghost"
+              size="sm"
+              tabIndex={-1}
+              className="h-7 px-2 text-xs"
               onClick={() => setItems((rows) => [...rows, newEmptyRow()])}
             >
-              <Plus size={16} />
-              صف جديد
+              <Plus size={12} />
+              صف
             </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
+          </div>
+          <div className="space-y-1">
             {items.map((row) => (
               <MedicineRowEditor
                 key={row.key}
+                compact
                 row={row}
                 rowKey={row.key}
                 groups={medicineGroups}
@@ -701,149 +916,24 @@ export function PrescriptionComposer() {
                 canRemove={items.length > 1}
               />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        {/* Attachments */}
-        <Card hover>
-          <CardHeader>
-            <CardTitle>مرفقات (أشعة / تحليل)</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            {(
-              [
-                {
-                  label: "صورة الأشعة",
-                  kind: "xray" as const,
-                  path: xrayImage,
-                  pending: pendingXray,
-                  setPath: setXrayImage,
-                  setPending: setPendingXray,
-                },
-                {
-                  label: "صورة التحليل",
-                  kind: "analysis" as const,
-                  path: analysisImage,
-                  pending: pendingAnalysis,
-                  setPath: setAnalysisImage,
-                  setPending: setPendingAnalysis,
-                },
-              ] as const
-            ).map(({ label, kind, path, pending, setPath, setPending }) => (
-              <div key={kind} className="space-y-2 rounded-xl border border-rx-border/80 bg-rx-bg-subtle/30 p-4">
-                <Label>{label}</Label>
-                {(path || pending) && (
-                  <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={
-                        pending
-                          ? URL.createObjectURL(pending)
-                          : (resolveImageUrl(path) ?? "")
-                      }
-                      alt={label}
-                      className="max-h-40 rounded border object-contain"
-                    />
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="absolute left-1 top-1 bg-white/80"
-                      onClick={async () => {
-                        if (currentPrescriptionId && path) {
-                          try {
-                            await rxApi.prescriptions.deleteImage(
-                              currentPrescriptionId,
-                              kind
-                            );
-                          } catch (e) {
-                            toast.error(
-                              e instanceof Error ? e.message : "فشل الحذف"
-                            );
-                            return;
-                          }
-                        }
-                        setPath(null);
-                        setPending(null);
-                      }}
-                    >
-                      <X size={14} />
-                    </Button>
-                  </div>
-                )}
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    if (file.size > 2 * 1024 * 1024) {
-                      toast.error("الحد الأقصى 2 ميغابايت");
-                      return;
-                    }
-                    if (currentPrescriptionId) {
-                      try {
-                        const res = await rxApi.prescriptions.uploadImage(
-                          currentPrescriptionId,
-                          kind,
-                          file
-                        );
-                        setPath(res.path);
-                        setPending(null);
-                        toast.success("تم رفع الصورة");
-                      } catch (err) {
-                        toast.error(
-                          err instanceof Error ? err.message : "فشل الرفع"
-                        );
-                      }
-                    } else {
-                      setPending(file);
-                      toast.info("ستُرفع الصورة عند حفظ الوصفة");
-                    }
-                  }}
-                />
-                {!currentPrescriptionId && pending && (
-                  <p className="text-xs text-rx-muted">
-                    <ImagePlus size={12} className="inline" /> ستُرفع عند الحفظ
-                  </p>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        {/* Attachments — collapsed by default */}
+        {attachmentsSection}
+        </div>
 
-        {/* Actions — sticky bar */}
-        <div className="sticky bottom-4 z-10 flex flex-wrap gap-2 rounded-2xl border border-rx-border/80 bg-rx-surface/95 p-4 shadow-lg backdrop-blur-sm">
-          <Button
-            size="lg"
-            onClick={() => saveMutation.mutate("save")}
-            disabled={saveMutation.isPending}
-          >
-            <Save size={16} />
-            حفظ
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => saveMutation.mutate("save_and_print")}
-            disabled={saveMutation.isPending}
-          >
-            <Printer size={16} />
-            حفظ وطباعة
-          </Button>
-          {currentPrescriptionId && (
-            <Button variant="outline" asChild>
-              <Link href={`/prescriptions/${currentPrescriptionId}/preview`}>
-                معاينة
-              </Link>
-            </Button>
+          {livePreviewData ? (
+            <aside className="min-h-0 xl:sticky xl:col-start-1 xl:row-start-1 xl:self-start xl:top-[calc(var(--rx-header-height)+0.5rem)]">
+              <PrescriptionLivePreview data={livePreviewData} className="w-full" />
+            </aside>
+          ) : (
+            <p className="text-sm text-rx-muted xl:col-start-1 xl:row-start-1">
+              جاري تحميل إعدادات الوصفة للمعاينة...
+            </p>
           )}
-          <Button variant="ghost" onClick={resetComposer}>
-            <RotateCcw size={16} />
-            وصفة جديدة
-          </Button>
         </div>
       </PageContent>
-    </>
+    </div>
   );
 }

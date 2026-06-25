@@ -137,6 +137,129 @@ export function hasUsageFields(row: {
   return !!(row.dosage || row.quantity || row.period || row.timeOfUse);
 }
 
+export type MedicineFillField =
+  | "type"
+  | "dosage"
+  | "quantity"
+  | "period"
+  | "timeOfUse";
+
+export const MEDICINE_FILL_FIELD_ORDER: MedicineFillField[] = [
+  "type",
+  "dosage",
+  "quantity",
+  "period",
+  "timeOfUse",
+];
+
+export type MedicineFieldOption = {
+  value: string;
+  usageCount: number;
+};
+
+type UsageRow = {
+  name: string;
+  type: string;
+  dosage: string;
+  quantity: string;
+  period: string;
+  timeOfUse: string;
+};
+
+function matchesFilledFieldsBefore(
+  source: {
+    type?: string | null;
+    dosage?: string | null;
+    quantity?: string | null;
+    period?: string | null;
+    timeOfUse?: string | null;
+  },
+  row: UsageRow,
+  field: MedicineFillField
+): boolean {
+  const fieldIndex = MEDICINE_FILL_FIELD_ORDER.indexOf(field);
+  for (let i = 0; i < fieldIndex; i++) {
+    const key = MEDICINE_FILL_FIELD_ORDER[i]!;
+    const rowVal = row[key].trim();
+    if (!rowVal) continue;
+    if ((source[key] ?? "").trim() !== rowVal) return false;
+  }
+  return true;
+}
+
+/** Unique stored values for one medicine row field (presets + catalog variants). */
+export function getMedicineFieldOptions(
+  field: MedicineFillField,
+  row: UsageRow,
+  groups: MedicineGroup[],
+  presets: MedicinePresetDto[]
+): MedicineFieldOption[] {
+  const name = row.name.trim();
+  if (!name) return [];
+
+  const values = new Map<string, number>();
+
+  for (const preset of filterPresetsForMedicine(presets, name)) {
+    if (!matchesFilledFieldsBefore(preset, row, field)) continue;
+    const value = (preset[field] ?? "").trim();
+    if (!value) continue;
+    values.set(value, Math.max(values.get(value) ?? 0, preset.usageCount));
+  }
+
+  const group = findGroupForQuery(groups, name);
+  if (group) {
+    for (const variant of group.variants) {
+      if (!matchesFilledFieldsBefore(variant, row, field)) continue;
+      const value = (variant[field]?.trim() ?? "");
+      if (!value) continue;
+      values.set(value, values.get(value) ?? 0);
+    }
+  }
+
+  return [...values.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ar"))
+    .map(([value, usageCount]) => ({ value, usageCount }));
+}
+
+/** Stored value for a single medicine row field (preset or catalog variant). */
+export function resolveMedicineFieldValue(
+  row: {
+    name: string;
+    type: string;
+    dosage: string;
+    quantity: string;
+    period: string;
+    timeOfUse: string;
+  },
+  groups: MedicineGroup[],
+  presets: MedicinePresetDto[],
+  field: MedicineFillField
+): string | null {
+  const name = row.name.trim();
+  if (!name) return null;
+
+  const preset = pickAutoFillPreset(presets, name, row.type);
+  if (preset) {
+    const fromPreset = (preset[field] ?? "").trim();
+    if (fromPreset) return fromPreset;
+  }
+
+  const group = findGroupForQuery(groups, name);
+  if (!group) return null;
+
+  const variant =
+    row.type.trim() !== ""
+      ? findVariant(group.variants, row.type)
+      : group.variants.length === 1
+        ? group.variants[0]
+        : undefined;
+
+  if (!variant) return null;
+
+  const fromVariant = (variant[field]?.trim() ?? "") || null;
+  return fromVariant || null;
+}
+
 export function formatPresetLabel(preset: MedicinePresetDto): string {
   const typeLabel = preset.type ? `[${preset.type}] ` : "";
   const parts = [preset.dosage, preset.quantity, preset.period, preset.timeOfUse].filter(

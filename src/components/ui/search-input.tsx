@@ -21,11 +21,12 @@ export function SearchInput({
   return (
     <div className={cn("relative", className)}>
       <Search
-        className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-rx-muted"
+        className="pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-rx-muted"
         strokeWidth={2}
       />
       <Input
-        className="pr-10"
+        fieldSize="compact"
+        className="!ps-10"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}

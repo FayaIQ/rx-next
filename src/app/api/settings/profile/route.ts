@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiOk, apiError } from "@/lib/api/response";
 import { toDbId, fromDbId } from "@/lib/bigint";
-import { profileSchema } from "@/lib/validations/settings";
+import { profileUpdateSchema } from "@/lib/validations/settings";
 
 export async function GET() {
   const ctx = await requireDoctorApi();
@@ -36,7 +36,7 @@ export async function PUT(req: Request) {
   if (isApiError(ctx)) return ctx;
 
   const body = await req.json();
-  const parsed = profileSchema.safeParse(body);
+  const parsed = profileUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return apiError(parsed.error.issues[0]?.message ?? "بيانات غير صالحة");
   }
@@ -46,7 +46,7 @@ export async function PUT(req: Request) {
   });
   if (!user) return apiError("المستخدم غير موجود", 404);
 
-  const { name, phoneNumber, currentPassword, newPassword } = parsed.data;
+  const { name, currentPassword, newPassword } = parsed.data;
 
   if (newPassword) {
     if (!currentPassword) {
@@ -56,19 +56,10 @@ export async function PUT(req: Request) {
     if (!valid) return apiError("كلمة المرور الحالية غير صحيحة");
   }
 
-  const phoneTaken = await prisma.user.findFirst({
-    where: {
-      phoneNumber,
-      id: { not: user.id },
-    },
-  });
-  if (phoneTaken) return apiError("رقم الهاتف مستخدم مسبقاً");
-
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: {
       name,
-      phoneNumber,
       ...(newPassword
         ? { password: await bcrypt.hash(newPassword, 10) }
         : {}),

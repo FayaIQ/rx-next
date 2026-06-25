@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
@@ -11,23 +11,43 @@ import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageContent, PageHeader } from "@/components/ui/page-shell";
+import { TablePageLoading } from "@/components/ui/page-loading";
+import { Pagination } from "@/components/ui/pagination";
+import { usePaginationState } from "@/hooks/use-pagination-state";
 import { adminApi, type AdminUserDto } from "@/lib/api/admin-client";
 import { SubscriptionBadge } from "@/components/admin/subscription-badge";
 
 export function AdminUsersClient() {
   const [q, setQ] = useState("");
   const [type, setType] = useState<string>("");
+  const { page, pageSize, onPageChange, onPageSizeChange } =
+    usePaginationState(`${type}-${q}`);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-users", type, q],
-    queryFn: () => adminApi.users({ type: type || undefined, q: q || undefined }),
+    queryKey: ["admin-users", type, q, page, pageSize],
+    queryFn: () =>
+      adminApi.users({
+        type: type || undefined,
+        q: q || undefined,
+        page,
+        pageSize,
+      }),
+    placeholderData: keepPreviousData,
   });
 
   const users = data?.users ?? [];
+  const pagination = data?.pagination;
+
+  if (isLoading && !data) {
+    return <TablePageLoading />;
+  }
 
   return (
     <>
-      <AppHeader title="المستخدمون" subtitle={`${users.length} مستخدم`} />
+      <AppHeader
+        title="المستخدمون"
+        subtitle={`${pagination?.total ?? users.length} مستخدم`}
+      />
       <PageContent className="space-y-6">
         <PageHeader
           title="جميع المستخدمين"
@@ -107,6 +127,13 @@ export function AdminUsersClient() {
                     ))}
                   </tbody>
                 </table>
+                {pagination && (
+                  <Pagination
+                    pagination={pagination}
+                    onPageChange={onPageChange}
+                    onPageSizeChange={onPageSizeChange}
+                  />
+                )}
               </div>
             )}
           </CardContent>

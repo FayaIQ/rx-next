@@ -4,6 +4,10 @@ import { apiOk, apiError, apiServerError } from "@/lib/api/response";
 import { medicineSchema } from "@/lib/validations/rx";
 import { toDbId, fromDbId } from "@/lib/bigint";
 import { emptyMed } from "@/lib/prescription-service";
+import {
+  buildPaginationMeta,
+  parsePaginationParams,
+} from "@/lib/pagination";
 import { z } from "zod";
 
 function serializeMedicine(medicine: {
@@ -38,17 +42,26 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();
+  const { page, pageSize, skip } = parsePaginationParams(searchParams);
 
-  const medicines = await prisma.medicine.findMany({
-    where: {
-      doctorId: toDbId(ctx.doctorId),
-      ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
-    },
-    orderBy: { name: "asc" },
-  });
+  const where = {
+    doctorId: toDbId(ctx.doctorId),
+    ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
+  };
+
+  const [medicines, total] = await Promise.all([
+    prisma.medicine.findMany({
+      where,
+      orderBy: { name: "asc" },
+      skip,
+      take: pageSize,
+    }),
+    prisma.medicine.count({ where }),
+  ]);
 
   return apiOk({
     medicines: medicines.map(serializeMedicine),
+    pagination: buildPaginationMeta(page, pageSize, total),
   });
 }
 

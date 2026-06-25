@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Stethoscope } from "lucide-react";
@@ -11,7 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CardsPageLoading } from "@/components/ui/page-loading";
 import { PageContent, PageHeader } from "@/components/ui/page-shell";
+import { Pagination } from "@/components/ui/pagination";
+import { usePaginationState } from "@/hooks/use-pagination-state";
 import { adminApi, type AdminUserDto } from "@/lib/api/admin-client";
 import { SubscriptionBadge } from "@/components/admin/subscription-badge";
 import { ActivateSubscriptionDialog } from "@/components/admin/activate-subscription-dialog";
@@ -28,10 +31,14 @@ export function AdminDoctorsClient() {
     password: "",
     specialty: "",
   });
+  const { page, pageSize, onPageChange, onPageSizeChange } =
+    usePaginationState(tab);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-doctors", tab],
-    queryFn: () => adminApi.doctors(tab === "all" ? undefined : tab),
+    queryKey: ["admin-doctors", tab, page, pageSize],
+    queryFn: () =>
+      adminApi.doctors(tab === "all" ? undefined : tab, { page, pageSize }),
+    placeholderData: keepPreviousData,
   });
 
   const createMutation = useMutation({
@@ -46,10 +53,18 @@ export function AdminDoctorsClient() {
   });
 
   const doctors = data?.doctors ?? [];
+  const pagination = data?.pagination;
+
+  if (isLoading && !data) {
+    return <CardsPageLoading />;
+  }
 
   return (
     <>
-      <AppHeader title="الأطباء" subtitle={`${doctors.length} طبيب`} />
+      <AppHeader
+        title="الأطباء"
+        subtitle={`${pagination?.total ?? doctors.length} طبيب`}
+      />
       <PageContent className="space-y-6">
         <PageHeader
           title="إدارة الأطباء"
@@ -161,6 +176,13 @@ export function AdminDoctorsClient() {
                   </div>
                 ))}
               </div>
+            )}
+            {pagination && (
+              <Pagination
+                pagination={pagination}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+              />
             )}
           </CardContent>
         </Card>

@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageContent, PageHeader } from "@/components/ui/page-shell";
+import { DashboardPageLoading } from "@/components/ui/page-loading";
 
 export function AdminDashboardClient() {
   const { data, isLoading } = useQuery({
@@ -79,6 +80,10 @@ export function AdminDashboardClient() {
         },
       ]
     : [];
+
+  if (isLoading && !data) {
+    return <DashboardPageLoading />;
+  }
 
   return (
     <>

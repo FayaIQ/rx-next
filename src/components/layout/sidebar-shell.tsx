@@ -29,7 +29,7 @@ const themes: Record<
   admin: {
     gradient: "from-[#0c4a6e] via-[#075985] to-[#082f49]",
     accent: "bg-white/15 text-white shadow-inner ring-1 ring-white/10",
-    signOutUrl: "/auth/admin",
+    signOutUrl: "/auth/signin",
   },
   secretary: {
     gradient: "from-[#0f766e] via-[#0d9488] to-[#115e59]",

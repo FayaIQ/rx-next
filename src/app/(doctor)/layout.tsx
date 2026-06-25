@@ -1,8 +1,6 @@
 import { requireSubscription } from "@/lib/auth-server";
-import { DoctorSidebar } from "@/components/layout/doctor-sidebar";
+import { DoctorNavPill } from "@/components/layout/doctor-nav-pill";
 import { SyncProvider } from "@/components/sync/sync-provider";
-
-export const dynamic = "force-dynamic";
 
 export default async function DoctorLayout({
   children,
@@ -13,12 +11,10 @@ export default async function DoctorLayout({
 
   return (
     <div className="min-h-screen">
-      <DoctorSidebar />
-      <div
-        className="min-h-screen rx-app-bg transition-[margin] lg:mr-[var(--rx-sidebar-width)]"
-      >
+      <div className="min-h-screen rx-app-bg pb-[var(--rx-nav-pill-offset)]">
         <SyncProvider>{children}</SyncProvider>
       </div>
+      <DoctorNavPill />
     </div>
   );
 }

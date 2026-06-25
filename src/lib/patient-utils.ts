@@ -1,3 +1,8 @@
+import {
+  parseRegionalPhone,
+  PHONE_REGIONS,
+} from "./phone-regions";
+
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 
@@ -116,6 +121,7 @@ export function buildOptimisticPatient(body: {
   birthdate: string | null;
   diagnosis?: string | null;
   phone?: string | null;
+  fieldValues?: Array<{ patientFieldId: number; value: string }>;
 }) {
   const now = new Date().toISOString();
   return {
@@ -131,6 +137,7 @@ export function buildOptimisticPatient(body: {
     lastVisit: null,
     createdAt: now,
     updatedAt: now,
+    fieldValues: body.fieldValues ?? [],
   };
 }
 
@@ -138,8 +145,105 @@ export function genderLabel(gender: "male" | "female"): string {
   return gender === "male" ? "ذكر" : "أنثى";
 }
 
+/** Calendar day key for grouping prescriptions into visits. */
+export function prescriptionDayKey(date: Date | string): string {
+  const d = date instanceof Date ? date : new Date(date);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** A visit = at least one prescription on a distinct calendar day. */
+export function countVisitsFromDates(
+  dates: Array<Date | string | null | undefined>
+): number {
+  const days = new Set<string>();
+  for (const date of dates) {
+    if (!date) continue;
+    const d = date instanceof Date ? date : new Date(date);
+    if (Number.isNaN(d.getTime())) continue;
+    days.add(prescriptionDayKey(d));
+  }
+  return days.size;
+}
+
+export function visitCountLabel(count: number): string {
+  if (count === 1) return "زيارة واحدة";
+  if (count === 2) return "زيارتان";
+  return `${count} زيارات`;
+}
+
 export function toDateInputValue(date: Date | string): string {
   const d = date instanceof Date ? date : new Date(date);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function formatPrescriptionDateTime(value: string): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("ar-SY", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    numberingSystem: "latn",
+  });
+}
+
+/** Date on the printed prescription — Latin numerals, no sequence number. */
+export function formatPrescriptionDate(value: string | Date): string {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+/** Validate and normalize Syrian / Iraqi patient phone. Empty input is allowed. */
+export function parsePatientPhoneInput(raw: string): {
+  normalized: string | null;
+  error: string | null;
+} {
+  const trimmed = normalizeDigits(raw).replace(/[\s\-().]/g, "").trim();
+  if (!trimmed) return { normalized: null, error: null };
+
+  for (const region of PHONE_REGIONS) {
+    const parsed = parseRegionalPhone(trimmed, region);
+    if (parsed?.isValid()) {
+      return { normalized: parsed.format("E.164"), error: null };
+    }
+  }
+
+  const digits = trimmed.replace(/\D/g, "");
+
+  const iraqiLocal = digits.replace(/^964/, "").replace(/^0+/, "");
+  if (/^7\d{9}$/.test(iraqiLocal)) {
+    return { normalized: `+964${iraqiLocal}`, error: null };
+  }
+
+  const syrianLocal = digits.replace(/^963/, "").replace(/^0+/, "");
+  if (/^9\d{8}$/.test(syrianLocal)) {
+    return { normalized: `+963${syrianLocal}`, error: null };
+  }
+
+  return {
+    normalized: null,
+    error: "رقم الهاتف غير صالح — مثال: 09xxxxxxxx أو 07xxxxxxxxx",
+  };
+}
+
+export function phonesMatch(a: string, b: string): boolean {
+  const left = parsePatientPhoneInput(a).normalized;
+  const right = parsePatientPhoneInput(b).normalized;
+  if (!left || !right) return false;
+  return left === right;
+}
+
+export function normalizePatientPhoneForSave(
+  phone: string | null | undefined
+): string | null {
+  if (phone == null || !String(phone).trim()) return null;
+  const { normalized, error } = parsePatientPhoneInput(String(phone));
+  if (error || !normalized) return null;
+  return normalized;
 }

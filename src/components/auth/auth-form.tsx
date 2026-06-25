@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { toast } from "sonner";
 import { Loader2, Phone, Lock, User, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,12 +32,21 @@ export function AuthForm({
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
-  const callbackUrl =
+  const defaultCallbackUrl =
     role === "admin"
       ? "/dashboard"
       : role === "secretary"
         ? "/secretary"
         : "/home";
+
+  async function resolveCallbackUrl(): Promise<string> {
+    if (role !== "doctor") return defaultCallbackUrl;
+
+    const session = await getSession();
+    if (session?.user?.type === "admin") return "/dashboard";
+    if (session?.user?.type === "secretary") return "/secretary";
+    return "/home";
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,7 +85,7 @@ export function AuthForm({
       }
 
       // Full navigation ensures session cookie is loaded before middleware runs
-      window.location.href = callbackUrl;
+      window.location.href = await resolveCallbackUrl();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "حدث خطأ، حاول مرة أخرى"

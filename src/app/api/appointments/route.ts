@@ -4,6 +4,10 @@ import { apiOk, apiError, apiServerError } from "@/lib/api/response";
 import { appointmentSchema } from "@/lib/validations/rx";
 import { serializeAppointment } from "@/lib/appointment-serializer";
 import { toDbId } from "@/lib/bigint";
+import {
+  buildPaginationMeta,
+  parsePaginationParams,
+} from "@/lib/pagination";
 import { z } from "zod";
 
 export async function GET(request: Request) {
@@ -14,34 +18,48 @@ export async function GET(request: Request) {
   const date = searchParams.get("date");
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const bookingFrom = searchParams.get("bookingFrom");
+  const bookingTo = searchParams.get("bookingTo");
   const status = searchParams.get("status");
+  const paginate = searchParams.get("paginate") === "1";
+  const { page, pageSize, skip } = parsePaginationParams(searchParams);
 
-  let datetimeFilter: { gte?: Date; lte?: Date } | undefined;
+  let dayFilter:
+    | { bookingDate: Date | { gte?: Date; lte?: Date } }
+    | { appointmentDatetime: { gte?: Date; lte?: Date } }
+    | undefined;
 
   if (date) {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-    datetimeFilter = { gte: dayStart, lte: dayEnd };
+    // Calendar day view uses booking_date (what the user picked), not UTC datetime.
+    dayFilter = { bookingDate: new Date(date) };
+  } else if (bookingFrom || bookingTo) {
+    const bookingFilter: { gte?: Date; lte?: Date } = {};
+    if (bookingFrom) bookingFilter.gte = new Date(bookingFrom);
+    if (bookingTo) bookingFilter.lte = new Date(bookingTo);
+    dayFilter = { bookingDate: bookingFilter };
   } else if (from || to) {
-    datetimeFilter = {};
+    const datetimeFilter: { gte?: Date; lte?: Date } = {};
     if (from) datetimeFilter.gte = new Date(from);
     if (to) datetimeFilter.lte = new Date(to);
+    dayFilter = { appointmentDatetime: datetimeFilter };
   }
 
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      doctorId: toDbId(ctx.doctorId),
-      ...(datetimeFilter
-        ? { appointmentDatetime: datetimeFilter }
+  const where = {
+    doctorId: toDbId(ctx.doctorId),
+    ...(dayFilter ?? {}),
+    ...(status === "active"
+      ? { status: true }
+      : status === "cancelled"
+        ? { status: false }
         : {}),
-      ...(status === "active"
-        ? { status: true }
-        : status === "cancelled"
-          ? { status: false }
-          : {}),
-    },
+  };
+
+  const orderBy = date
+    ? { appointmentDatetime: "asc" as const }
+    : [{ bookingDate: "asc" as const }, { appointmentDatetime: "asc" as const }];
+
+  const findArgs = {
+    where,
     include: {
       patient: {
         select: {
@@ -53,12 +71,21 @@ export async function GET(request: Request) {
         },
       },
     },
-    orderBy: { appointmentDatetime: "asc" },
-    take: 500,
-  });
+    orderBy,
+    ...(paginate ? { skip, take: pageSize } : {}),
+    ...(!paginate && !bookingFrom && !bookingTo && !date ? { take: 500 } : {}),
+  };
+
+  const appointments = await prisma.appointment.findMany(findArgs);
+  const total = paginate
+    ? await prisma.appointment.count({ where })
+    : appointments.length;
 
   return apiOk({
     appointments: appointments.map(serializeAppointment),
+    ...(paginate
+      ? { pagination: buildPaginationMeta(page, pageSize, total) }
+      : {}),
   });
 }
 

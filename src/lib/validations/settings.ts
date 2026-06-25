@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { RECIPE_TEMPLATE_IDS } from "@/lib/recipe-templates";
+
 export const recipeSettingsSchema = z.object({
   doctorName: z.string().min(1, "اسم الطبيب مطلوب"),
   doctorSpecialty: z.string().min(1, "التخصص مطلوب"),
@@ -16,6 +18,7 @@ export const recipeSettingsSchema = z.object({
   paperSize: z.enum(["A4", "A5"]),
   color: z.string().min(1),
   designMode: z.enum(["design", "image"]),
+  designTemplate: z.enum(RECIPE_TEMPLATE_IDS).optional().default("classic"),
   designImageScale: z.number().int().min(1).max(3).optional(),
   designPatientX: z.number().min(0).max(100),
   designPatientY: z.number().min(0).max(100),
@@ -53,6 +56,10 @@ export const profileSchema = z.object({
   newPassword: z.string().min(6).optional(),
 });
 
+/** Account settings — phone is the login ID and cannot be changed here. */
+export const profileUpdateSchema = profileSchema.omit({ phoneNumber: true });
+
 export type RecipeSettingsInput = z.infer<typeof recipeSettingsSchema>;
 export type PatientFieldInput = z.infer<typeof patientFieldSchema>;
 export type ProfileInput = z.infer<typeof profileSchema>;
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;

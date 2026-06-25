@@ -1,17 +1,20 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import {
+  Save,
+  Eye,
+  UserRound,
+  Palette,
+  LayoutTemplate,
+  ListChecks,
+} from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { PageContent } from "@/components/ui/page-shell";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import type { PrescriptionDocumentData } from "@/components/prescription/prescription-document";
 import { RecipePreviewEditor } from "@/components/recipe/recipe-preview-editor";
 import type { PositionKey } from "@/components/recipe/draggable-block";
@@ -19,11 +22,18 @@ import {
   DEFAULT_ITEMS_BOX_HEIGHT,
   DEFAULT_ITEMS_BOX_WIDTH,
 } from "@/components/recipe/prescription-items-box";
+import {
+  AppearanceSection,
+  DesignTemplateSection,
+  DoctorInfoSection,
+  PatientFieldsSection,
+} from "@/components/recipe/recipe-settings-sections";
 import { rxApi, type RecipeSettingsDto } from "@/lib/api/rx-client";
-import { FONT_OPTIONS, PAPER_OPTIONS, normalizeRecipeSettingsDto } from "@/lib/recipe-settings";
+import { normalizeRecipeSettingsDto } from "@/lib/recipe-settings";
 import { sampleFieldValue } from "@/lib/patient-field-layout";
-import { resolveImageUrl } from "@/lib/image-url";
-import { CorePatientFieldsTable } from "@/components/settings/core-patient-fields-settings";
+import { applyRecipeTemplate, type RecipeTemplateId } from "@/lib/recipe-templates";
+import { RecipeDesignerPageLoading } from "@/components/ui/page-loading";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_PREVIEW: PrescriptionDocumentData = {
   prescriptionNumber: 1,
@@ -60,6 +70,7 @@ const DEFAULT_PREVIEW: PrescriptionDocumentData = {
     logoPath: null,
     designImagePath: null,
     designMode: "design",
+    designTemplate: "classic",
     designImageScale: 1,
     designPatientX: 8,
     designPatientY: 6,
@@ -84,6 +95,20 @@ const DEFAULT_PREVIEW: PrescriptionDocumentData = {
   },
 };
 
+type SettingsTab = "preview" | "doctor" | "style" | "template" | "fields";
+
+const TABS: Array<{
+  id: SettingsTab;
+  label: string;
+  icon: typeof Eye;
+}> = [
+  { id: "preview", label: "المعاينة", icon: Eye },
+  { id: "template", label: "التصميم", icon: LayoutTemplate },
+  { id: "doctor", label: "الطبيب", icon: UserRound },
+  { id: "style", label: "المظهر", icon: Palette },
+  { id: "fields", label: "الحقول", icon: ListChecks },
+];
+
 function positionPatch(
   key: PositionKey,
   x: number,
@@ -106,6 +131,7 @@ function positionPatch(
 export function RecipeSettingsForm() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<RecipeSettingsDto | null>(null);
+  const [activeTab, setActiveTab] = useState<SettingsTab>("template");
 
   const { data, isLoading } = useQuery({
     queryKey: ["recipe-settings"],
@@ -178,14 +204,7 @@ export function RecipeSettingsForm() {
   }
 
   if (isLoading || !form) {
-    return (
-      <>
-        <AppHeader title="تصميم الوصفة" />
-        <PageContent>
-          <Skeleton className="h-96 w-full rounded-2xl" />
-        </PageContent>
-      </>
-    );
+    return <RecipeDesignerPageLoading />;
   }
 
   const printableRecipeFields =
@@ -209,239 +228,112 @@ export function RecipeSettingsForm() {
 
   return (
     <>
-      <AppHeader title="تصميم الوصفة" subtitle="خصّص شكل وطباعة الوصفة" />
-      <PageContent wide className="space-y-6">
-        <div className="flex flex-wrap gap-2">
+      <AppHeader
+        title="تصميم الوصفة"
+        subtitle="خصّص القالب، الحقول، وشكل الطباعة"
+        actions={
           <Button
+            size="sm"
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending}
           >
-            <Save size={16} />
-            حفظ
+            <Save size={15} />
+            {saveMutation.isPending ? "جاري الحفظ..." : "حفظ التصميم"}
           </Button>
+        }
+      />
+
+      <PageContent wide className="space-y-4 pb-24 xl:pb-8">
+        <div className="sticky top-[var(--rx-header-height)] z-20 -mx-1 overflow-x-auto px-1 pb-1">
+          <div className="flex min-w-max gap-1.5 rounded-2xl border border-rx-border bg-rx-surface p-1.5 shadow-sm">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                  activeTab === id
+                    ? "bg-rx-primary text-white shadow-sm"
+                    : "text-rx-muted hover:bg-rx-bg-subtle hover:text-rx-text"
+                )}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
-          {/* Preview — always visible, sticky on desktop */}
-          <div className="xl:sticky xl:top-4 xl:self-start">
-            <RecipePreviewEditor
-              data={previewData}
-              onPositionChange={handlePositionChange}
-              onItemsSizeChange={handleItemsSizeChange}
-              onFieldPositionChange={handleFieldPositionChange}
-            />
-          </div>
-
-          {/* Settings */}
-          <div className="space-y-4">
-            <Card hover>
-              <CardHeader>
-                <CardTitle>بيانات الطبيب</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3">
-                <div className="space-y-1">
-                  <Label>اسم الطبيب</Label>
-                  <Input
-                    value={form.doctorName}
-                    onChange={(e) => patch("doctorName", e.target.value)}
-                  />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]">
+          <div
+            className={cn(
+              "space-y-3",
+              activeTab !== "preview" && "hidden",
+              "xl:block xl:sticky xl:top-[calc(var(--rx-header-height)+4.5rem)] xl:self-start"
+            )}
+          >
+            <Card className="overflow-hidden">
+              <CardContent className="space-y-3 p-4">
+                <div className="rounded-xl bg-rx-primary-light/60 px-3 py-2 text-xs leading-relaxed text-rx-text-secondary">
+                  اسحب الشريط العلوي لأي صندوق لتحريكه، والزاوية السفلية لتغيير
+                  حجم صندوق الأدوية.
                 </div>
-                <div className="space-y-1">
-                  <Label>التخصص</Label>
-                  <Input
-                    value={form.doctorSpecialty}
-                    onChange={(e) => patch("doctorSpecialty", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>نص إضافي</Label>
-                  <Textarea
-                    rows={2}
-                    value={form.additionalText1 ?? ""}
-                    onChange={(e) =>
-                      patch("additionalText1", e.target.value || null)
-                    }
-                  />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label>الهاتف</Label>
-                    <Input
-                      value={form.phoneNumber ?? ""}
-                      onChange={(e) =>
-                        patch("phoneNumber", e.target.value || null)
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>البريد</Label>
-                    <Input
-                      type="email"
-                      value={form.email ?? ""}
-                      onChange={(e) => patch("email", e.target.value || null)}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label>العنوان</Label>
-                  <Input
-                    value={form.address ?? ""}
-                    onChange={(e) => patch("address", e.target.value || null)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card hover>
-              <CardHeader>
-                <CardTitle>المظهر</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label>الخط</Label>
-                  <select
-                    className="h-11 w-full rounded-xl border border-rx-border bg-rx-surface px-3 text-sm"
-                    value={form.fontFamily}
-                    onChange={(e) => patch("fontFamily", e.target.value)}
-                  >
-                    {FONT_OPTIONS.map((f) => (
-                      <option key={f.value} value={f.value}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label>حجم الخط</Label>
-                  <Input
-                    value={form.fontSize}
-                    onChange={(e) => patch("fontSize", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>حجم الورق</Label>
-                  <select
-                    className="h-11 w-full rounded-xl border border-rx-border bg-rx-surface px-3 text-sm"
-                    value={form.paperSize}
-                    onChange={(e) =>
-                      patch("paperSize", e.target.value as "A4" | "A5")
-                    }
-                  >
-                    {PAPER_OPTIONS.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label>اللون</Label>
-                  <Input
-                    type="color"
-                    value={form.color}
-                    onChange={(e) => patch("color", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1 sm:col-span-2">
-                  <Label>
-                    شفافية خلفية الصورة ({Math.round(form.opacity * 100)}%)
-                  </Label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={form.opacity}
-                    onChange={(e) => patch("opacity", Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card hover>
-              <CardHeader>
-                <CardTitle>وضع التصميم</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  {(["design", "image"] as const).map((mode) => (
-                    <Button
-                      key={mode}
-                      type="button"
-                      variant={form.designMode === mode ? "default" : "outline"}
-                      onClick={() => patch("designMode", mode)}
-                    >
-                      {mode === "design" ? "تصميم جاهز" : "صورة خلفية"}
-                    </Button>
-                  ))}
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>الشعار</Label>
-                    {form.logoPath && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={resolveImageUrl(form.logoPath) ?? ""}
-                        alt="شعار"
-                        className="h-16 object-contain"
-                      />
-                    )}
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) uploadMutation.mutate({ kind: "logo", file });
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>صورة الخلفية (وضع الصورة)</Label>
-                    {form.designImagePath && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={resolveImageUrl(form.designImagePath) ?? ""}
-                        alt="خلفية"
-                        className="h-16 object-contain"
-                      />
-                    )}
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) uploadMutation.mutate({ kind: "design", file });
-                      }}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card hover>
-              <CardHeader>
-                <CardTitle>حقول المريض الأساسية</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <CorePatientFieldsTable
-                  settings={form}
-                  onPatch={patch}
-                  showPositionHint
+                <RecipePreviewEditor
+                  data={previewData}
+                  onPositionChange={handlePositionChange}
+                  onItemsSizeChange={handleItemsSizeChange}
+                  onFieldPositionChange={handleFieldPositionChange}
                 />
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.printDiagnosis}
-                    onChange={(e) => patch("printDiagnosis", e.target.checked)}
-                  />
-                  طباعة التشخيص على الوصفة
-                </label>
               </CardContent>
             </Card>
           </div>
+
+          <div
+            className={cn(
+              "space-y-4",
+              activeTab === "preview" && "hidden",
+              "xl:block"
+            )}
+          >
+            {activeTab === "doctor" && (
+              <DoctorInfoSection form={form} onPatch={patch} />
+            )}
+            {activeTab === "style" && (
+              <AppearanceSection form={form} onPatch={patch} />
+            )}
+            {activeTab === "template" && (
+              <DesignTemplateSection
+                form={form}
+                onPatch={patch}
+                onTemplateSelect={(id) =>
+                  setForm((prev) =>
+                    prev ? applyRecipeTemplate(prev, id) : prev
+                  )
+                }
+                onDesignModeChange={(mode) => patch("designMode", mode)}
+                onUpload={(kind, file) => uploadMutation.mutate({ kind, file })}
+                uploadPending={uploadMutation.isPending}
+              />
+            )}
+            {activeTab === "fields" && (
+              <PatientFieldsSection form={form} onPatch={patch} />
+            )}
+          </div>
         </div>
+
+        {activeTab !== "preview" && (
+          <div className="fixed inset-x-0 bottom-[var(--rx-nav-pill-offset)] z-20 border-t border-rx-border bg-rx-surface/95 p-3 backdrop-blur-sm xl:hidden">
+            <Button
+              className="w-full"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+            >
+              <Save size={16} />
+              {saveMutation.isPending ? "جاري الحفظ..." : "حفظ التصميم"}
+            </Button>
+          </div>
+        )}
       </PageContent>
     </>
   );

@@ -42,7 +42,8 @@ export default auth((req) => {
     pathname === "/manifest.json" ||
     pathname === "/sw.js" ||
     pathname.startsWith("/icons/") ||
-    pathname.startsWith("/uploads/")
+    pathname.startsWith("/uploads/") ||
+    pathname.startsWith("/models/")
   ) {
     return NextResponse.next();
   }
@@ -88,6 +89,7 @@ export default auth((req) => {
       "/recipe-settings",
       "/setting",
       "/prescriptions",
+      "/dental",
       "/subscription",
     ];
     const allowed = doctorPaths.some((p) => pathname.startsWith(p));
@@ -121,6 +123,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|glb|gltf|obj|bin)$).*)",
   ],
 };

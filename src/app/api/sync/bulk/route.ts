@@ -6,9 +6,12 @@ import { patientSchema, medicineSchema, prescriptionSchema, appointmentSchema } 
 import { parseBirthdateInput } from "@/lib/patient-utils";
 import { createPrescription, updatePrescription, emptyMed } from "@/lib/prescription-service";
 import { upsertMedicinePresets } from "@/lib/medicine-preset-service";
-import { serializePatient } from "@/lib/patient-serializer";
+import { upsertMedicinesFromPrescription } from "@/lib/medicine-catalog-service";
+import { serializePatientLight } from "@/lib/patient-serializer";
 import { serializePrescription } from "@/lib/prescription-service";
 import { serializeAppointment } from "@/lib/appointment-serializer";
+import { upsertPatientFieldValues } from "@/lib/patient-field-value-service";
+import { normalizePatientPhoneForSave } from "@/lib/patient-utils";
 import { z } from "zod";
 
 const bulkItemSchema = z.object({
@@ -68,47 +71,76 @@ async function processSyncItem(
   if (item.entity === "patient") {
     if (item.action === "create") {
       const data = patientSchema.parse(item.payload);
-      const patient = await prisma.patient.create({
-        data: {
-          name: data.name,
-          gender: data.gender,
-          birthdate: parseBirthdateInput(data.birthdate),
-          diagnosis: data.diagnosis ?? null,
-          phone: data.phone ?? null,
-          doctorId: doctorDbId,
-        },
-        include: {
-          _count: { select: { prescriptions: true } },
-          prescriptions: {
-            orderBy: { prescriptionDate: "desc" },
-            take: 1,
-            select: { prescriptionDate: true },
+      const birthdate = parseBirthdateInput(data.birthdate);
+      const phone = normalizePatientPhoneForSave(data.phone);
+
+      const patient = await prisma.$transaction(async (tx) => {
+        const created = await tx.patient.create({
+          data: {
+            name: data.name,
+            gender: data.gender,
+            birthdate,
+            diagnosis: data.diagnosis ?? null,
+            phone,
+            doctorId: doctorDbId,
           },
-        },
+        });
+
+        await upsertPatientFieldValues(
+          created.id,
+          doctorId,
+          data.fieldValues,
+          tx
+        );
+
+        const fieldValues = await tx.patientFieldValue.findMany({
+          where: { patientId: created.id },
+        });
+
+        return { created, fieldValues };
       });
-      return { serverId: Number(patient.id), data: await serializePatient(patient) };
+
+      return {
+        serverId: Number(patient.created.id),
+        data: serializePatientLight(patient.created, patient.fieldValues),
+      };
     }
     if (item.action === "update" && item.serverId) {
       const data = patientSchema.parse(item.payload);
-      const patient = await prisma.patient.update({
-        where: { id: toDbId(item.serverId) },
-        data: {
-          name: data.name,
-          gender: data.gender,
-          birthdate: parseBirthdateInput(data.birthdate),
-          diagnosis: data.diagnosis ?? null,
-          phone: data.phone ?? null,
-        },
-        include: {
-          _count: { select: { prescriptions: true } },
-          prescriptions: {
-            orderBy: { prescriptionDate: "desc" },
-            take: 1,
-            select: { prescriptionDate: true },
+      const patientDbId = toDbId(item.serverId);
+      const birthdate = parseBirthdateInput(data.birthdate);
+      const phone = normalizePatientPhoneForSave(data.phone);
+
+      const patient = await prisma.$transaction(async (tx) => {
+        const updated = await tx.patient.update({
+          where: { id: patientDbId },
+          data: {
+            name: data.name,
+            gender: data.gender,
+            birthdate,
+            diagnosis: data.diagnosis ?? null,
+            phone,
           },
-        },
+        });
+
+        await upsertPatientFieldValues(
+          patientDbId,
+          doctorId,
+          data.fieldValues,
+          tx
+        );
+
+        const fieldValues = await tx.patientFieldValue.findMany({
+          where: { patientId: patientDbId },
+        });
+
+        return { updated, fieldValues };
       });
-      return { serverId: Number(patient.id), data: await serializePatient(patient) };
+
+      return {
+        serverId: item.serverId,
+        data: serializePatientLight(patient.updated, patient.fieldValues),
+      };
     }
     if (item.action === "delete" && item.serverId) {
       await prisma.patient.delete({ where: { id: toDbId(item.serverId) } });
@@ -157,13 +189,19 @@ async function processSyncItem(
     if (item.action === "create") {
       const data = prescriptionSchema.parse(item.payload);
       const rx = await createPrescription(doctorId, data);
-      await upsertMedicinePresets(doctorId, data.items);
+      await Promise.all([
+        upsertMedicinePresets(doctorId, data.items),
+        upsertMedicinesFromPrescription(doctorId, data.items),
+      ]);
       return { serverId: Number(rx.id), data: serializePrescription(rx) };
     }
     if (item.action === "update" && item.serverId) {
       const data = prescriptionSchema.parse(item.payload);
       const rx = await updatePrescription(doctorId, item.serverId, data);
-      await upsertMedicinePresets(doctorId, data.items);
+      await Promise.all([
+        upsertMedicinePresets(doctorId, data.items),
+        upsertMedicinesFromPrescription(doctorId, data.items),
+      ]);
       return { serverId: item.serverId, data: rx ? serializePrescription(rx) : undefined };
     }
     if (item.action === "delete" && item.serverId) {

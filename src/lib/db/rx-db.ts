@@ -36,6 +36,7 @@ export interface LocalPatient {
   diagnosis?: string;
   phone?: string;
   doctorId: number;
+  fieldValues?: Array<{ patientFieldId: number; value: string }>;
   synced: boolean;
   updatedAt: string;
 }

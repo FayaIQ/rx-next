@@ -6,6 +6,10 @@ import { serializeAdminUserWithSub } from "@/lib/admin-serializers";
 import { createSecretarySchema } from "@/lib/validations/admin";
 import { normalizePhone } from "@/lib/utils";
 import { toDbId, fromDbId } from "@/lib/bigint";
+import {
+  buildPaginationMeta,
+  parsePaginationParams,
+} from "@/lib/pagination";
 import { z } from "zod";
 
 export async function GET(request: Request) {
@@ -14,31 +18,41 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();
+  const { page, pageSize, skip } = parsePaginationParams(searchParams);
 
-  const secretaries = await prisma.user.findMany({
-    where: {
-      type: "secretary",
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { phoneNumber: { contains: q } },
-            ],
-          }
-        : {}),
-    },
-    include: {
-      doctor: { select: { name: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+  const where = {
+    type: "secretary" as const,
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { phoneNumber: { contains: q } },
+          ],
+        }
+      : {}),
+  };
+
+  const [secretaries, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      include: {
+        doctor: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    prisma.user.count({ where }),
+  ]);
 
   const enriched = await Promise.all(
     secretaries.map((s) => serializeAdminUserWithSub(fromDbId(s.id), s))
   );
 
-  return apiOk({ secretaries: enriched });
+  return apiOk({
+    secretaries: enriched,
+    pagination: buildPaginationMeta(page, pageSize, total),
+  });
 }
 
 export async function POST(request: Request) {

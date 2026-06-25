@@ -11,7 +11,7 @@ import {
   PrescriptionItemsContent,
 } from "@/components/recipe/prescription-items-box";
 import { fieldFontSize } from "@/lib/patient-field-layout";
-import { formatAge, genderLabel } from "@/lib/patient-utils";
+import { formatAge, formatPrescriptionDate, genderLabel } from "@/lib/patient-utils";
 import { fontFamilyCss } from "@/lib/recipe-settings";
 import { paperDimensions } from "@/lib/recipe-paper";
 
@@ -38,6 +38,7 @@ export function RecipePreviewEditor({
 }: Props) {
   const [selected, setSelected] = useState<PositionKey | string | null>(null);
   const s = data.settings;
+  const isImageMode = s.designMode === "image";
   const itemsSize = itemsBoxSize(s);
   const dims = paperDimensions(s.paperSize);
 
@@ -47,10 +48,7 @@ export function RecipePreviewEditor({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-rx-muted">
-        اسحب الشريط العلوي للصندوق لتحريكه، والزاوية السفلية لتغيير الحجم
-      </p>
-      <div className="overflow-auto rounded-2xl border border-rx-border bg-slate-100 p-4">
+      <div className="overflow-auto rounded-xl border border-rx-border bg-slate-100 p-3 sm:p-4">
         <div
           className="relative mx-auto inline-block"
           data-recipe-canvas
@@ -133,9 +131,7 @@ export function RecipePreviewEditor({
                 onMove={(x, y) => move("date", x, y)}
               >
                 <span className="text-sm">
-                  {new Date(data.prescriptionDate).toLocaleDateString("ar-SY")}
-                  {" · #"}
-                  {data.prescriptionNumber}
+                  {formatPrescriptionDate(data.prescriptionDate)}
                 </span>
               </DraggableBlock>
 
@@ -169,8 +165,14 @@ export function RecipePreviewEditor({
                   onMove={(x, y) => onFieldPositionChange?.(field.id, x, y)}
                 >
                   <span style={{ fontSize: fieldFontSize(field.size) }}>
-                    <span className="font-medium">{field.name}:</span>{" "}
-                    {field.value}
+                    {isImageMode ? (
+                      field.value
+                    ) : (
+                      <>
+                        <span className="font-medium">{field.name}:</span>{" "}
+                        {field.value}
+                      </>
+                    )}
                   </span>
                 </DraggableBlock>
               ))}

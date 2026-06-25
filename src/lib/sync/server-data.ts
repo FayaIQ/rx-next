@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { toDbId } from "@/lib/bigint";
-import { serializePatient } from "@/lib/patient-serializer";
+import { serializePatient, fetchVisitStatsMap } from "@/lib/patient-serializer";
 import { serializePrescription, emptyMed } from "@/lib/prescription-service";
 import { listMedicinePresets } from "@/lib/medicine-preset-service";
 import { fromDbId } from "@/lib/bigint";
@@ -13,12 +13,7 @@ export async function fetchDoctorHydration(doctorId: number) {
       prisma.patient.findMany({
         where: { doctorId: doctorDbId },
         include: {
-          _count: { select: { prescriptions: true } },
-          prescriptions: {
-            orderBy: { prescriptionDate: "desc" },
-            take: 1,
-            select: { prescriptionDate: true },
-          },
+          fieldValues: true,
         },
       }),
       prisma.medicine.findMany({ where: { doctorId: doctorDbId } }),
@@ -42,8 +37,14 @@ export async function fetchDoctorHydration(doctorId: number) {
     take: 300,
   });
 
+  const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
+
   return {
-    patients: await Promise.all(patients.map(serializePatient)),
+    patients: await Promise.all(
+      patients.map((patient) =>
+        serializePatient(patient, visitStatsMap.get(patient.id.toString()))
+      )
+    ),
     medicines: medicines.map((m) => ({
       id: fromDbId(m.id),
       doctorId: fromDbId(m.doctorId),
@@ -103,12 +104,7 @@ export async function fetchDoctorChanges(doctorId: number, since: Date) {
       prisma.patient.findMany({
         where: { doctorId: doctorDbId, updatedAt: { gt: since } },
         include: {
-          _count: { select: { prescriptions: true } },
-          prescriptions: {
-            orderBy: { prescriptionDate: "desc" },
-            take: 1,
-            select: { prescriptionDate: true },
-          },
+          fieldValues: true,
         },
       }),
       prisma.medicine.findMany({
@@ -126,8 +122,14 @@ export async function fetchDoctorChanges(doctorId: number, since: Date) {
       }),
     ]);
 
+  const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
+
   return {
-    patients: await Promise.all(patients.map(serializePatient)),
+    patients: await Promise.all(
+      patients.map((patient) =>
+        serializePatient(patient, visitStatsMap.get(patient.id.toString()))
+      )
+    ),
     medicines: medicines.map((m) => ({
       id: fromDbId(m.id),
       doctorId: fromDbId(m.doctorId),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -9,7 +9,10 @@ import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CardsPageLoading } from "@/components/ui/page-loading";
 import { PageContent, PageHeader } from "@/components/ui/page-shell";
+import { Pagination } from "@/components/ui/pagination";
+import { usePaginationState } from "@/hooks/use-pagination-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { adminApi, type AdminUserDto } from "@/lib/api/admin-client";
 import { SubscriptionBadge } from "@/components/admin/subscription-badge";
@@ -23,10 +26,17 @@ export function AdminSubscriptionsClient({
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState(initialFilter);
   const [activateUser, setActivateUser] = useState<AdminUserDto | null>(null);
+  const { page, pageSize, onPageChange, onPageSizeChange } =
+    usePaginationState(filter);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-subscriptions", filter],
-    queryFn: () => adminApi.subscriptions(filter === "all" ? undefined : filter),
+    queryKey: ["admin-subscriptions", filter, page, pageSize],
+    queryFn: () =>
+      adminApi.subscriptions(filter === "all" ? undefined : filter, {
+        page,
+        pageSize,
+      }),
+    placeholderData: keepPreviousData,
   });
 
   const cancelMutation = useMutation({
@@ -39,10 +49,18 @@ export function AdminSubscriptionsClient({
   });
 
   const list = data?.subscriptions ?? [];
+  const pagination = data?.pagination;
+
+  if (isLoading && !data) {
+    return <CardsPageLoading />;
+  }
 
   return (
     <>
-      <AppHeader title="الاشتراكات" subtitle={`${list.length} اشتراك`} />
+      <AppHeader
+        title="الاشتراكات"
+        subtitle={`${pagination?.total ?? list.length} اشتراك`}
+      />
       <PageContent className="space-y-6">
         <PageHeader
           title="إدارة الاشتراكات"
@@ -131,6 +149,13 @@ export function AdminSubscriptionsClient({
                   </div>
                 </div>
               ))
+            )}
+            {pagination && (
+              <Pagination
+                pagination={pagination}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+              />
             )}
           </CardContent>
         </Card>

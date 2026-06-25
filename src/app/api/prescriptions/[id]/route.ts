@@ -13,6 +13,7 @@ import {
   serializePrescription,
 } from "@/lib/prescription-service";
 import { upsertMedicinePresets } from "@/lib/medicine-preset-service";
+import { upsertMedicinesFromPrescription } from "@/lib/medicine-catalog-service";
 import { toDbId } from "@/lib/bigint";
 import { z } from "zod";
 
@@ -57,9 +58,12 @@ export async function PUT(request: Request, { params }: Params) {
 
     after(async () => {
       try {
-        await upsertMedicinePresets(ctx.doctorId, data.items);
+        await Promise.all([
+          upsertMedicinePresets(ctx.doctorId, data.items),
+          upsertMedicinesFromPrescription(ctx.doctorId, data.items),
+        ]);
       } catch (error) {
-        console.error("medicine preset upsert failed", error);
+        console.error("medicine catalog upsert failed", error);
       }
     });
 

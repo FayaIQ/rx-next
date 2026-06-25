@@ -1,8 +1,8 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Users, FileText } from "lucide-react";
-import { useState } from "react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { Plus, Pencil, Trash2, Users, FileText, Smile } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { AppHeader } from "@/components/layout/app-header";
@@ -13,14 +13,22 @@ import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageContent, PageHeader } from "@/components/ui/page-shell";
+import { TablePageLoading } from "@/components/ui/page-loading";
 import { PatientForm } from "@/components/patients/patient-form";
+import { Pagination } from "@/components/ui/pagination";
+import { usePaginationState } from "@/hooks/use-pagination-state";
 import {
-  fetchPatientsOfflineFirst,
+  fetchPatientsPaginated,
   deletePatientOffline,
 } from "@/lib/data/offline-api";
 import { refreshPendingCount } from "@/lib/sync/sync-engine";
 import type { PatientDto } from "@/lib/api/rx-client";
 import { genderLabel } from "@/lib/patient-utils";
+import {
+  activePersonalFields,
+  getFieldValue,
+} from "@/lib/patient-field-display";
+import { usePatientFields } from "@/hooks/use-patient-fields";
 
 export function PatientsPageClient({
   title = "المرضى",
@@ -33,11 +41,22 @@ export function PatientsPageClient({
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<PatientDto | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const { page, pageSize, onPageChange, onPageSizeChange } =
+    usePaginationState(q);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["patients", q],
-    queryFn: () => fetchPatientsOfflineFirst(q || undefined),
+    queryKey: ["patients", q, page, pageSize],
+    queryFn: () => fetchPatientsPaginated(q || undefined, page, pageSize),
+    placeholderData: keepPreviousData,
+    retry: (failureCount) => navigator.onLine && failureCount < 1,
   });
+
+  const { data: fieldsData } = usePatientFields();
+
+  const personalFields = useMemo(
+    () => activePersonalFields(fieldsData),
+    [fieldsData]
+  );
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deletePatientOffline(id),
@@ -49,11 +68,19 @@ export function PatientsPageClient({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const patients = data ?? [];
+  const patients = data?.patients ?? [];
+  const pagination = data?.pagination;
+
+  if (isLoading && !data) {
+    return <TablePageLoading />;
+  }
 
   return (
     <>
-      <AppHeader title={title} subtitle={`${patients.length} مريض مسجّل`} />
+      <AppHeader
+        title={title}
+        subtitle={`${pagination?.total ?? patients.length} مريض مسجّل`}
+      />
       <PageContent>
         <PageHeader
           title="قائمة المرضى"
@@ -85,6 +112,7 @@ export function PatientsPageClient({
             </CardHeader>
             <CardContent>
               <PatientForm
+                key={editing ? `edit-${editing.id}` : "new-patient"}
                 patient={editing}
                 onSuccess={() => {
                   setShowForm(false);
@@ -128,6 +156,14 @@ export function PatientsPageClient({
                       <th className="px-5 py-3.5 text-right font-medium">الجنس</th>
                       <th className="px-5 py-3.5 text-right font-medium">العمر</th>
                       <th className="px-5 py-3.5 text-right font-medium">الزيارات</th>
+                      {personalFields.map((field) => (
+                        <th
+                          key={field.id}
+                          className="px-5 py-3.5 text-right font-medium whitespace-nowrap"
+                        >
+                          {field.name}
+                        </th>
+                      ))}
                       <th className="px-5 py-3.5 text-right font-medium">الهاتف</th>
                       <th className="px-5 py-3.5 text-right font-medium">إجراءات</th>
                     </tr>
@@ -145,11 +181,27 @@ export function PatientsPageClient({
                         <td className="px-5 py-4">
                           <Badge variant="secondary">{patient.visitCount}</Badge>
                         </td>
+                        {personalFields.map((field) => (
+                          <td
+                            key={field.id}
+                            className="px-5 py-4 text-rx-text-secondary whitespace-nowrap"
+                          >
+                            {getFieldValue(patient.fieldValues, field.id)}
+                          </td>
+                        ))}
                         <td className="px-5 py-4 font-mono text-xs text-rx-muted" dir="ltr">
                           {patient.phone ?? "—"}
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex gap-1">
+                            {patient.id > 0 && (
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/dental/${patient.id}`}>
+                                  <Smile size={14} />
+                                  الطبلة
+                                </Link>
+                              </Button>
+                            )}
                             {showRecordLink && patient.id > 0 && (
                               <Button variant="ghost" size="sm" asChild>
                                 <Link href={`/patients/${patient.id}/record`}>
@@ -185,6 +237,13 @@ export function PatientsPageClient({
                     ))}
                   </tbody>
                 </table>
+                {pagination && (
+                  <Pagination
+                    pagination={pagination}
+                    onPageChange={onPageChange}
+                    onPageSizeChange={onPageSizeChange}
+                  />
+                )}
               </div>
             )}
           </CardContent>

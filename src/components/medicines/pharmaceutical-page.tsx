@@ -1,38 +1,133 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Download, Pill } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Download,
+  Pill,
+  X,
+  ChevronDown,
+  Package,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PageContent, PageHeader } from "@/components/ui/page-shell";
-import { fetchMedicinesOfflineFirst } from "@/lib/data/offline-api";
+import { PageContent } from "@/components/ui/page-shell";
+import { TablePageLoading } from "@/components/ui/page-loading";
+import { Pagination } from "@/components/ui/pagination";
+import { usePaginationState } from "@/hooks/use-pagination-state";
+import {
+  MedicineForm,
+  emptyMedicineForm,
+  medicineToFormValues,
+  type MedicineFormValues,
+} from "@/components/medicines/medicine-form";
+import { fetchMedicinesPaginated } from "@/lib/data/offline-api";
 import { rxApi, type MedicineDto } from "@/lib/api/rx-client";
+import { cn } from "@/lib/utils";
+
+function MedicineMeta({ medicine }: { medicine: MedicineDto }) {
+  const items = [
+    medicine.type && { label: "النوع", value: medicine.type },
+    medicine.dosage && { label: "الجرعة", value: medicine.dosage },
+    medicine.quantity && { label: "الكمية", value: medicine.quantity },
+    medicine.period && { label: "المدة", value: medicine.period },
+    medicine.timeOfUse && { label: "الاستخدام", value: medicine.timeOfUse },
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+  if (items.length === 0) {
+    return <p className="text-xs text-rx-muted">لا توجد تفاصيل إضافية</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((item) => (
+        <Badge key={item.label} variant="secondary" className="font-normal">
+          <span className="text-rx-muted">{item.label}:</span>{" "}
+          <span className="text-rx-text">{item.value}</span>
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function MedicineRow({
+  medicine,
+  onEdit,
+  onDelete,
+  deletePending,
+}: {
+  medicine: MedicineDto;
+  onEdit: (m: MedicineDto) => void;
+  onDelete: (id: number) => void;
+  deletePending: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-3 p-4 transition-colors hover:bg-rx-bg-subtle/50 sm:flex-row sm:items-start sm:justify-between sm:p-5">
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="flex items-start gap-2">
+          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-rx-primary-light text-rx-primary">
+            <Pill size={16} />
+          </span>
+          <div className="min-w-0">
+            <p className="font-semibold text-rx-text">{medicine.name}</p>
+            <div className="mt-2">
+              <MedicineMeta medicine={medicine} />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-2 sm:flex-col sm:items-stretch">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 sm:flex-none"
+          onClick={() => onEdit(medicine)}
+        >
+          <Pencil size={14} />
+          تعديل
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-rx-danger hover:bg-red-50 hover:text-rx-danger sm:flex-none"
+          disabled={deletePending}
+          onClick={() => {
+            if (confirm(`حذف «${medicine.name}» من المكتبة؟`)) {
+              onDelete(medicine.id);
+            }
+          }}
+        >
+          <Trash2 size={14} />
+          حذف
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function PharmaceuticalPageClient() {
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<MedicineDto | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    type: "",
-    dosage: "",
-    quantity: "",
-    period: "",
-    timeOfUse: "",
-  });
+  const [formOpen, setFormOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [importingId, setImportingId] = useState<number | null>(null);
+  const [form, setForm] = useState<MedicineFormValues>(emptyMedicineForm);
+  const { page, pageSize, onPageChange, onPageSizeChange } =
+    usePaginationState(q);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["medicines", q],
-    queryFn: () => fetchMedicinesOfflineFirst(q || undefined),
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["medicines", q, page, pageSize],
+    queryFn: () => fetchMedicinesPaginated(q || undefined, page, pageSize),
+    placeholderData: keepPreviousData,
   });
 
   const { data: categoriesData } = useQuery({
@@ -43,7 +138,7 @@ export function PharmaceuticalPageClient() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const body = {
-        name: form.name,
+        name: form.name.trim(),
         type: form.type || null,
         dosage: form.dosage || null,
         quantity: form.quantity || null,
@@ -55,8 +150,8 @@ export function PharmaceuticalPageClient() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medicines"] });
-      toast.success(editing ? "تم التحديث" : "تمت الإضافة");
-      resetForm();
+      toast.success(editing ? "تم تحديث الدواء" : "تمت إضافة الدواء");
+      closeForm();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -65,217 +160,231 @@ export function PharmaceuticalPageClient() {
     mutationFn: (id: number) => rxApi.medicines.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medicines"] });
-      toast.success("تم الحذف");
+      toast.success("تم حذف الدواء");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const importMutation = useMutation({
-    mutationFn: (categoryId: number) =>
-      rxApi.medicines.includeCategory(categoryId),
+    mutationFn: (categoryId: number) => {
+      setImportingId(categoryId);
+      return rxApi.medicines.includeCategory(categoryId);
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["medicines"] });
       toast.success(`تم استيراد ${data.added} دواء`);
+      setCatalogOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setImportingId(null),
   });
 
-  function resetForm() {
-    setForm({
-      name: "",
-      type: "",
-      dosage: "",
-      quantity: "",
-      period: "",
-      timeOfUse: "",
-    });
+  const categories = categoriesData?.categories ?? [];
+  const hasCatalog = categories.length > 0;
+
+  function openCreateForm() {
     setEditing(null);
-    setShowForm(false);
+    setForm(emptyMedicineForm);
+    setFormOpen(true);
   }
 
-  function startEdit(medicine: MedicineDto) {
+  function openEditForm(medicine: MedicineDto) {
     setEditing(medicine);
-    setForm({
-      name: medicine.name,
-      type: medicine.type ?? "",
-      dosage: medicine.dosage ?? "",
-      quantity: medicine.quantity ?? "",
-      period: medicine.period ?? "",
-      timeOfUse: medicine.timeOfUse ?? "",
-    });
-    setShowForm(true);
+    setForm(medicineToFormValues(medicine));
+    setFormOpen(true);
   }
 
-  const medicines = data ?? [];
+  function closeForm() {
+    setFormOpen(false);
+    setEditing(null);
+    setForm(emptyMedicineForm);
+  }
+
+  useEffect(() => {
+    if (!formOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeForm();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [formOpen]);
+
+  const medicines = data?.medicines ?? [];
+  const pagination = data?.pagination;
+  const total = pagination?.total ?? medicines.length;
+
+  const subtitle = useMemo(() => {
+    if (q.trim()) return `${total} نتيجة للبحث`;
+    return `${total} دواء في المكتبة`;
+  }, [q, total]);
+
+  if (isLoading && !data) {
+    return <TablePageLoading />;
+  }
 
   return (
     <>
-      <AppHeader title="مكتبة الأدوية" subtitle={`${medicines.length} دواء`} />
-      <PageContent className="space-y-6">
-        <PageHeader
-          title="إدارة الأدوية"
-          description="أضف أدوية مخصصة أو استورد من الكتالوج"
-          actions={
-            <Button
-              onClick={() => {
-                resetForm();
-                setShowForm(true);
-              }}
-            >
-              <Plus size={16} />
-              دواء جديد
-            </Button>
-          }
-        />
+      <AppHeader title="مكتبة الأدوية" subtitle={subtitle} />
 
-        <SearchInput
-          value={q}
-          onChange={setQ}
-          placeholder="بحث عن دواء..."
-          className="max-w-md"
-        />
-
-        {categoriesData?.categories && categoriesData.categories.length > 0 && (
-          <Card hover>
-            <CardHeader>
-              <CardTitle>استيراد من الكتالوج</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              {categoriesData.categories.map((cat) => (
-                <Button
-                  key={cat.id}
-                  variant="outline"
-                  size="sm"
-                  disabled={importMutation.isPending}
-                  onClick={() => importMutation.mutate(cat.id)}
-                >
-                  <Download size={14} />
-                  {cat.name} ({cat.medicinesCount})
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {showForm && (
-          <Card hover>
-            <CardHeader>
-              <CardTitle>{editing ? "تعديل دواء" : "إضافة دواء"}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  saveMutation.mutate();
-                }}
-              >
-                {(
-                  [
-                    ["name", "الاسم"],
-                    ["type", "النوع"],
-                    ["dosage", "الجرعة"],
-                    ["quantity", "الكمية"],
-                    ["period", "المدة"],
-                    ["timeOfUse", "وقت الاستخدام"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <div key={key} className="space-y-2">
-                    <Label>{label}</Label>
-                    <Input
-                      value={form[key]}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, [key]: e.target.value }))
-                      }
-                      required={key === "name"}
+      <PageContent className="space-y-4">
+        <Card className="overflow-hidden">
+          <CardHeader className="space-y-4 border-b border-rx-border/80 bg-rx-bg-subtle/30 px-4 py-4 sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <SearchInput
+                value={q}
+                onChange={setQ}
+                placeholder="ابحث بالاسم..."
+                className="w-full sm:max-w-md sm:flex-1"
+              />
+              <div className="flex flex-wrap gap-2">
+                {hasCatalog && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCatalogOpen((v) => !v)}
+                    aria-expanded={catalogOpen}
+                  >
+                    <Package size={15} />
+                    استيراد كتالوج
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        "transition-transform",
+                        catalogOpen && "rotate-180"
+                      )}
                     />
-                  </div>
-                ))}
-                <div className="flex gap-2 sm:col-span-2 lg:col-span-3">
-                  <Button type="submit" disabled={saveMutation.isPending}>
-                    حفظ
                   </Button>
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    إلغاء
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="space-y-3 p-6">
-                {[1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
+                )}
+                <Button size="sm" onClick={openCreateForm}>
+                  <Plus size={15} />
+                  دواء جديد
+                </Button>
               </div>
-            ) : medicines.length === 0 ? (
+            </div>
+
+            {catalogOpen && hasCatalog && (
+              <div className="rounded-xl border border-rx-border bg-rx-surface p-3">
+                <p className="mb-2 text-xs text-rx-muted">
+                  اختر فئة لإضافة أدوية جاهزة إلى مكتبتك
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat) => (
+                    <Button
+                      key={cat.id}
+                      variant="secondary"
+                      size="sm"
+                      disabled={importMutation.isPending}
+                      onClick={() => importMutation.mutate(cat.id)}
+                    >
+                      <Download size={14} />
+                      {cat.name}
+                      <Badge variant="outline" className="mr-1">
+                        {cat.medicinesCount}
+                      </Badge>
+                      {importingId === cat.id && (
+                        <span className="text-xs text-rx-muted">...</span>
+                      )}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardHeader>
+
+          <CardContent className="p-0">
+            {isFetching && !isLoading && (
+              <div className="h-0.5 w-full overflow-hidden bg-rx-border/40">
+                <div className="h-full w-1/3 animate-pulse bg-rx-primary" />
+              </div>
+            )}
+
+            {medicines.length === 0 ? (
               <EmptyState
                 icon={Pill}
-                title="لا توجد أدوية"
-                description="أضف دواءً جديداً أو استورد من الكتالوج"
+                title={q.trim() ? "لا توجد نتائج" : "مكتبتك فارغة"}
+                description={
+                  q.trim()
+                    ? "جرّب كلمة بحث أخرى أو أضف دواءً جديداً"
+                    : "أضف أدوية يدوياً أو استورد من الكتالوج الجاهز"
+                }
                 action={
-                  <Button onClick={() => setShowForm(true)}>
-                    <Plus size={16} />
-                    إضافة دواء
-                  </Button>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button onClick={openCreateForm}>
+                      <Plus size={16} />
+                      إضافة دواء
+                    </Button>
+                    {hasCatalog && (
+                      <Button variant="outline" onClick={() => setCatalogOpen(true)}>
+                        <Download size={16} />
+                        استيراد كتالوج
+                      </Button>
+                    )}
+                  </div>
                 }
               />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="rx-table w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-rx-border text-rx-muted">
-                      <th className="px-5 py-3.5 text-right font-medium">الاسم</th>
-                      <th className="px-5 py-3.5 text-right font-medium">النوع</th>
-                      <th className="px-5 py-3.5 text-right font-medium">الجرعة</th>
-                      <th className="px-5 py-3.5 text-right font-medium">إجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-rx-border/60">
-                    {medicines.map((med) => (
-                      <tr key={med.id}>
-                        <td className="px-5 py-4 font-semibold">{med.name}</td>
-                        <td className="px-5 py-4 text-rx-text-secondary">
-                          {med.type ?? "—"}
-                        </td>
-                        <td className="px-5 py-4 text-rx-text-secondary">
-                          {med.dosage ?? "—"}
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => startEdit(med)}
-                            >
-                              <Pencil size={16} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                if (confirm("حذف هذا الدواء؟")) {
-                                  deleteMutation.mutate(med.id);
-                                }
-                              }}
-                            >
-                              <Trash2 size={16} className="text-rx-danger" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="divide-y divide-rx-border/60">
+                  {medicines.map((med) => (
+                    <MedicineRow
+                      key={med.id}
+                      medicine={med}
+                      onEdit={openEditForm}
+                      onDelete={(id) => deleteMutation.mutate(id)}
+                      deletePending={deleteMutation.isPending}
+                    />
+                  ))}
+                </div>
+                {pagination && (
+                  <Pagination
+                    pagination={pagination}
+                    onPageChange={onPageChange}
+                    onPageSizeChange={onPageSizeChange}
+                  />
+                )}
+              </>
             )}
           </CardContent>
         </Card>
       </PageContent>
+
+      {formOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-4"
+          onClick={closeForm}
+        >
+          <Card
+            className="max-h-[min(92vh,44rem)] w-full max-w-lg overflow-y-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-rx-border/80 pb-3">
+              <CardTitle className="text-base">
+                {editing ? "تعديل دواء" : "إضافة دواء جديد"}
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={closeForm}
+                aria-label="إغلاق"
+              >
+                <X size={16} />
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <MedicineForm
+                values={form}
+                onChange={setForm}
+                editing={editing}
+                pending={saveMutation.isPending}
+                onSubmit={() => saveMutation.mutate()}
+                onCancel={closeForm}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </>
   );
 }

@@ -4,7 +4,7 @@
   /* Brand — RX Clinic teal → navy gradient */
   --rx-primary: #0891b2;
   --rx-primary-hover: #0e7490;
-  --rx-primary-light: #ecfeff;
+  --rx-primary-light: #f0f9ff;
   --rx-accent: #2dd4bf;
   --rx-accent-light: #ccfbf1;
   --rx-brand-teal: #14b8a6;
@@ -21,13 +21,19 @@
   --rx-secretary-sidebar-from: #0f766e;
   --rx-secretary-sidebar-to: #115e59;
 
-  /* Surfaces */
-  --rx-bg: #f0fdfa;
-  --rx-bg-subtle: #f8fffe;
+  /* Surfaces — neutral clinical (less mint noise) */
+  --rx-bg: #f8fafc;
+  --rx-bg-subtle: #f1f5f9;
   --rx-surface: #ffffff;
   --rx-surface-raised: #ffffff;
-  --rx-border: #ccfbf1;
-  --rx-border-subtle: #f0fdfa;
+  --rx-border: #e2e8f0;
+  --rx-border-subtle: #f1f5f9;
+
+  /* Form fields */
+  --rx-form-border: #e2e8f0;
+  --rx-form-border-hover: #cbd5e1;
+  --rx-form-bg: #ffffff;
+  --rx-form-focus-ring: rgb(8 145 178 / 0.14);
 
   /* Text */
   --rx-text: #0f172a;
@@ -61,6 +67,8 @@
   /* Layout */
   --rx-sidebar-width: 17.5rem;
   --rx-header-height: 4rem;
+  --rx-nav-pill-height: 4.25rem;
+  --rx-nav-pill-offset: calc(var(--rx-nav-pill-height) + 1.25rem);
 
   /* Brand gradient */
   --rx-gradient-brand: linear-gradient(
@@ -81,6 +89,7 @@
   --color-rx-bg-subtle: var(--rx-bg-subtle);
   --color-rx-surface: var(--rx-surface);
   --color-rx-border: var(--rx-border);
+  --color-rx-form-border: var(--rx-form-border);
   --color-rx-text: var(--rx-text);
   --color-rx-text-secondary: var(--rx-text-secondary);
   --color-rx-muted: var(--rx-muted);
@@ -95,7 +104,7 @@
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #99f6e4 transparent;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
 html {
@@ -113,8 +122,7 @@ body {
 /* App shell background */
 .rx-app-bg {
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgb(45 212 191 / 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgb(8 145 178 / 0.08), transparent),
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgb(148 163 184 / 0.08), transparent),
     var(--rx-bg);
   min-height: 100vh;
 }
@@ -146,7 +154,7 @@ body {
 
 .rx-page-wide {
   padding: 1rem;
-  max-width: 1600px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
@@ -170,7 +178,150 @@ body {
   transition: background-color 0.15s ease;
 }
 .rx-table tbody tr:hover {
-  background: var(--rx-primary-light);
+  background: var(--rx-bg-subtle);
+}
+
+/* ——— Unified form controls (prescription & data entry) ——— */
+.rx-label {
+  display: block;
+  margin-bottom: 0.125rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--rx-muted);
+}
+
+.rx-input {
+  display: flex;
+  height: 2rem;
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid var(--rx-form-border);
+  background: var(--rx-form-bg);
+  padding-inline: 0.625rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--rx-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rx-input::placeholder {
+  color: var(--rx-muted-foreground);
+}
+
+.rx-input:hover:not(:disabled) {
+  border-color: var(--rx-form-border-hover);
+}
+
+.rx-input:focus-visible {
+  outline: none;
+  border-color: var(--rx-primary);
+  box-shadow: 0 0 0 2px var(--rx-form-focus-ring);
+}
+
+.rx-input:disabled {
+  cursor: not-allowed;
+  background: var(--rx-bg-subtle);
+  opacity: 0.7;
+}
+
+.rx-select {
+  appearance: none;
+  display: flex;
+  height: 2rem;
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid var(--rx-form-border);
+  background: var(--rx-form-bg);
+  padding-inline: 0.625rem;
+  font-size: 0.875rem;
+  color: var(--rx-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rx-select:hover {
+  border-color: var(--rx-form-border-hover);
+}
+
+.rx-select:focus-visible {
+  outline: none;
+  border-color: var(--rx-primary);
+  box-shadow: 0 0 0 2px var(--rx-form-focus-ring);
+}
+
+.rx-textarea {
+  display: flex;
+  min-height: 3.5rem;
+  width: 100%;
+  resize: vertical;
+  border-radius: 0.375rem;
+  border: 1px solid var(--rx-form-border);
+  background: var(--rx-form-bg);
+  padding: 0.375rem 0.625rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--rx-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rx-textarea::placeholder {
+  color: var(--rx-muted-foreground);
+}
+
+.rx-textarea:hover:not(:disabled) {
+  border-color: var(--rx-form-border-hover);
+}
+
+.rx-textarea:focus-visible {
+  outline: none;
+  border-color: var(--rx-primary);
+  box-shadow: 0 0 0 2px var(--rx-form-focus-ring);
+}
+
+.rx-section {
+  padding-top: 0.625rem;
+}
+
+.rx-section:first-child {
+  padding-top: 0;
+}
+
+.rx-prescription-sheet {
+  border-radius: 0.5rem;
+  border: 1px solid var(--rx-form-border);
+  background: var(--rx-surface);
+  padding: 0.75rem;
+}
+
+.rx-list-item {
+  display: block;
+  width: 100%;
+  border-bottom: 1px solid var(--rx-form-border);
+  padding: 0.375rem 0.5rem;
+  text-align: right;
+  font-size: 0.875rem;
+  transition: background-color 0.12s ease;
+}
+
+.rx-list-item:last-child {
+  border-bottom: 0;
+}
+
+.rx-list-item:hover,
+.rx-list-item:focus-visible {
+  background: var(--rx-bg-subtle);
+  outline: none;
+}
+
+.rx-patient-chip {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--rx-text-secondary);
+}
+
+.rx-patient-chip strong {
+  font-weight: 600;
+  color: var(--rx-text);
 }
 
 @media print {

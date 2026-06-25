@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DetailPageLoading } from "@/components/ui/page-loading";
 import { PageContent } from "@/components/ui/page-shell";
 import { adminApi } from "@/lib/api/admin-client";
 import { SubscriptionBadge } from "@/components/admin/subscription-badge";
@@ -21,6 +22,10 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
   const user = data?.user;
   const history = data?.subscriptionHistory ?? [];
 
+  if (isLoading && !data) {
+    return <DetailPageLoading />;
+  }
+
   return (
     <>
       <AppHeader title="تفاصيل المستخدم" />
@@ -32,12 +37,7 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
           </Link>
         </Button>
 
-        {isLoading || !user ? (
-          <div className="space-y-4">
-            <Skeleton className="h-40 rounded-2xl" />
-            <Skeleton className="h-60 rounded-2xl" />
-          </div>
-        ) : (
+        {user ? (
           <>
             <Card hover>
               <CardHeader>
@@ -114,6 +114,12 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
               </CardContent>
             </Card>
           </>
+        ) : (
+          <EmptyState
+            icon={FileText}
+            title="المستخدم غير موجود"
+            description="تعذّر العثور على هذا المستخدم"
+          />
         )}
       </PageContent>
     </>

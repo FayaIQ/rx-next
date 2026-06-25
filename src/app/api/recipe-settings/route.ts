@@ -61,6 +61,7 @@ export async function PUT(req: Request) {
       paperSize: data.paperSize,
       color: data.color,
       designMode: data.designMode,
+      designTemplate: data.designTemplate ?? "classic",
       designImageScale: data.designImageScale ?? 1,
       designPatientX: data.designPatientX,
       designPatientY: data.designPatientY,

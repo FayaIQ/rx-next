@@ -1,26 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import type { MedicinePresetDto } from "@/lib/api/rx-client";
 import {
-  filterPresetsForMedicine,
-  formatPresetLabel,
-  hasUsageFields,
-  pickAutoFillPreset,
-  presetOptionKey,
-  resolveMedicineFill,
+  getMedicineFieldOptions,
+  type MedicineFillField,
 } from "@/lib/medicine-preset-utils";
 import {
   filterMedicineGroups,
   findGroupForQuery,
-  findVariant,
   type MedicineGroup,
-  uniqueTypes,
 } from "@/lib/medicine-utils";
+import { cn } from "@/lib/utils";
 
 export type MedicineRowData = {
   id?: number;
@@ -44,25 +39,76 @@ type Props = {
   onChange: (row: MedicineRowData) => void;
   onRemove: () => void;
   canRemove: boolean;
+  compact?: boolean;
+  /** Inline row on prescription mockup — same logic, minimal chrome */
+  mockup?: boolean;
+  isLastRow?: boolean;
+  onAddRow?: () => void;
 };
 
-const OTHER_FIELDS = [
+const USAGE_FIELDS = [
+  ["type", "النوع"],
   ["dosage", "الجرعة"],
   ["quantity", "الكمية"],
   ["period", "المدة"],
   ["timeOfUse", "وقت الاستخدام"],
 ] as const;
 
-function applyPreset(row: MedicineRowData, preset: MedicinePresetDto): MedicineRowData {
+function emptyUsageFields() {
   return {
-    ...row,
-    name: preset.name,
-    type: preset.type,
-    dosage: preset.dosage,
-    quantity: preset.quantity,
-    period: preset.period,
-    timeOfUse: preset.timeOfUse,
+    type: "",
+    dosage: "",
+    quantity: "",
+    period: "",
+    timeOfUse: "",
   };
+}
+
+function handleOptionListKeyDown(
+  e: React.KeyboardEvent,
+  optionCount: number,
+  highlight: number,
+  setHighlight: (index: number) => void,
+  onPick: (index: number) => void,
+  onEnterWithoutPick?: () => void
+) {
+  if (optionCount === 0) return false;
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    setHighlight(
+      highlight < 0 ? 0 : Math.min(highlight + 1, optionCount - 1)
+    );
+    return true;
+  }
+
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    setHighlight(
+      highlight < 0 ? optionCount - 1 : Math.max(highlight - 1, 0)
+    );
+    return true;
+  }
+
+  if (e.key === "Enter" && highlight >= 0) {
+    e.preventDefault();
+    onPick(highlight);
+    return true;
+  }
+
+  if (e.key === "Enter" && highlight < 0 && onEnterWithoutPick) {
+    e.preventDefault();
+    onEnterWithoutPick();
+    return true;
+  }
+
+  if (e.key === "Escape") {
+    e.preventDefault();
+    setHighlight(-1);
+    return true;
+  }
+
+  return false;
 }
 
 export function MedicineRowEditor({
@@ -76,197 +122,155 @@ export function MedicineRowEditor({
   onChange,
   onRemove,
   canRemove,
+  compact = false,
+  mockup = false,
 }: Props) {
-  const lastAutoFillKey = useRef("");
-  const group = findGroupForQuery(groups, row.name);
-  const typeOptions = group ? uniqueTypes(group.variants) : [];
-  const showTypeSelect = typeOptions.length > 0;
+  const [focusedField, setFocusedField] = useState<MedicineFillField | null>(
+    null
+  );
+  const [nameHighlight, setNameHighlight] = useState(-1);
+  const [usageHighlight, setUsageHighlight] = useState(-1);
+
   const suggestions = isOpen ? filterMedicineGroups(groups, row.name) : [];
 
-  const rowPresets = useMemo(
-    () =>
-      row.name.trim()
-        ? filterPresetsForMedicine(presets, row.name, row.type)
-        : [],
-    [presets, row.name, row.type]
-  );
-
-  const allRowPresets = useMemo(
-    () => (row.name.trim() ? filterPresetsForMedicine(presets, row.name) : []),
-    [presets, row.name]
-  );
-
-  const mostUsedPreset = allRowPresets[0];
-
-  const activePresetKey = useMemo(() => {
-    const pool = rowPresets.length > 0 ? rowPresets : allRowPresets;
-    const match = pool.find(
-      (p) =>
-        p.type === row.type &&
-        p.dosage === row.dosage &&
-        p.quantity === row.quantity &&
-        p.period === row.period &&
-        p.timeOfUse === row.timeOfUse
-    );
-    if (match) return presetOptionKey(match, pool.indexOf(match));
-    return "";
-  }, [
-    rowPresets,
-    allRowPresets,
-    row.type,
-    row.dosage,
-    row.quantity,
-    row.period,
-    row.timeOfUse,
-  ]);
-
-  function tryAutoFill(name: string, type = row.type, force = false) {
-    if (!name.trim()) return;
-    if (!force && hasUsageFields(row)) return;
-
-    const autoKey = `${name}|${type}|${presets.length}`;
-    if (!force && lastAutoFillKey.current === autoKey) return;
-
-    const filled = resolveMedicineFill(
-      { ...row, name, type },
-      groups,
-      presets,
-      name
-    );
-    if (!filled) return;
-
-    const changed =
-      filled.name !== row.name ||
-      filled.type !== row.type ||
-      filled.dosage !== row.dosage ||
-      filled.quantity !== row.quantity ||
-      filled.period !== row.period ||
-      filled.timeOfUse !== row.timeOfUse;
-
-    if (changed) {
-      lastAutoFillKey.current = autoKey;
-      onChange({ ...row, ...filled });
-    }
-  }
+  useEffect(() => {
+    setNameHighlight(-1);
+  }, [row.name, suggestions.length, isOpen]);
 
   useEffect(() => {
-    if (!row.name.trim() || hasUsageFields(row)) return;
-    tryAutoFill(row.name, row.type);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presets, groups, row.name, row.type]);
+    setUsageHighlight(-1);
+  }, [focusedField, row.name, row.type, row.dosage, row.quantity, row.period, row.timeOfUse]);
+
+  const fieldOptions = useMemo(() => {
+    const map = new Map<MedicineFillField, ReturnType<typeof getMedicineFieldOptions>>();
+    for (const [field] of USAGE_FIELDS) {
+      map.set(field, getMedicineFieldOptions(field, row, groups, presets));
+    }
+    return map;
+  }, [row, groups, presets]);
 
   function selectGroup(selected: MedicineGroup) {
     onClose();
-    lastAutoFillKey.current = "";
-    const preset = pickAutoFillPreset(presets, selected.name);
-    if (preset) {
-      onChange(applyPreset(row, preset));
-      return;
-    }
-    tryAutoFill(selected.name, "", true);
+    onChange({
+      ...row,
+      name: selected.name,
+      ...emptyUsageFields(),
+    });
   }
 
-  function selectType(type: string) {
-    lastAutoFillKey.current = `manual|${row.name}|${type}`;
-
-    const preset = pickAutoFillPreset(presets, row.name, type);
-    if (preset) {
-      onChange(applyPreset({ ...row, type }, preset));
-      return;
-    }
-
-    if (group) {
-      const variant = findVariant(group.variants, type);
-      if (variant) {
-        onChange({
-          ...row,
-          type,
-          name: variant.name.trim(),
-          dosage: variant.dosage?.trim() ?? "",
-          quantity: variant.quantity?.trim() ?? "",
-          period: variant.period?.trim() ?? "",
-          timeOfUse: variant.timeOfUse?.trim() ?? "",
-        });
-        return;
-      }
-    }
-
-    onChange({ ...row, type });
-  }
-
-  function commitNameOnBlur() {
+  function commitName() {
     onClose();
-    if (!row.name.trim() || hasUsageFields(row)) return;
-    tryAutoFill(row.name.trim(), row.type, true);
+    const trimmed = row.name.trim();
+    if (!trimmed) return;
+    const match = findGroupForQuery(groups, trimmed);
+    if (match && match.name !== row.name) {
+      onChange({ ...row, name: match.name });
+    }
   }
 
-  function selectPreset(presetId: string) {
-    const pool = rowPresets.length > 0 ? rowPresets : allRowPresets;
-    const preset = pool.find(
-      (p, index) => presetOptionKey(p, index) === presetId
-    );
-    if (preset) onChange(applyPreset(row, preset));
+  function autoFillSingleOption(field: MedicineFillField) {
+    if (row[field].trim()) return;
+    const options = fieldOptions.get(field) ?? [];
+    if (options.length === 1) {
+      onChange({ ...row, [field]: options[0]!.value });
+    }
   }
 
-  return (
-    <div className="space-y-2">
-      <div className="grid gap-3 rounded-xl border border-rx-border/80 bg-rx-bg-subtle/30 p-4 lg:grid-cols-7">
-        <div className="relative space-y-1 lg:col-span-2">
-          <Label>الاسم</Label>
+  function renderUsageField(field: MedicineFillField, label: string) {
+    const options = fieldOptions.get(field) ?? [];
+    const showDropdown = focusedField === field && options.length > 0;
+    const activeHighlight = focusedField === field ? usageHighlight : -1;
+
+    return (
+      <div key={field} className={mockup ? "min-w-0" : "space-y-0.5"}>
+        {!mockup && (
+          <Label className={compact ? "rx-label" : undefined}>{label}</Label>
+        )}
+        <div className="relative">
           <Input
-            value={row.name}
+            fieldSize={mockup || compact ? "compact" : "default"}
+            className={mockup ? "h-6 text-xs" : undefined}
+            value={row[field]}
             autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            name={`rx-medicine-${rowKey}`}
-            id={`rx-medicine-${rowKey}`}
-            role="combobox"
-            aria-expanded={isOpen && suggestions.length > 0}
+            aria-label={mockup ? label : undefined}
+            aria-expanded={showDropdown}
             aria-autocomplete="list"
-            onFocus={onOpen}
-            onClick={onOpen}
+            placeholder={mockup ? label.split(" ")[0] : undefined}
+            data-rx-medicine-row={rowKey}
+            data-rx-medicine-field={field}
+            onFocus={() => {
+              setFocusedField(field);
+              setUsageHighlight(-1);
+            }}
             onBlur={() => {
               setTimeout(() => {
-                commitNameOnBlur();
+                setFocusedField((current) =>
+                  current === field ? null : current
+                );
+                setUsageHighlight(-1);
+                autoFillSingleOption(field);
               }, 200);
             }}
             onChange={(e) => {
-              lastAutoFillKey.current = "";
-              onChange({
-                ...row,
-                name: e.target.value,
-                type: "",
-                dosage: "",
-                quantity: "",
-                period: "",
-                timeOfUse: "",
-              });
+              setUsageHighlight(-1);
+              onChange({ ...row, [field]: e.target.value });
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commitNameOnBlur();
+              if (
+                handleOptionListKeyDown(
+                  e,
+                  options.length,
+                  activeHighlight,
+                  setUsageHighlight,
+                  (index) => {
+                    const option = options[index];
+                    if (!option) return;
+                    onChange({ ...row, [field]: option.value });
+                    setFocusedField(null);
+                    setUsageHighlight(-1);
+                  }
+                )
+              ) {
+                return;
               }
             }}
           />
-          {isOpen && suggestions.length > 0 && (
+          {showDropdown && (
             <ul
               role="listbox"
-              className="absolute z-30 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-rx-border bg-rx-surface shadow-xl"
+              className={
+                mockup
+                  ? "absolute z-[80] mt-0.5 max-h-40 w-full min-w-[8rem] overflow-y-auto rounded-md border border-rx-form-border bg-rx-surface text-xs shadow-lg"
+                  : "absolute z-30 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-rx-form-border bg-rx-surface shadow-md"
+              }
             >
-              {suggestions.map((g) => (
-                <li key={g.key} role="option" aria-selected={false}>
+              {options.map((option, index) => (
+                <li
+                  key={option.value}
+                  role="option"
+                  aria-selected={index === activeHighlight}
+                >
                   <button
                     type="button"
-                    className="block w-full border-b border-rx-border/40 px-4 py-2.5 text-right text-sm transition-colors last:border-0 hover:bg-rx-primary-light"
+                    tabIndex={-1}
+                    className={cn(
+                      mockup
+                        ? "w-full px-2 py-1.5 text-right hover:bg-rx-bg-subtle"
+                        : "rx-list-item",
+                      index === activeHighlight && "bg-rx-primary/12 text-rx-primary"
+                    )}
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => selectGroup(g)}
+                    onMouseEnter={() => setUsageHighlight(index)}
+                    onClick={() => {
+                      onChange({ ...row, [field]: option.value });
+                      setFocusedField(null);
+                      setUsageHighlight(-1);
+                    }}
                   >
-                    <span className="font-medium">{g.name}</span>
-                    {g.variants.length > 1 && (
+                    <span>{option.value}</span>
+                    {option.usageCount > 1 && (
                       <span className="mr-2 text-xs text-rx-muted">
-                        ({g.variants.length} أنواع)
+                        ({option.usageCount}×)
                       </span>
                     )}
                   </button>
@@ -275,81 +279,150 @@ export function MedicineRowEditor({
             </ul>
           )}
         </div>
+      </div>
+    );
+  }
 
-        <div className="space-y-1">
-          <Label>النوع</Label>
-          {showTypeSelect ? (
-            <select
-              className="flex h-11 w-full rounded-xl border border-rx-border bg-rx-surface px-3 text-sm shadow-sm focus:border-rx-primary focus:outline-none focus:ring-2 focus:ring-rx-primary/20"
-              value={row.type}
-              onChange={(e) => selectType(e.target.value)}
+  const nameInput = (
+    <div className={mockup ? "relative min-w-0" : "relative space-y-0.5 lg:col-span-2"}>
+      {!mockup && (
+        <Label className={compact ? "rx-label" : undefined}>الاسم</Label>
+      )}
+      <Input
+        fieldSize={mockup || compact ? "compact" : "default"}
+        className={mockup ? "h-6 text-xs" : undefined}
+        value={row.name}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        name={`rx-medicine-${rowKey}`}
+        id={`rx-medicine-${rowKey}`}
+        data-rx-medicine-row={rowKey}
+        data-rx-medicine-field="name"
+        role="combobox"
+        aria-expanded={isOpen && suggestions.length > 0}
+        aria-autocomplete="list"
+        aria-label={mockup ? "اسم الدواء" : undefined}
+        onFocus={() => {
+          onOpen();
+          setNameHighlight(-1);
+        }}
+        onClick={onOpen}
+        onBlur={() => {
+          setTimeout(() => {
+            setNameHighlight(-1);
+            commitName();
+          }, 200);
+        }}
+        onChange={(e) => {
+          setNameHighlight(-1);
+          onChange({
+            ...row,
+            name: e.target.value,
+            ...emptyUsageFields(),
+          });
+        }}
+        onKeyDown={(e) => {
+          if (
+            handleOptionListKeyDown(
+              e,
+              suggestions.length,
+              nameHighlight,
+              setNameHighlight,
+              (index) => {
+                const selected = suggestions[index];
+                if (selected) selectGroup(selected);
+              },
+              commitName
+            )
+          ) {
+            return;
+          }
+        }}
+      />
+      {isOpen && suggestions.length > 0 && (
+        <ul
+          role="listbox"
+          className={
+            mockup
+              ? "absolute z-[80] mt-0.5 max-h-40 w-[min(100%,14rem)] overflow-y-auto rounded-md border border-rx-form-border bg-rx-surface text-xs shadow-lg"
+              : "absolute z-30 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-rx-form-border bg-rx-surface shadow-md"
+          }
+        >
+          {suggestions.map((g, index) => (
+            <li
+              key={g.key}
+              role="option"
+              aria-selected={index === nameHighlight}
             >
-              <option value="">— اختر النوع —</option>
-              {typeOptions.map((type) => (
-                <option key={type || "__default__"} value={type}>
-                  {type || "افتراضي"}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <Input
-              value={row.type}
-              autoComplete="off"
-              onChange={(e) => selectType(e.target.value)}
-              onBlur={() => tryAutoFill(row.name, row.type.trim(), true)}
-              placeholder="النوع"
-            />
-          )}
-        </div>
+              <button
+                type="button"
+                tabIndex={-1}
+                className={cn(
+                  mockup
+                    ? "w-full px-2 py-1.5 text-right hover:bg-rx-bg-subtle"
+                    : "rx-list-item",
+                  index === nameHighlight && "bg-rx-primary/12 text-rx-primary"
+                )}
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setNameHighlight(index)}
+                onClick={() => selectGroup(g)}
+              >
+                <span className="font-medium">{g.name}</span>
+                {g.variants.length > 1 && (
+                  <span className="mr-2 text-xs text-rx-muted">
+                    ({g.variants.length} أنواع)
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 
-        {OTHER_FIELDS.map(([key, label]) => (
-          <div key={key} className="space-y-1">
-            <Label>{label}</Label>
-            <Input
-              value={row[key]}
-              autoComplete="off"
-              onChange={(e) => onChange({ ...row, [key]: e.target.value })}
-            />
-          </div>
-        ))}
+  const removeButton = (
+    <div className={mockup ? "flex items-center justify-center" : "flex items-end"}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={mockup ? "size-6" : compact ? "size-8" : undefined}
+        disabled={!canRemove}
+        tabIndex={-1}
+        onClick={onRemove}
+      >
+        <Trash2 size={mockup ? 12 : 16} className="text-rx-danger" />
+      </Button>
+    </div>
+  );
 
-        <div className="flex items-end">
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={!canRemove}
-            onClick={onRemove}
-          >
-            <Trash2 size={16} className="text-rx-danger" />
-          </Button>
+  if (mockup) {
+    return (
+      <div className="space-y-0.5">
+        <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(5,minmax(0,0.75fr))_auto] items-center gap-0.5">
+          {nameInput}
+          {USAGE_FIELDS.map(([field, label]) => renderUsageField(field, label))}
+          {removeButton}
         </div>
       </div>
+    );
+  }
 
-      {allRowPresets.length > 1 && (
-        <div className="rounded-xl border border-rx-primary/20 bg-rx-primary-light/30 px-4 py-3">
-          <Label className="mb-1.5 block text-xs text-rx-muted">
-            إعدادات محفوظة ({allRowPresets.length}) — تم اختيار الأكثر استخداماً
-            {mostUsedPreset && mostUsedPreset.usageCount > 1
-              ? ` (${mostUsedPreset.usageCount}×)`
-              : ""}
-          </Label>
-          <select
-            className="flex h-10 w-full rounded-lg border border-rx-border bg-rx-surface px-3 text-sm focus:border-rx-primary focus:outline-none focus:ring-2 focus:ring-rx-primary/20"
-            value={activePresetKey}
-            onChange={(e) => selectPreset(e.target.value)}
-          >
-            {allRowPresets.map((preset, index) => (
-              <option
-                key={presetOptionKey(preset, index)}
-                value={presetOptionKey(preset, index)}
-              >
-                {formatPresetLabel(preset)}
-                {index === 0 ? " ★" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+  return (
+    <div className={compact ? "space-y-1" : "space-y-2"}>
+      <div
+        className={
+          compact
+            ? "grid gap-2 lg:grid-cols-7"
+            : "grid gap-3 rounded-xl border border-rx-border bg-rx-bg-subtle/50 p-4 lg:grid-cols-7"
+        }
+      >
+        {nameInput}
+        {USAGE_FIELDS.map(([field, label]) => renderUsageField(field, label))}
+        {removeButton}
+      </div>
     </div>
   );
 }

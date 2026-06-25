@@ -1,6 +1,7 @@
 import { getRxDb } from "@/lib/db/rx-db";
-import { persistHydration } from "@/lib/sync/offline-store";
+import { persistHydration, syncLocalPrescriptionFromDto } from "@/lib/sync/offline-store";
 import { useSyncStore } from "@/stores/sync-store";
+import type { PrescriptionDto } from "@/lib/api/rx-client";
 
 let syncing = false;
 
@@ -120,6 +121,7 @@ async function applySyncedItem(
       phone: string | null;
       doctorId: number;
       updatedAt: string;
+      fieldValues?: Array<{ patientFieldId: number; value: string }>;
     };
     await db.patients.put({
       id: item.localId,
@@ -130,6 +132,7 @@ async function applySyncedItem(
       diagnosis: p.diagnosis ?? undefined,
       phone: p.phone ?? undefined,
       doctorId: p.doctorId,
+      fieldValues: p.fieldValues ?? [],
       synced: true,
       updatedAt: p.updatedAt,
     });
@@ -137,6 +140,47 @@ async function applySyncedItem(
 
   if (item.entity === "patient" && item.action === "delete") {
     await db.patients.delete(item.localId);
+  }
+
+  if (item.entity === "appointment" && item.action !== "delete" && data) {
+    const ap = data as {
+      id: number;
+      doctorId: number;
+      patientId: number;
+      appointmentDatetime: string;
+      bookingDate: string | null;
+      notes: string | null;
+      status: boolean;
+      updatedAt: string | null;
+    };
+    await db.appointments.put({
+      id: `srv-${ap.id}`,
+      serverId: ap.id,
+      doctorId: ap.doctorId,
+      patientId: `srv-${ap.patientId}`,
+      patientServerId: ap.patientId,
+      appointmentDatetime: ap.appointmentDatetime,
+      bookingDate: ap.bookingDate ?? ap.appointmentDatetime,
+      notes: ap.notes ?? undefined,
+      status: ap.status,
+      synced: true,
+      updatedAt: ap.updatedAt ?? new Date().toISOString(),
+    });
+    if (item.localId !== `srv-${ap.id}`) {
+      await db.appointments.delete(item.localId);
+    }
+  }
+
+  if (item.entity === "appointment" && item.action === "delete") {
+    await db.appointments.delete(item.localId);
+  }
+
+  if (item.entity === "prescription" && item.action !== "delete" && data) {
+    await syncLocalPrescriptionFromDto(data as PrescriptionDto);
+  }
+
+  if (item.entity === "prescription" && item.action === "delete") {
+    await db.prescriptions.delete(item.localId);
   }
 }
 

@@ -24,7 +24,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!user) return null;
 
         if (role === "secretary" && user.type !== "secretary") return null;
-        if (role === "doctor" && user.type !== "doctor") return null;
+        if (role === "doctor" && user.type !== "doctor" && user.type !== "admin")
+          return null;
         if (role === "admin" && user.type !== "admin") return null;
         if (!role && user.type === "secretary") return null;
 

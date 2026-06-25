@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,15 +11,22 @@ import { createPatientOffline, updatePatientOffline } from "@/lib/data/offline-a
 import {
   birthdateToFormInput,
   buildOptimisticPatient,
+  normalizePatientPhoneForSave,
+  parsePatientPhoneInput,
   serializeBirthdateInput,
 } from "@/lib/patient-utils";
-import type { PatientDto } from "@/lib/api/rx-client";
+import { rxApi, type PatientDto } from "@/lib/api/rx-client";
 import {
   DEFAULT_PATIENT_FIELD_VISIBILITY,
   nextCoreField,
   type CoreFocusField,
   type PatientCoreFieldVisibility,
 } from "@/lib/patient-core-fields";
+import {
+  PatientDynamicFields,
+  patientFieldValuesFromRecord,
+  recordFromPatientFieldValues,
+} from "@/components/patients/patient-dynamic-fields";
 
 type FocusField = CoreFocusField;
 
@@ -60,6 +67,38 @@ export function PatientForm({
   );
   const [phone, setPhone] = useState(patient?.phone ?? "");
   const [diagnosis, setDiagnosis] = useState(patient?.diagnosis ?? "");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneDuplicateHint, setPhoneDuplicateHint] = useState<string | null>(
+    null
+  );
+  const [phoneDuplicateName, setPhoneDuplicateName] = useState<string | null>(
+    null
+  );
+  const [dynamicFieldValues, setDynamicFieldValues] = useState<
+    Record<number, string>
+  >(() => recordFromPatientFieldValues(patient?.fieldValues));
+
+  const { data: fieldsData } = useQuery({
+    queryKey: ["fields"],
+    queryFn: () => rxApi.fields.list(),
+  });
+
+  const personalFields = useMemo(
+    () => fieldsData?.fields.filter((f) => f.isActive && f.isPersonal) ?? [],
+    [fieldsData]
+  );
+
+  useEffect(() => {
+    setName(patient?.name ?? initialName ?? "");
+    setGender(patient?.gender ?? "male");
+    setBirthdateInput(birthdateToFormInput(patient?.birthdate));
+    setPhone(patient?.phone ?? "");
+    setDiagnosis(patient?.diagnosis ?? "");
+    setDynamicFieldValues(recordFromPatientFieldValues(patient?.fieldValues));
+    setPhoneError(null);
+    setPhoneDuplicateHint(null);
+    setPhoneDuplicateName(null);
+  }, [patient, initialName]);
 
   const visibility = useMemo(
     () => ({
@@ -75,11 +114,92 @@ export function PatientForm({
       name,
       gender,
       birthdate: serializeBirthdateInput(birthdateInput),
-      phone: phone || null,
+      phone: normalizePatientPhoneForSave(phone),
       diagnosis: diagnosis || null,
+      fieldValues: patientFieldValuesFromRecord(dynamicFieldValues),
     }),
-    [name, gender, birthdateInput, phone, diagnosis]
+    [name, gender, birthdateInput, phone, diagnosis, dynamicFieldValues]
   );
+
+  const notifyPhoneDuplicate = useCallback(
+    (duplicateName?: string | null) => {
+      const hint = duplicateName
+        ? `هذا الرقم مسجّل سابقاً (${duplicateName})`
+        : "هذا الرقم مسجّل سابقاً";
+      toast.warning(hint, { duration: 5000 });
+    },
+    []
+  );
+
+  const validatePhone = useCallback(
+    (value: string, options?: { focusOnError?: boolean }) => {
+      if (!visibility.showPhone) {
+        setPhoneError(null);
+        return true;
+      }
+      const { error } = parsePatientPhoneInput(value);
+      setPhoneError(error);
+      if (error && options?.focusOnError) {
+        phoneRef.current?.focus();
+      }
+      return !error;
+    },
+    [visibility.showPhone]
+  );
+
+  const checkPhoneDuplicate = useCallback(
+    async (value: string) => {
+      if (!visibility.showPhone || !navigator.onLine) {
+        setPhoneDuplicateHint(null);
+        setPhoneDuplicateName(null);
+        return;
+      }
+      const { normalized, error } = parsePatientPhoneInput(value);
+      if (error || !normalized) {
+        setPhoneDuplicateHint(null);
+        setPhoneDuplicateName(null);
+        return;
+      }
+      try {
+        const res = await rxApi.patients.checkPhone(
+          normalized,
+          patient?.id || undefined
+        );
+        setPhoneDuplicateName(res.exists ? res.patientName ?? null : null);
+        setPhoneDuplicateHint(
+          res.exists
+            ? res.patientName
+              ? `هذا الرقم مسجّل سابقاً (${res.patientName})`
+              : "هذا الرقم مسجّل سابقاً"
+            : null
+        );
+      } catch {
+        setPhoneDuplicateHint(null);
+        setPhoneDuplicateName(null);
+      }
+    },
+    [visibility.showPhone, patient?.id]
+  );
+
+  const handlePhoneChange = useCallback(
+    (value: string) => {
+      setPhone(value);
+      if (phoneError) {
+        const { error } = parsePatientPhoneInput(value);
+        setPhoneError(error);
+      }
+      if (phoneDuplicateHint) {
+        setPhoneDuplicateHint(null);
+        setPhoneDuplicateName(null);
+      }
+    },
+    [phoneError, phoneDuplicateHint]
+  );
+
+  const handlePhoneBlur = useCallback(() => {
+    validatePhone(phone);
+    void checkPhoneDuplicate(phone);
+  }, [phone, validatePhone, checkPhoneDuplicate]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -89,27 +209,85 @@ export function PatientForm({
       }
       return createPatientOffline(body);
     },
-    onSuccess: (savedPatient) => {
-      void queryClient.invalidateQueries({ queryKey: ["patients"] });
-      toast.success(patient ? "تم تحديث المريض" : "تم إضافة المريض");
-      onSuccess(savedPatient);
+    onSuccess: (result) => {
+      finishPatientSave(result.patient, result);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function submitPatient() {
+  function finishPatientSave(
+    savedPatient: PatientDto,
+    duplicate?: { phoneDuplicate?: boolean; duplicatePatientName?: string | null }
+  ) {
+    if (duplicate?.phoneDuplicate) {
+      notifyPhoneDuplicate(duplicate.duplicatePatientName);
+    }
+    void queryClient.invalidateQueries({ queryKey: ["patients"] });
+    if (savedPatient.id > 0) {
+      void queryClient.invalidateQueries({
+        queryKey: ["patient", savedPatient.id],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["patient-record", savedPatient.id],
+      });
+    }
+    toast.success(patient ? "تم تحديث المريض" : "تم إضافة المريض");
+    onSuccess(savedPatient);
+  }
+
+  async function submitPatient() {
+    if (!validatePhone(phone, { focusOnError: true })) {
+      toast.error(phoneError ?? "رقم الهاتف غير صالح");
+      return;
+    }
+
+    let duplicateName = phoneDuplicateName;
+    if (
+      visibility.showPhone &&
+      phone.trim() &&
+      navigator.onLine &&
+      duplicateName === null
+    ) {
+      const { normalized, error } = parsePatientPhoneInput(phone);
+      if (!error && normalized) {
+        try {
+          const res = await rxApi.patients.checkPhone(
+            normalized,
+            patient?.id || undefined
+          );
+          if (res.exists) {
+            duplicateName = res.patientName ?? null;
+            setPhoneDuplicateName(duplicateName);
+            setPhoneDuplicateHint(
+              duplicateName
+                ? `هذا الرقم مسجّل سابقاً (${duplicateName})`
+                : "هذا الرقم مسجّل سابقاً"
+            );
+          }
+        } catch {
+          /* ignore — save still allowed */
+        }
+      }
+    }
+
     const body = buildBody();
 
     if (!patient && navigator.onLine) {
       const optimistic = buildOptimisticPatient(body);
+      if (duplicateName !== null) {
+        notifyPhoneDuplicate(duplicateName);
+      }
       onSuccess(optimistic);
       toast.success("تم إضافة المريض");
 
       const syncPromise = createPatientOffline(body);
-      onSyncStart?.(syncPromise);
+      onSyncStart?.(syncPromise.then((result) => result.patient));
       void syncPromise
-        .then((savedPatient) => {
-          onPatientSynced?.(savedPatient);
+        .then((result) => {
+          onPatientSynced?.(result.patient);
+          if (result.phoneDuplicate) {
+            notifyPhoneDuplicate(result.duplicatePatientName);
+          }
           void queryClient.invalidateQueries({ queryKey: ["patients"] });
         })
         .catch((e: Error) => toast.error(e.message));
@@ -164,16 +342,17 @@ export function PatientForm({
 
   return (
     <form
-      className={compact ? "grid gap-3 sm:grid-cols-2" : "space-y-4"}
+      className={compact ? "grid gap-2 sm:grid-cols-2" : "space-y-4"}
       onSubmit={(e) => {
         e.preventDefault();
         submitPatient();
       }}
     >
-      <div className="space-y-2 sm:col-span-2">
-        <Label>اسم المريض</Label>
+      <div className={compact ? "space-y-0.5 sm:col-span-2" : "space-y-2 sm:col-span-2"}>
+        <Label className={compact ? "rx-label" : undefined}>اسم المريض</Label>
         <Input
           ref={nameRef}
+          fieldSize={compact ? "compact" : "default"}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => handleFieldEnter(e, "name")}
@@ -181,11 +360,11 @@ export function PatientForm({
         />
       </div>
       {visibility.showGender && (
-        <div className="space-y-2">
-          <Label>الجنس</Label>
+        <div className={compact ? "space-y-0.5" : "space-y-2"}>
+          <Label className={compact ? "rx-label" : undefined}>الجنس</Label>
           <select
             ref={genderRef}
-            className="flex h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm"
+            className={compact ? "rx-select" : "flex h-10 w-full rounded-lg border border-rx-border bg-rx-surface px-3 text-sm"}
             value={gender}
             onChange={(e) => setGender(e.target.value as "male" | "female")}
             onKeyDown={handleGenderKeyDown}
@@ -196,10 +375,13 @@ export function PatientForm({
         </div>
       )}
       {visibility.showAge && (
-        <div className="space-y-2">
-          <Label>العمر أو تاريخ الميلاد</Label>
+        <div className={compact ? "space-y-0.5" : "space-y-2"}>
+          <Label className={compact ? "rx-label" : undefined}>
+            العمر أو تاريخ الميلاد
+          </Label>
           <Input
             ref={ageRef}
+            fieldSize={compact ? "compact" : "default"}
             value={birthdateInput}
             onChange={(e) => setBirthdateInput(e.target.value)}
             onKeyDown={(e) => handleFieldEnter(e, "age")}
@@ -208,15 +390,32 @@ export function PatientForm({
         </div>
       )}
       {visibility.showPhone && (
-        <div className="space-y-2">
-          <Label>الهاتف</Label>
+        <div className={compact ? "space-y-0.5" : "space-y-2"}>
+          <Label className={compact ? "rx-label" : undefined}>الهاتف</Label>
           <Input
             ref={phoneRef}
             dir="ltr"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            fieldSize={compact ? "compact" : "default"}
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            onBlur={handlePhoneBlur}
             onKeyDown={(e) => handleFieldEnter(e, "phone")}
+                    placeholder="09xxxxxxxx أو 07xxxxxxxxx"
+            className={
+              phoneError
+                ? "border-red-400 focus-visible:border-red-500 focus-visible:ring-red-500/20"
+                : undefined
+            }
           />
+          {phoneError && (
+            <p className="text-xs text-red-600">{phoneError}</p>
+          )}
+          {!phoneError && phoneDuplicateHint && (
+            <p className="text-xs text-amber-700">{phoneDuplicateHint}</p>
+          )}
         </div>
       )}
       {!compact && (
@@ -228,12 +427,38 @@ export function PatientForm({
           />
         </div>
       )}
+      {personalFields.length > 0 && (
+        <div className={compact ? "sm:col-span-2" : "sm:col-span-2"}>
+          <PatientDynamicFields
+            compact={compact}
+            fields={personalFields}
+            values={dynamicFieldValues}
+            onChange={(fieldId, value) =>
+              setDynamicFieldValues((current) => ({
+                ...current,
+                [fieldId]: value,
+              }))
+            }
+          />
+        </div>
+      )}
       <div className={`flex gap-2 ${compact ? "sm:col-span-2" : ""}`}>
-        <Button type="submit" disabled={mutation.isPending}>
+        <Button
+          type="submit"
+          size={compact ? "sm" : "default"}
+          tabIndex={compact ? -1 : undefined}
+          disabled={mutation.isPending}
+        >
           {mutation.isPending ? "جاري الحفظ..." : patient ? "تحديث" : "إضافة"}
         </Button>
         {onCancel && (
-          <Button type="button" variant="secondary" onClick={onCancel}>
+          <Button
+            type="button"
+            variant="secondary"
+            size={compact ? "sm" : "default"}
+            tabIndex={compact ? -1 : undefined}
+            onClick={onCancel}
+          >
             إلغاء
           </Button>
         )}

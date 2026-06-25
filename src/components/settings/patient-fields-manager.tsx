@@ -233,6 +233,7 @@ function FieldsSection({
   topContent,
 }: SectionProps) {
   const queryClient = useQueryClient();
+  const [showAddForm, setShowAddForm] = useState(false);
   const [draft, setDraft] = useState<FieldDraft>(() => emptyDraft(defaults));
 
   const refresh = () => {
@@ -245,6 +246,7 @@ function FieldsSection({
     onSuccess: () => {
       refresh();
       setDraft(emptyDraft(defaults));
+      setShowAddForm(false);
       toast.success("تمت إضافة الحقل");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -294,56 +296,78 @@ function FieldsSection({
           </div>
         )}
 
-        <div className="grid gap-3 rounded-xl border border-dashed border-rx-border p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1 lg:col-span-2">
-            <Label>اسم الحقل</Label>
-            <Input
-              value={draft.name}
-              onChange={(e) => setDraft((f) => ({ ...f, name: e.target.value }))}
-              placeholder={icon === "patient" ? "مثال: حساسية" : "مثال: PR"}
-            />
+        {!showAddForm ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddForm(true)}
+          >
+            <Plus size={15} />
+            إضافة حقل مخصص
+          </Button>
+        ) : (
+          <div className="grid gap-3 rounded-xl border border-dashed border-rx-border bg-rx-bg-subtle/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1 lg:col-span-2">
+              <Label>اسم الحقل</Label>
+              <Input
+                value={draft.name}
+                onChange={(e) => setDraft((f) => ({ ...f, name: e.target.value }))}
+                placeholder={icon === "patient" ? "مثال: حساسية" : "مثال: PR"}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>الحجم</Label>
+              <select
+                className="h-10 w-full rounded-lg border border-rx-border bg-rx-surface px-3 text-sm"
+                value={draft.size}
+                onChange={(e) =>
+                  setDraft((f) => ({
+                    ...f,
+                    size: e.target.value as FieldDraft["size"],
+                  }))
+                }
+              >
+                <option value="small">صغير</option>
+                <option value="medium">متوسط</option>
+                <option value="larg">كبير</option>
+              </select>
+            </div>
+            <div className="flex flex-col justify-end gap-2 text-sm">
+              {!defaults.isPersonal && (
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-rx-border"
+                    checked={draft.isPrintable}
+                    onChange={(e) =>
+                      setDraft((f) => ({ ...f, isPrintable: e.target.checked }))
+                    }
+                  />
+                  يُطبع على الوصفة
+                </label>
+              )}
+            </div>
+            <div className="flex flex-wrap items-end gap-2 lg:col-span-4">
+              <Button
+                onClick={() => addField.mutate(draft)}
+                disabled={!draft.name.trim() || addField.isPending}
+              >
+                <Plus size={16} />
+                إضافة
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddForm(false);
+                  setDraft(emptyDraft(defaults));
+                }}
+              >
+                إلغاء
+              </Button>
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label>الحجم</Label>
-            <select
-              className="h-10 w-full rounded-lg border border-rx-border px-3 text-sm"
-              value={draft.size}
-              onChange={(e) =>
-                setDraft((f) => ({
-                  ...f,
-                  size: e.target.value as FieldDraft["size"],
-                }))
-              }
-            >
-              <option value="small">صغير</option>
-              <option value="medium">متوسط</option>
-              <option value="larg">كبير</option>
-            </select>
-          </div>
-          <div className="flex flex-col justify-end gap-2 text-sm">
-            {!defaults.isPersonal && (
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={draft.isPrintable}
-                  onChange={(e) =>
-                    setDraft((f) => ({ ...f, isPrintable: e.target.checked }))
-                  }
-                />
-                يُطبع على الوصفة
-              </label>
-            )}
-          </div>
-          <div className="flex items-end lg:col-span-4">
-            <Button
-              onClick={() => addField.mutate(draft)}
-              disabled={!draft.name.trim() || addField.isPending}
-            >
-              <Plus size={16} />
-              إضافة حقل
-            </Button>
-          </div>
-        </div>
+        )}
 
         {showPrintHint && fields.some((f) => f.isPrintable) && (
           <p className="rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800">
@@ -382,7 +406,7 @@ export function PatientFieldsManager({ fields }: { fields: PatientFieldDto[] }) 
     <div className="space-y-6">
       <FieldsSection
         title="حقول المريض"
-        description="الحقول الأساسية والإضافية التي تظهر عند كتابة الوصفة."
+        description="حقول ثابتة تُسجَّل مع بيانات المريض (فصيلة الدم، حساسية...) — تُعبَّأ مرة واحدة عند إضافة أو تعديل المريض."
         icon="patient"
         fields={patientFields}
         topContent={<CorePatientFieldsSettings />}

@@ -1,4 +1,5 @@
 import { PositionedPrescriptionBlocks } from "@/components/prescription/positioned-prescription-blocks";
+import { PrescriptionTemplateShell } from "@/components/prescription/prescription-template-shell";
 import type { RecipeSettingsDto } from "@/lib/recipe-settings";
 import { fontFamilyCss } from "@/lib/recipe-settings";
 import { paperDimensions } from "@/lib/recipe-paper";
@@ -60,9 +61,6 @@ export function PrescriptionDocument({
   const analysisUrl = resolveImageUrl(data.analysisImage);
   const isImageMode = s.designMode === "image" && !!designUrl;
 
-  const printableFields =
-    data.fieldValues?.filter((f) => f.isPrintable !== false && f.value) ?? [];
-
   return (
     <article
       className={`prescription-doc relative mx-auto overflow-hidden bg-white shadow-sm ${className}`}
@@ -89,78 +87,42 @@ export function PrescriptionDocument({
         </div>
       )}
 
+      {!isImageMode && (
+        <PrescriptionTemplateShell settings={s} logoUrl={logoUrl} />
+      )}
+
       {!editorMode && (
         <div className="absolute inset-0 z-10">
           <PositionedPrescriptionBlocks data={data} settings={s} />
         </div>
       )}
 
-      {!isImageMode && !editorMode && (
-        <div className="relative z-20 flex h-full flex-col p-6">
-          <header
-            className="mb-4 border-b pb-4"
-            style={{ borderColor: `${color}33` }}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <h1 className="text-xl font-bold">{s.doctorName}</h1>
-                <p className="text-sm opacity-80">{s.doctorSpecialty}</p>
-                {s.additionalText1 && (
-                  <p className="text-xs opacity-70">{s.additionalText1}</p>
-                )}
-                <div className="flex flex-wrap gap-x-4 text-xs opacity-70">
-                  {s.phoneNumber && <span>{s.phoneNumber}</span>}
-                  {s.email && <span>{s.email}</span>}
-                  {s.address && <span>{s.address}</span>}
-                </div>
-              </div>
-              {logoUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
+      {!isImageMode && !editorMode && (xrayUrl || analysisUrl) && (
+        <div className="relative z-20 mt-auto flex h-full flex-col justify-end p-6">
+          <section className="grid gap-4 border-t pt-4 sm:grid-cols-2" style={{ borderColor: `${color}33` }}>
+            {xrayUrl && (
+              <div>
+                <p className="mb-1 text-sm font-semibold">صورة الأشعة</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={logoUrl}
-                  alt="شعار"
-                  className="h-16 w-16 object-contain"
+                  src={xrayUrl}
+                  alt="أشعة"
+                  className="max-h-48 rounded border object-contain"
                 />
-              )}
-            </div>
-          </header>
-
-          {printableFields.length > 0 && (
-            <section className="mb-4 grid gap-1 text-sm sm:grid-cols-2">
-              {printableFields.map((f) => (
-                <p key={f.name}>
-                  <strong>{f.name}:</strong> {f.value}
-                </p>
-              ))}
-            </section>
-          )}
-
-          {(xrayUrl || analysisUrl) && (
-            <section className="mt-auto grid gap-4 border-t pt-4 sm:grid-cols-2">
-              {xrayUrl && (
-                <div>
-                  <p className="mb-1 text-sm font-semibold">صورة الأشعة</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={xrayUrl}
-                    alt="أشعة"
-                    className="max-h-48 rounded border object-contain"
-                  />
-                </div>
-              )}
-              {analysisUrl && (
-                <div>
-                  <p className="mb-1 text-sm font-semibold">صورة التحليل</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={analysisUrl}
-                    alt="تحليل"
-                    className="max-h-48 rounded border object-contain"
-                  />
-                </div>
-              )}
-            </section>
-          )}
+              </div>
+            )}
+            {analysisUrl && (
+              <div>
+                <p className="mb-1 text-sm font-semibold">صورة التحليل</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={analysisUrl}
+                  alt="تحليل"
+                  className="max-h-48 rounded border object-contain"
+                />
+              </div>
+            )}
+          </section>
         </div>
       )}
     </article>

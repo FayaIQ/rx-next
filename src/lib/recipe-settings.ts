@@ -19,6 +19,7 @@ export type RecipeSettingsDto = {
   logoPath: string | null;
   designImagePath: string | null;
   designMode: string;
+  designTemplate: string;
   designImageScale: number;
   designPatientX: number;
   designPatientY: number;
@@ -81,6 +82,7 @@ export function normalizeRecipeSettingsDto(
     logoPath: input.logoPath ?? null,
     designImagePath: input.designImagePath ?? null,
     designMode: input.designMode ?? "design",
+    designTemplate: input.designTemplate ?? "classic",
     designImageScale: input.designImageScale ?? 1,
     designPatientX: input.designPatientX ?? 8,
     designPatientY: input.designPatientY ?? 6,
@@ -132,6 +134,7 @@ export function serializeRecipeSettings(rs: RecipeSettings): RecipeSettingsDto {
     logoPath: rs.logoPath,
     designImagePath: rs.designImagePath,
     designMode: rs.designMode,
+    designTemplate: (rs as RecipeSettings & { designTemplate?: string }).designTemplate,
     designImageScale: rs.designImageScale,
     designPatientX: dec(rs.designPatientX),
     designPatientY: dec(rs.designPatientY),

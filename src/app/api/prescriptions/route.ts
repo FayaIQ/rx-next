@@ -8,29 +8,58 @@ import {
   serializePrescription,
 } from "@/lib/prescription-service";
 import { upsertMedicinePresets } from "@/lib/medicine-preset-service";
+import { upsertMedicinesFromPrescription } from "@/lib/medicine-catalog-service";
 import { toDbId } from "@/lib/bigint";
+import {
+  buildPaginationMeta,
+  parsePaginationParams,
+} from "@/lib/pagination";
 import { z } from "zod";
 
-export async function GET() {
+export async function GET(request: Request) {
   const ctx = await requireDoctorApi();
   if (isApiError(ctx)) return ctx;
 
-  const prescriptions = await prisma.prescription.findMany({
-    where: { doctorId: toDbId(ctx.doctorId) },
-    orderBy: { prescriptionDate: "desc" },
-    include: {
-      items: true,
-      patient: true,
-      fieldValues: true,
-    },
-    take: 100,
-  });
+  const { searchParams } = new URL(request.url);
+  const q = searchParams.get("q")?.trim();
+  const { page, pageSize, skip } = parsePaginationParams(searchParams);
+
+  const prescriptionNumber = q && /^\d+$/.test(q) ? Number(q) : null;
+
+  const where = {
+    doctorId: toDbId(ctx.doctorId),
+    ...(q
+      ? {
+          OR: [
+            { patient: { name: { contains: q, mode: "insensitive" as const } } },
+            { diagnosis: { contains: q, mode: "insensitive" as const } },
+            ...(prescriptionNumber != null ? [{ prescriptionNumber }] : []),
+          ],
+        }
+      : {}),
+  };
+
+  const [prescriptions, total] = await Promise.all([
+    prisma.prescription.findMany({
+      where,
+      orderBy: { prescriptionDate: "desc" },
+      skip,
+      take: pageSize,
+      include: {
+        items: true,
+        patient: true,
+        fieldValues: true,
+      },
+    }),
+    prisma.prescription.count({ where }),
+  ]);
 
   return apiOk({
     prescriptions: prescriptions.map((p) => ({
       ...serializePrescription(p),
       patientName: p.patient.name,
     })),
+    pagination: buildPaginationMeta(page, pageSize, total),
   });
 }
 
@@ -45,9 +74,12 @@ export async function POST(request: Request) {
 
     after(async () => {
       try {
-        await upsertMedicinePresets(ctx.doctorId, data.items);
+        await Promise.all([
+          upsertMedicinePresets(ctx.doctorId, data.items),
+          upsertMedicinesFromPrescription(ctx.doctorId, data.items),
+        ]);
       } catch (error) {
-        console.error("medicine preset upsert failed", error);
+        console.error("medicine catalog upsert failed", error);
       }
     });
 

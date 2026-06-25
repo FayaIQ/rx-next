@@ -2,6 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
 import type { PrescriptionInput } from "@/lib/validations/rx";
 import type { Prisma } from "@prisma/client";
+import {
+  filterFieldValuesByIds,
+  getRecipeFieldIdsForDoctor,
+} from "@/lib/patient-field-value-service";
 
 export async function getNextPrescriptionNumber(doctorId: number): Promise<number> {
   const last = await prisma.prescription.findFirst({
@@ -34,6 +38,11 @@ export async function createPrescription(
   if (!patient) throw new Error("المريض غير موجود");
 
   const prescriptionDate = new Date(data.prescriptionDate);
+  const recipeFieldIds = await getRecipeFieldIdsForDoctor(doctorId);
+  const recipeFieldValues = filterFieldValuesByIds(
+    data.fieldValues ?? [],
+    recipeFieldIds
+  );
 
   const prescription = await prisma.$transaction(async (tx) => {
     const created = await tx.prescription.create({
@@ -57,7 +66,7 @@ export async function createPrescription(
           })),
         },
         fieldValues: {
-          create: (data.fieldValues ?? []).map((fv) => ({
+          create: recipeFieldValues.map((fv) => ({
             patientFieldId: toDbId(fv.patientFieldId),
             value: fv.value,
           })),
@@ -101,6 +110,11 @@ export async function updatePrescription(
     data.items.filter((i) => i.id).map((i) => toDbId(i.id as number))
   );
   const toDelete = existing.items.filter((i) => !incomingIds.has(i.id));
+  const recipeFieldIds = await getRecipeFieldIdsForDoctor(doctorId);
+  const recipeFieldValues = filterFieldValuesByIds(
+    data.fieldValues ?? [],
+    recipeFieldIds
+  );
 
   const result = await prisma.$transaction(async (tx) => {
     await tx.prescription.update({
@@ -151,9 +165,9 @@ export async function updatePrescription(
     await tx.prescriptionFieldValue.deleteMany({
       where: { prescriptionId: rxDbId },
     });
-    if (data.fieldValues?.length) {
+    if (recipeFieldValues.length) {
       await tx.prescriptionFieldValue.createMany({
-        data: data.fieldValues.map((fv) => ({
+        data: recipeFieldValues.map((fv) => ({
           prescriptionId: rxDbId,
           patientFieldId: toDbId(fv.patientFieldId),
           value: fv.value,

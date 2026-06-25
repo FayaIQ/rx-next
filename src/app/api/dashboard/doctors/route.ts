@@ -5,6 +5,11 @@ import { serializeAdminUserWithSub } from "@/lib/admin-serializers";
 import { createDoctorSchema } from "@/lib/validations/admin";
 import { registerDoctor } from "@/lib/auth-credentials";
 import { fromDbId } from "@/lib/bigint";
+import {
+  buildPaginationMeta,
+  paginateArray,
+  parsePaginationParams,
+} from "@/lib/pagination";
 import { z } from "zod";
 
 export async function GET(request: Request) {
@@ -13,6 +18,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const tab = searchParams.get("tab") ?? "all";
+  const { page, pageSize } = parsePaginationParams(searchParams);
 
   const now = new Date();
   const weekAgo = new Date(now);
@@ -27,38 +33,60 @@ export async function GET(request: Request) {
     extraWhere = { createdAt: { gte: weekAgo } };
   }
 
-  const doctors = await prisma.user.findMany({
-    where: { type: "doctor", ...extraWhere },
-    include: {
-      _count: { select: { patients: true, secretaries: true } },
-      ...(tab === "today"
-        ? {
-            appointments: {
-              where: {
-                appointmentDatetime: { gte: todayStart, lte: todayEnd },
-                status: true,
-              },
-              take: 1,
-            },
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+  if (tab === "today") {
+    const doctors = await prisma.user.findMany({
+      where: { type: "doctor", ...extraWhere },
+      include: {
+        _count: { select: { patients: true, secretaries: true } },
+        appointments: {
+          where: {
+            appointmentDatetime: { gte: todayStart, lte: todayEnd },
+            status: true,
+          },
+          take: 1,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  const filtered =
-    tab === "today"
-      ? doctors.filter(
-          (d) => "appointments" in d && Array.isArray(d.appointments) && d.appointments.length > 0
-        )
-      : doctors;
+    const filtered = doctors.filter(
+      (d) =>
+        "appointments" in d &&
+        Array.isArray(d.appointments) &&
+        d.appointments.length > 0
+    );
+
+    const enriched = await Promise.all(
+      filtered.map((d) => serializeAdminUserWithSub(fromDbId(d.id), d))
+    );
+    const { pageItems, pagination } = paginateArray(enriched, page, pageSize);
+    return apiOk({ doctors: pageItems, pagination });
+  }
+
+  const where = { type: "doctor" as const, ...extraWhere };
+  const skip = (page - 1) * pageSize;
+
+  const [doctors, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      include: {
+        _count: { select: { patients: true, secretaries: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    prisma.user.count({ where }),
+  ]);
 
   const enriched = await Promise.all(
-    filtered.map((d) => serializeAdminUserWithSub(fromDbId(d.id), d))
+    doctors.map((d) => serializeAdminUserWithSub(fromDbId(d.id), d))
   );
 
-  return apiOk({ doctors: enriched });
+  return apiOk({
+    doctors: enriched,
+    pagination: buildPaginationMeta(page, pageSize, total),
+  });
 }
 
 export async function POST(request: Request) {

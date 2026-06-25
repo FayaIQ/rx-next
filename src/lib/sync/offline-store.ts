@@ -10,8 +10,14 @@ import {
   type LocalMedicinePreset,
   type SyncQueueItem,
 } from "@/lib/db/rx-db";
-import type { PatientDto, MedicineDto, MedicinePresetDto } from "@/lib/api/rx-client";
-import { formatAge } from "@/lib/patient-utils";
+import type {
+  PatientDto,
+  MedicineDto,
+  MedicinePresetDto,
+  PrescriptionDto,
+  PatientFieldDto,
+} from "@/lib/api/rx-client";
+import { formatAge, countVisitsFromDates } from "@/lib/patient-utils";
 
 export async function persistHydration(data: {
   patients: PatientDto[];
@@ -64,6 +70,7 @@ export async function persistHydration(data: {
             diagnosis: p.diagnosis ?? undefined,
             phone: p.phone ?? undefined,
             doctorId: p.doctorId,
+            fieldValues: p.fieldValues ?? [],
             synced: true,
             updatedAt: p.updatedAt,
           })
@@ -224,9 +231,55 @@ export async function persistHydration(data: {
   );
 }
 
+function dedupeLocalPatients(rows: LocalPatient[]): LocalPatient[] {
+  const byKey = new Map<string, LocalPatient>();
+  for (const p of rows) {
+    const key = p.serverId != null ? `srv-${p.serverId}` : p.id;
+    const existing = byKey.get(key);
+    if (!existing || p.updatedAt >= existing.updatedAt) {
+      byKey.set(key, p);
+    }
+  }
+  return Array.from(byKey.values());
+}
+
+/** Keep IndexedDB in sync after a server save and remove duplicate rows. */
+export async function syncLocalPatientFromDto(patient: PatientDto): Promise<void> {
+  const db = getRxDb();
+  const matches = await db.patients
+    .filter((p) => p.serverId === patient.id)
+    .toArray();
+  const primaryId =
+    matches.find((m) => m.id === `srv-${patient.id}`)?.id ??
+    matches[0]?.id ??
+    `srv-${patient.id}`;
+
+  await db.patients.put({
+    id: primaryId,
+    serverId: patient.id,
+    name: patient.name,
+    gender: patient.gender,
+    birthdate: patient.birthdate ?? undefined,
+    diagnosis: patient.diagnosis ?? undefined,
+    phone: patient.phone ?? undefined,
+    doctorId: patient.doctorId,
+    fieldValues: patient.fieldValues ?? [],
+    synced: true,
+    updatedAt: patient.updatedAt,
+  });
+
+  for (const match of matches) {
+    if (match.id !== primaryId) {
+      await db.patients.delete(match.id);
+    }
+  }
+}
+
 export async function getLocalPatients(q?: string): Promise<PatientDto[]> {
   const db = getRxDb();
-  let rows = await db.patients.orderBy("updatedAt").reverse().toArray();
+  let rows = dedupeLocalPatients(
+    await db.patients.orderBy("updatedAt").reverse().toArray()
+  );
   if (q?.trim()) {
     const term = q.trim().toLowerCase();
     rows = rows.filter(
@@ -235,10 +288,34 @@ export async function getLocalPatients(q?: string): Promise<PatientDto[]> {
         (p.phone ?? "").includes(term)
     );
   }
-  return rows.map(localPatientToDto);
+  const prescriptions = await db.prescriptions.toArray();
+  return rows.map((p) => localPatientToDto(p, prescriptions));
 }
 
-export function localPatientToDto(p: LocalPatient): PatientDto {
+function localPatientVisitStats(
+  patient: LocalPatient,
+  prescriptions: LocalPrescription[]
+) {
+  const related = prescriptions.filter(
+    (rx) =>
+      rx.patientId === patient.id ||
+      (patient.serverId != null && rx.patientServerId === patient.serverId)
+  );
+  const dates = related.map((rx) => rx.prescriptionDate);
+  const sorted = [...related].sort((a, b) =>
+    b.prescriptionDate.localeCompare(a.prescriptionDate)
+  );
+  return {
+    visitCount: countVisitsFromDates(dates),
+    lastVisit: sorted[0]?.prescriptionDate ?? null,
+  };
+}
+
+export function localPatientToDto(
+  p: LocalPatient,
+  prescriptions: LocalPrescription[] = []
+): PatientDto {
+  const visits = localPatientVisitStats(p, prescriptions);
   return {
     id: p.serverId ?? 0,
     name: p.name,
@@ -248,10 +325,11 @@ export function localPatientToDto(p: LocalPatient): PatientDto {
     phone: p.phone ?? null,
     doctorId: p.doctorId,
     age: formatAge(p.birthdate),
-    visitCount: 0,
-    lastVisit: null,
+    visitCount: visits.visitCount,
+    lastVisit: visits.lastVisit,
     createdAt: p.updatedAt,
     updatedAt: p.updatedAt,
+    fieldValues: p.fieldValues ?? [],
   };
 }
 
@@ -321,6 +399,62 @@ export async function cacheMedicinePresetsLocally(
       })
     )
   );
+}
+
+export async function upsertLocalMedicinesFromPrescription(
+  items: Array<{
+    name: string;
+    type?: string | null;
+    dosage?: string | null;
+    quantity?: string | null;
+    period?: string | null;
+    timeOfUse?: string | null;
+  }>
+) {
+  const db = getRxDb();
+  const now = new Date().toISOString();
+  const existingRows = await db.medicines.toArray();
+
+  for (const item of items) {
+    const name = item.name.trim();
+    if (!name) continue;
+
+    const fields = {
+      type: (item.type ?? "").trim(),
+      dosage: (item.dosage ?? "").trim(),
+      quantity: (item.quantity ?? "").trim(),
+      period: (item.period ?? "").trim(),
+      timeOfUse: (item.timeOfUse ?? "").trim(),
+    };
+
+    const duplicate = existingRows.find(
+      (row) =>
+        row.name.trim().toLowerCase() === name.toLowerCase() &&
+        (row.type ?? "") === fields.type &&
+        (row.dosage ?? "") === fields.dosage &&
+        (row.quantity ?? "") === fields.quantity &&
+        (row.period ?? "") === fields.period &&
+        (row.timeOfUse ?? "") === fields.timeOfUse
+    );
+
+    if (duplicate) continue;
+
+    const localId = crypto.randomUUID();
+    const created: LocalMedicine = {
+      id: localId,
+      doctorId: 0,
+      name,
+      type: fields.type || undefined,
+      dosage: fields.dosage || undefined,
+      quantity: fields.quantity || undefined,
+      period: fields.period || undefined,
+      timeOfUse: fields.timeOfUse || undefined,
+      synced: false,
+      updatedAt: now,
+    };
+    existingRows.push(created);
+    await db.medicines.put(created);
+  }
 }
 
 export async function upsertLocalMedicinePresets(
@@ -418,17 +552,19 @@ export async function getLocalAppointments(date?: string): Promise<import("@/lib
   let rows = await db.appointments.orderBy("appointmentDatetime").toArray();
 
   if (date) {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
     rows = rows.filter((a) => {
+      const bookingKey = a.bookingDate?.slice(0, 10);
+      if (bookingKey) return bookingKey === date;
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
       const dt = new Date(a.appointmentDatetime);
       return dt >= dayStart && dt <= dayEnd;
     });
   }
 
-  const patients = await db.patients.toArray();
+  const patients = dedupeLocalPatients(await db.patients.toArray());
   const patientMap = new Map(
     patients.map((p) => [p.serverId ?? 0, p])
   );
@@ -466,4 +602,133 @@ export async function getPendingSyncCount(): Promise<number> {
 
 export async function getLastSync(): Promise<string | undefined> {
   return getMeta("last_full_sync");
+}
+
+function localPrescriptionToDto(
+  rx: LocalPrescription,
+  patientMap: Map<number, LocalPatient>
+): PrescriptionDto {
+  const patient = rx.patientServerId
+    ? patientMap.get(rx.patientServerId)
+    : undefined;
+
+  return {
+    id: rx.serverId ?? 0,
+    patientId: rx.patientServerId ?? 0,
+    doctorId: rx.doctorId,
+    prescriptionDate: rx.prescriptionDate,
+    diagnosis: rx.diagnosis ?? null,
+    xrayImage: rx.xrayImage ?? null,
+    analysisImage: rx.analysisImage ?? null,
+    prescriptionNumber: rx.prescriptionNumber ?? 0,
+    patientName: patient?.name,
+    items: rx.items.map((item, index) => ({
+      id: item.serverId ?? index,
+      name: item.name,
+      type: item.type ?? null,
+      dosage: item.dosage ?? null,
+      quantity: item.quantity ?? null,
+      period: item.period ?? null,
+      timeOfUse: item.timeOfUse ?? null,
+    })),
+    fieldValues: rx.fieldValues ?? [],
+  };
+}
+
+export async function getLocalPrescriptions(q?: string): Promise<PrescriptionDto[]> {
+  const db = getRxDb();
+  const patients = dedupeLocalPatients(await db.patients.toArray());
+  const patientMap = new Map(
+    patients.map((p) => [p.serverId ?? 0, p] as const)
+  );
+
+  let rows = await db.prescriptions.orderBy("updatedAt").reverse().toArray();
+
+  if (q?.trim()) {
+    const term = q.trim().toLowerCase();
+    rows = rows.filter((rx) => {
+      const patient = rx.patientServerId
+        ? patientMap.get(rx.patientServerId)
+        : undefined;
+      const patientName = patient?.name ?? "";
+      const diagnosis = rx.diagnosis ?? "";
+      const rxNumber = rx.prescriptionNumber?.toString() ?? "";
+      return (
+        patientName.toLowerCase().includes(term) ||
+        diagnosis.toLowerCase().includes(term) ||
+        rxNumber.includes(term)
+      );
+    });
+  }
+
+  return rows.map((rx) => localPrescriptionToDto(rx, patientMap));
+}
+
+/** Keep IndexedDB in sync after a server save and remove duplicate rows. */
+export async function syncLocalPrescriptionFromDto(
+  prescription: PrescriptionDto
+): Promise<void> {
+  if (!prescription.id) return;
+
+  const db = getRxDb();
+  const matches = await db.prescriptions
+    .filter((rx) => rx.serverId === prescription.id)
+    .toArray();
+  const primaryId =
+    matches.find((m) => m.id === `srv-${prescription.id}`)?.id ??
+    matches[0]?.id ??
+    `srv-${prescription.id}`;
+
+  await db.prescriptions.put({
+    id: primaryId,
+    serverId: prescription.id,
+    patientId: `srv-${prescription.patientId}`,
+    patientServerId: prescription.patientId,
+    doctorId: prescription.doctorId ?? 0,
+    prescriptionDate: prescription.prescriptionDate ?? new Date().toISOString(),
+    diagnosis: prescription.diagnosis ?? undefined,
+    xrayImage: prescription.xrayImage ?? undefined,
+    analysisImage: prescription.analysisImage ?? undefined,
+    prescriptionNumber: prescription.prescriptionNumber,
+    items: prescription.items.map((item) => ({
+      id: `srv-item-${item.id}`,
+      serverId: item.id,
+      name: item.name,
+      type: item.type ?? undefined,
+      dosage: item.dosage ?? undefined,
+      quantity: item.quantity ?? undefined,
+      period: item.period ?? undefined,
+      timeOfUse: item.timeOfUse ?? undefined,
+    })),
+    fieldValues: prescription.fieldValues ?? [],
+    synced: true,
+    updatedAt: prescription.updatedAt ?? new Date().toISOString(),
+  });
+
+  for (const match of matches) {
+    if (match.id !== primaryId) {
+      await db.prescriptions.delete(match.id);
+    }
+  }
+}
+
+export async function getLocalPatientFields(): Promise<PatientFieldDto[]> {
+  const db = getRxDb();
+  const rows = await db.patient_fields.toArray();
+
+  return rows
+    .filter((field) => field.isActive)
+    .map(
+      (field): PatientFieldDto => ({
+        id: field.serverId ?? 0,
+        name: field.name,
+        size: field.size,
+        isActive: field.isActive,
+        isPrintable: field.isPrintable,
+        isPersonal: field.isPersonal,
+        designX: null,
+        designY: null,
+      })
+    )
+    .filter((field) => field.id > 0);
 }

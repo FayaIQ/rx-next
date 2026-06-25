@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { PatientForm } from "@/components/patients/patient-form";
 import { rxApi, type AppointmentDto, type PatientDto } from "@/lib/api/rx-client";
 import {
@@ -14,7 +15,7 @@ import {
   updateAppointmentOffline,
   fetchPatientsOfflineFirst,
 } from "@/lib/data/offline-api";
-import { toDateInputValue, genderLabel } from "@/lib/patient-utils";
+import { genderLabel } from "@/lib/patient-utils";
 
 type Props = {
   appointment?: AppointmentDto | null;
@@ -24,6 +25,40 @@ type Props = {
   offline?: boolean;
 };
 
+function appointmentPatientToDto(
+  patient: NonNullable<AppointmentDto["patient"]>
+): PatientDto {
+  return {
+    id: patient.id,
+    name: patient.name,
+    gender: patient.gender as "male" | "female",
+    birthdate: null,
+    diagnosis: null,
+    phone: patient.phone,
+    doctorId: 0,
+    age: patient.age,
+    visitCount: 0,
+    lastVisit: null,
+    createdAt: "",
+    updatedAt: "",
+  };
+}
+
+function splitDatetime(iso?: string, fallbackDate?: string) {
+  if (iso) {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return {
+      date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+      time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    };
+  }
+  return {
+    date: fallbackDate ?? new Date().toISOString().slice(0, 10),
+    time: "09:00",
+  };
+}
+
 export function AppointmentForm({
   appointment,
   defaultDate,
@@ -32,35 +67,20 @@ export function AppointmentForm({
   offline = true,
 }: Props) {
   const queryClient = useQueryClient();
+  const initial = splitDatetime(
+    appointment?.appointmentDatetime,
+    defaultDate
+  );
+
   const [patientSearch, setPatientSearch] = useState(
     appointment?.patient?.name ?? ""
   );
   const [selectedPatient, setSelectedPatient] = useState<PatientDto | null>(
-    appointment?.patient
-      ? {
-          id: appointment.patient.id,
-          name: appointment.patient.name,
-          gender: appointment.patient.gender as "male" | "female",
-          birthdate: null,
-          diagnosis: null,
-          phone: appointment.patient.phone,
-          doctorId: 0,
-          age: appointment.patient.age,
-          visitCount: 0,
-          lastVisit: null,
-          createdAt: "",
-          updatedAt: "",
-        }
-      : null
+    appointment?.patient ? appointmentPatientToDto(appointment.patient) : null
   );
   const [showNewPatient, setShowNewPatient] = useState(false);
-  const [datetime, setDatetime] = useState(
-    appointment
-      ? toDateInputValue(appointment.appointmentDatetime)
-      : defaultDate
-        ? `${defaultDate}T09:00`
-        : toDateInputValue(new Date())
-  );
+  const [date, setDate] = useState(initial.date);
+  const [time, setTime] = useState(initial.time);
   const [notes, setNotes] = useState(appointment?.notes ?? "");
   const [status, setStatus] = useState(appointment?.status ?? true);
 
@@ -69,13 +89,46 @@ export function AppointmentForm({
     queryFn: () => fetchPatientsOfflineFirst(patientSearch || undefined),
   });
 
+  const patients = patientsData ?? [];
+
+  const suggestions = useMemo(() => {
+    if (!patientSearch.trim() || selectedPatient) return [];
+    return patients.slice(0, 6);
+  }, [patientSearch, patients, selectedPatient]);
+
+  function selectPatient(patient: PatientDto) {
+    setSelectedPatient(patient);
+    setPatientSearch(patient.name);
+    setShowNewPatient(false);
+  }
+
+  function handlePatientEnter() {
+    const q = patientSearch.trim();
+    if (!q) return;
+
+    const exact = patients.find(
+      (p) => p.name.trim().toLowerCase() === q.toLowerCase()
+    );
+    if (exact) {
+      selectPatient(exact);
+      return;
+    }
+    if (patients.length > 0) {
+      selectPatient(patients[0]!);
+      return;
+    }
+    setShowNewPatient(true);
+    toast.info("مريض جديد — أكمل البيانات");
+  }
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPatient) throw new Error("اختر مريضاً");
+      const appointmentDatetime = new Date(`${date}T${time}`).toISOString();
       const payload = {
         patientId: selectedPatient.id,
-        appointmentDatetime: new Date(datetime).toISOString(),
-        bookingDate: new Date(datetime).toISOString().slice(0, 10),
+        appointmentDatetime,
+        bookingDate: date,
         notes: notes.trim() || null,
         status,
       };
@@ -102,11 +155,9 @@ export function AppointmentForm({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const patients = patientsData ?? [];
-
   return (
     <form
-      className="grid gap-4"
+      className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
         saveMutation.mutate();
@@ -114,88 +165,140 @@ export function AppointmentForm({
     >
       <div className="space-y-2">
         <Label>المريض</Label>
-        <Input
-          placeholder="ابحث بالاسم..."
-          value={patientSearch}
-          onChange={(e) => {
-            setPatientSearch(e.target.value);
-            setSelectedPatient(null);
-          }}
-        />
-        {patientSearch && !selectedPatient && patients.length > 0 && (
-          <div className="max-h-36 overflow-y-auto rounded-lg border bg-white shadow-sm">
-            {patients.slice(0, 8).map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                className="block w-full px-3 py-2 text-right text-sm hover:bg-gray-50"
-                onClick={() => {
-                  setSelectedPatient(p);
-                  setPatientSearch(p.name);
-                }}
-              >
-                {p.name} — {genderLabel(p.gender)} — {p.phone ?? "—"}
-              </button>
-            ))}
-          </div>
+        <div className="flex gap-2">
+          <SearchInput
+            className="flex-1"
+            placeholder="ابحث بالاسم..."
+            value={patientSearch}
+            onChange={(v) => {
+              setPatientSearch(v);
+              setSelectedPatient(null);
+              if (showNewPatient) setShowNewPatient(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handlePatientEnter();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => {
+              setShowNewPatient((v) => !v);
+              setSelectedPatient(null);
+            }}
+          >
+            جديد
+          </Button>
+        </div>
+
+        {patientSearch.trim() && !selectedPatient && !showNewPatient && (
+          <p className="text-xs text-rx-muted">
+            {suggestions.length > 0 ? "Enter — اختيار" : "Enter — مريض جديد"}
+          </p>
         )}
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => setShowNewPatient(!showNewPatient)}
-        >
-          مريض جديد
-        </Button>
+
+        {suggestions.length > 0 && (
+          <ul className="max-h-36 overflow-y-auto rounded-lg border border-rx-form-border bg-rx-surface">
+            {suggestions.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className="rx-list-item text-sm"
+                  onClick={() => selectPatient(p)}
+                >
+                  <span className="font-medium">{p.name}</span>
+                  <span className="mr-2 text-xs text-rx-muted">
+                    {genderLabel(p.gender)} · {p.phone ?? "—"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {selectedPatient && !showNewPatient && (
+          <p className="rx-patient-chip text-xs">
+            <strong>{selectedPatient.name}</strong>
+            <span className="text-rx-muted">
+              {" "}
+              · {genderLabel(selectedPatient.gender)}
+              {selectedPatient.phone && (
+                <span dir="ltr"> · {selectedPatient.phone}</span>
+              )}
+            </span>
+          </p>
+        )}
+
         {showNewPatient && (
-          <div className="rounded-lg border border-dashed p-3">
+          <div className="rounded-lg border border-dashed border-rx-border p-3">
             <PatientForm
               compact
-              onSuccess={(p) => {
-                setSelectedPatient(p);
-                setPatientSearch(p.name);
-                setShowNewPatient(false);
-              }}
+              initialName={patientSearch.trim()}
+              onSuccess={(p) => selectPatient(p)}
               onCancel={() => setShowNewPatient(false)}
             />
           </div>
         )}
       </div>
 
-      <div className="space-y-1">
-        <Label>تاريخ ووقت الموعد</Label>
-        <Input
-          type="datetime-local"
-          value={datetime}
-          onChange={(e) => setDatetime(e.target.value)}
-          required
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label>التاريخ</Label>
+          <Input
+            fieldSize="compact"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-1">
+          <Label>الوقت</Label>
+          <Input
+            fieldSize="compact"
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            required
+          />
+        </div>
       </div>
 
       <div className="space-y-1">
         <Label>ملاحظات</Label>
         <Textarea
+          fieldSize="compact"
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="ملاحظات اختيارية..."
+          placeholder="اختياري..."
         />
       </div>
 
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-rx-text-secondary">
         <input
           type="checkbox"
+          className="size-4 rounded border-rx-border"
           checked={status}
           onChange={(e) => setStatus(e.target.checked)}
         />
-        موعد نشط (غير ملغى)
+        موعد نشط
       </label>
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={saveMutation.isPending}>
-          {appointment ? "حفظ التعديل" : "حجز الموعد"}
+      <div className="flex gap-2 border-t border-rx-border/80 pt-3">
+        <Button
+          type="submit"
+          size="sm"
+          disabled={saveMutation.isPending || !selectedPatient}
+        >
+          {appointment ? "حفظ" : "حجز الموعد"}
         </Button>
-        <Button type="button" variant="secondary" onClick={onCancel}>
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
           إلغاء
         </Button>
       </div>

@@ -1,20 +1,47 @@
 "use client";
 
 import { v4 as uuidv4 } from "uuid";
-import { rxApi, type PatientDto, type MedicineDto, type MedicinePresetDto, type AppointmentDto } from "@/lib/api/rx-client";
+import { rxApi, type PatientDto, type MedicineDto, type MedicinePresetDto, type AppointmentDto, type PrescriptionDto, type PatientFieldDto } from "@/lib/api/rx-client";
 import {
   getLocalPatients,
   getLocalMedicines,
   getLocalMedicinePresets,
+  getLocalPrescriptions,
+  getLocalPatientFields,
   cacheMedicinePresetsLocally,
   upsertLocalMedicinePresets,
+  upsertLocalMedicinesFromPrescription,
   getLocalAppointments,
   enqueueSyncItem,
   localPatientToDto,
+  syncLocalPatientFromDto,
+  syncLocalPrescriptionFromDto,
 } from "@/lib/sync/offline-store";
 import { processSyncQueue } from "@/lib/sync/sync-engine";
 import { getRxDb } from "@/lib/db/rx-db";
-import { serializeBirthdateInput } from "@/lib/patient-utils";
+import { serializeBirthdateInput, normalizePatientPhoneForSave } from "@/lib/patient-utils";
+import {
+  DEFAULT_PAGE_SIZE,
+  paginateSlice,
+  type PaginationMeta,
+} from "@/lib/pagination";
+
+export type PatientSaveResult = {
+  patient: PatientDto;
+  phoneDuplicate?: boolean;
+  duplicatePatientName?: string | null;
+};
+
+function normalizePatientBody(body: Record<string, unknown>) {
+  const birthdate =
+    serializeBirthdateInput(body.birthdate as string | null | undefined) ??
+    undefined;
+  return {
+    ...body,
+    birthdate: birthdate ?? null,
+    phone: normalizePatientPhoneForSave(body.phone as string | null | undefined),
+  };
+}
 
 export async function fetchPatientsOfflineFirst(q?: string): Promise<PatientDto[]> {
   try {
@@ -24,8 +51,26 @@ export async function fetchPatientsOfflineFirst(q?: string): Promise<PatientDto[
     // IndexedDB unavailable
   }
 
-  const res = await rxApi.patients.list(q);
+  const res = await rxApi.patients.list({ q });
   return res.patients;
+}
+
+export async function fetchPatientsPaginated(
+  q?: string,
+  page = 1,
+  pageSize = DEFAULT_PAGE_SIZE
+): Promise<{ patients: PatientDto[]; pagination: PaginationMeta }> {
+  try {
+    const local = await getLocalPatients(q);
+    if (local.length > 0 || !navigator.onLine) {
+      const { items, pagination } = paginateSlice(local, page, pageSize);
+      return { patients: items, pagination };
+    }
+  } catch {
+    // IndexedDB unavailable
+  }
+
+  return rxApi.patients.list({ q, page, pageSize });
 }
 
 export async function fetchMedicinesOfflineFirst(q?: string): Promise<MedicineDto[]> {
@@ -36,8 +81,57 @@ export async function fetchMedicinesOfflineFirst(q?: string): Promise<MedicineDt
     // IndexedDB unavailable
   }
 
-  const res = await rxApi.medicines.list(q);
+  const res = await rxApi.medicines.list({ q });
   return res.medicines;
+}
+
+export async function fetchMedicinesPaginated(
+  q?: string,
+  page = 1,
+  pageSize = DEFAULT_PAGE_SIZE
+): Promise<{ medicines: MedicineDto[]; pagination: PaginationMeta }> {
+  try {
+    const local = await getLocalMedicines(q);
+    if (local.length > 0 || !navigator.onLine) {
+      const { items, pagination } = paginateSlice(local, page, pageSize);
+      return { medicines: items, pagination };
+    }
+  } catch {
+    // IndexedDB unavailable
+  }
+
+  return rxApi.medicines.list({ q, page, pageSize });
+}
+
+export async function fetchFieldsOfflineFirst(): Promise<PatientFieldDto[]> {
+  try {
+    const local = await getLocalPatientFields();
+    if (local.length > 0 || !navigator.onLine) return local;
+  } catch {
+    // IndexedDB unavailable
+  }
+
+  const res = await rxApi.fields.list();
+  return res.fields;
+}
+
+export async function fetchPrescriptionsPaginated(
+  q?: string,
+  page = 1,
+  pageSize = DEFAULT_PAGE_SIZE
+): Promise<{ prescriptions: PrescriptionDto[]; pagination: PaginationMeta }> {
+  try {
+    const local = await getLocalPrescriptions(q);
+    if (local.length > 0 || !navigator.onLine) {
+      const { items, pagination } = paginateSlice(local, page, pageSize);
+      return { prescriptions: items, pagination };
+    }
+  } catch {
+    // IndexedDB unavailable
+  }
+
+  const res = await rxApi.prescriptions.list({ q, page, pageSize });
+  return { prescriptions: res.prescriptions, pagination: res.pagination };
 }
 
 export async function fetchMedicinePresetsOfflineFirst(): Promise<MedicinePresetDto[]> {
@@ -58,32 +152,25 @@ export async function fetchMedicinePresetsOfflineFirst(): Promise<MedicinePreset
   }
 }
 
-export async function createPatientOffline(body: Record<string, unknown>) {
-  const birthdate =
-    serializeBirthdateInput(body.birthdate as string | null | undefined) ??
-    undefined;
-  const normalizedBody = { ...body, birthdate: birthdate ?? null };
+export async function createPatientOffline(
+  body: Record<string, unknown>
+): Promise<PatientSaveResult> {
+  const normalizedBody = normalizePatientBody(body);
 
   if (navigator.onLine) {
     const res = await rxApi.patients.create(normalizedBody);
-    void getRxDb().patients.put({
-      id: `srv-${res.patient.id}`,
-      serverId: res.patient.id,
-      name: res.patient.name,
-      gender: res.patient.gender,
-      birthdate: res.patient.birthdate ?? undefined,
-      diagnosis: res.patient.diagnosis ?? undefined,
-      phone: res.patient.phone ?? undefined,
-      doctorId: res.patient.doctorId,
-      synced: true,
-      updatedAt: res.patient.updatedAt,
-    });
-    return res.patient;
+    await syncLocalPatientFromDto(res.patient);
+    return {
+      patient: res.patient,
+      phoneDuplicate: res.phoneDuplicate,
+      duplicatePatientName: res.duplicatePatientName,
+    };
   }
 
   const localId = uuidv4();
   const now = new Date().toISOString();
   const db = getRxDb();
+  const birthdate = normalizedBody.birthdate as string | undefined;
 
   const localPatient = {
     id: localId,
@@ -91,8 +178,11 @@ export async function createPatientOffline(body: Record<string, unknown>) {
     gender: body.gender as "male" | "female",
     birthdate,
     diagnosis: (body.diagnosis as string) ?? undefined,
-    phone: (body.phone as string) ?? undefined,
+    phone: (normalizedBody.phone as string) ?? undefined,
     doctorId: 0,
+    fieldValues:
+      (body.fieldValues as Array<{ patientFieldId: number; value: string }>) ??
+      [],
     synced: false,
     updatedAt: now,
   };
@@ -105,35 +195,23 @@ export async function createPatientOffline(body: Record<string, unknown>) {
     localId,
   });
   void processSyncQueue();
-  return localPatientToDto(localPatient);
+  return { patient: localPatientToDto(localPatient) };
 }
 
 export async function updatePatientOffline(
   id: number,
   body: Record<string, unknown>
-) {
-  const birthdate =
-    serializeBirthdateInput(body.birthdate as string | null | undefined) ??
-    undefined;
-  const normalizedBody = { ...body, birthdate: birthdate ?? null };
+): Promise<PatientSaveResult> {
+  const normalizedBody = normalizePatientBody(body);
 
   if (navigator.onLine) {
     const res = await rxApi.patients.update(id, normalizedBody);
-    const db = getRxDb();
-    const existing = await db.patients.filter((p) => p.serverId === id).first();
-    void db.patients.put({
-      id: existing?.id ?? `srv-${id}`,
-      serverId: id,
-      name: res.patient.name,
-      gender: res.patient.gender,
-      birthdate: res.patient.birthdate ?? undefined,
-      diagnosis: res.patient.diagnosis ?? undefined,
-      phone: res.patient.phone ?? undefined,
-      doctorId: res.patient.doctorId,
-      synced: true,
-      updatedAt: res.patient.updatedAt,
-    });
-    return res.patient;
+    await syncLocalPatientFromDto(res.patient);
+    return {
+      patient: res.patient,
+      phoneDuplicate: res.phoneDuplicate,
+      duplicatePatientName: res.duplicatePatientName,
+    };
   }
 
   const db = getRxDb();
@@ -142,18 +220,28 @@ export async function updatePatientOffline(
     .first();
   const localId = existing?.id ?? `srv-${id}`;
   const now = new Date().toISOString();
+  const birthdate = normalizedBody.birthdate as string | undefined;
 
-  if (existing) {
-    await db.patients.update(localId, {
-      name: String(body.name),
-      gender: body.gender as "male" | "female",
-      birthdate,
-      diagnosis: (body.diagnosis as string) ?? undefined,
-      phone: (body.phone as string) ?? undefined,
-      synced: false,
-      updatedAt: now,
-    });
-  }
+  const fieldValues =
+    (body.fieldValues as Array<{ patientFieldId: number; value: string }>) ??
+    existing?.fieldValues ??
+    [];
+
+  const localRecord = {
+    id: localId,
+    serverId: id,
+    name: String(body.name),
+    gender: body.gender as "male" | "female",
+    birthdate,
+    diagnosis: (body.diagnosis as string) ?? undefined,
+    phone: (normalizedBody.phone as string) ?? undefined,
+    doctorId: existing?.doctorId ?? 0,
+    fieldValues,
+    synced: false,
+    updatedAt: now,
+  };
+
+  await db.patients.put(localRecord);
 
   await enqueueSyncItem({
     entity: "patient",
@@ -165,17 +253,9 @@ export async function updatePatientOffline(
 
   void processSyncQueue();
 
-  return existing
-    ? localPatientToDto({
-        ...existing,
-        name: String(body.name),
-        gender: body.gender as "male" | "female",
-        birthdate,
-        diagnosis: (body.diagnosis as string) ?? undefined,
-        phone: (body.phone as string) ?? undefined,
-        updatedAt: now,
-      })
-    : ({ id, ...(body as object) } as PatientDto);
+  return {
+    patient: localPatientToDto(localRecord),
+  };
 }
 
 export async function deletePatientOffline(id: number) {
@@ -241,109 +321,102 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
     });
     void processSyncQueue();
     void upsertLocalMedicinePresets(items);
+    void upsertLocalMedicinesFromPrescription(items);
     return { prescription: { id: 0, localId, prescriptionNumber: 0, ...(body as object) } };
   }
 
   const result = await rxApi.prescriptions.create(body);
+  if (result.prescription?.id) {
+    await syncLocalPrescriptionFromDto(result.prescription);
+  }
   void upsertLocalMedicinePresets(items);
+  void upsertLocalMedicinesFromPrescription(items);
   return result;
 }
 
 export async function fetchAppointmentsOfflineFirst(
-  date?: string
+  params?: {
+    date?: string;
+    bookingFrom?: string;
+    bookingTo?: string;
+  }
 ): Promise<AppointmentDto[]> {
+  let local: AppointmentDto[] = [];
   try {
-    const local = await getLocalAppointments(date);
-    if (local.length > 0 || !navigator.onLine) return local;
+    local = await getLocalAppointments(params?.date);
+    if (params?.bookingFrom || params?.bookingTo) {
+      local = local.filter((a) => {
+        const key = (a.bookingDate ?? a.appointmentDatetime).slice(0, 10);
+        if (params.bookingFrom && key < params.bookingFrom) return false;
+        if (params.bookingTo && key > params.bookingTo) return false;
+        return true;
+      });
+    }
   } catch {
     // IndexedDB unavailable
   }
 
-  const res = await rxApi.appointments.list(date ? { date } : undefined);
-  return res.appointments;
+  if (!navigator.onLine) return local;
+
+  try {
+    const res = await rxApi.appointments.list(
+      params?.date
+        ? { date: params.date }
+        : params?.bookingFrom || params?.bookingTo
+          ? {
+              bookingFrom: params.bookingFrom,
+              bookingTo: params.bookingTo,
+            }
+          : undefined
+    );
+    const serverIds = new Set(res.appointments.map((a) => a.id));
+    const unsynced = local.filter((a) => a.id === 0);
+    const merged = [
+      ...res.appointments,
+      ...unsynced.filter((a) => !serverIds.has(a.id)),
+    ];
+    merged.sort(
+      (a, b) =>
+        new Date(a.appointmentDatetime).getTime() -
+        new Date(b.appointmentDatetime).getTime()
+    );
+    return merged;
+  } catch {
+    return local;
+  }
+}
+
+async function cacheAppointmentLocally(
+  appointment: AppointmentDto,
+  patientId: number
+) {
+  const db = getRxDb();
+  await db.appointments.put({
+    id: `srv-${appointment.id}`,
+    serverId: appointment.id,
+    doctorId: appointment.doctorId,
+    patientId: `srv-${patientId}`,
+    patientServerId: patientId,
+    appointmentDatetime: appointment.appointmentDatetime,
+    bookingDate: appointment.bookingDate ?? appointment.appointmentDatetime,
+    notes: appointment.notes ?? undefined,
+    status: appointment.status,
+    synced: true,
+    updatedAt: appointment.updatedAt ?? new Date().toISOString(),
+  });
 }
 
 export async function createAppointmentOffline(body: Record<string, unknown>) {
-  const localId = uuidv4();
-  const now = new Date().toISOString();
-  const db = getRxDb();
+  if (!navigator.onLine) {
+    const localId = uuidv4();
+    const now = new Date().toISOString();
+    const db = getRxDb();
 
-  const localAppointment = {
-    id: localId,
-    doctorId: 0,
-    patientId: `srv-${body.patientId}`,
-    patientServerId: Number(body.patientId),
-    appointmentDatetime: String(body.appointmentDatetime),
-    bookingDate: String(body.bookingDate ?? body.appointmentDatetime),
-    notes: (body.notes as string) ?? undefined,
-    status: (body.status as boolean) ?? true,
-    synced: false,
-    updatedAt: now,
-  };
-
-  await db.appointments.put(localAppointment);
-  await enqueueSyncItem({
-    entity: "appointment",
-    action: "create",
-    payload: body,
-    localId,
-  });
-
-  if (navigator.onLine) {
-    void processSyncQueue();
-    const res = await rxApi.appointments.create(body);
     await db.appointments.put({
-      ...localAppointment,
-      id: `srv-${res.appointment.id}`,
-      serverId: res.appointment.id,
-      doctorId: res.appointment.doctorId,
-      synced: true,
-      updatedAt: res.appointment.updatedAt ?? now,
-    });
-    await db.appointments.delete(localId);
-    return res.appointment;
-  }
-
-  const patients = await getLocalPatients();
-  const patient = patients.find((p) => p.id === Number(body.patientId));
-
-  return {
-    id: 0,
-    doctorId: 0,
-    patientId: Number(body.patientId),
-    appointmentDatetime: String(body.appointmentDatetime),
-    bookingDate: (body.bookingDate as string) ?? null,
-    notes: (body.notes as string) ?? null,
-    status: (body.status as boolean) ?? true,
-    createdAt: now,
-    updatedAt: now,
-    patient: patient
-      ? {
-          id: patient.id,
-          name: patient.name,
-          phone: patient.phone,
-          gender: patient.gender,
-          age: patient.age,
-        }
-      : undefined,
-  } satisfies AppointmentDto;
-}
-
-export async function updateAppointmentOffline(
-  id: number,
-  body: Record<string, unknown>
-) {
-  const db = getRxDb();
-  const existing = await db.appointments
-    .filter((a) => a.serverId === id)
-    .first();
-  const localId = existing?.id ?? `srv-${id}`;
-  const now = new Date().toISOString();
-
-  if (existing) {
-    await db.appointments.update(localId, {
-      patientServerId: Number(body.patientId),
+      id: localId,
+      doctorId: 0,
       patientId: `srv-${body.patientId}`,
+      patientServerId: Number(body.patientId),
       appointmentDatetime: String(body.appointmentDatetime),
       bookingDate: String(body.bookingDate ?? body.appointmentDatetime),
       notes: (body.notes as string) ?? undefined,
@@ -351,23 +424,85 @@ export async function updateAppointmentOffline(
       synced: false,
       updatedAt: now,
     });
-  }
 
-  await enqueueSyncItem({
-    entity: "appointment",
-    action: "update",
-    payload: body,
-    localId,
-    serverId: id,
-  });
-
-  if (navigator.onLine) {
+    await enqueueSyncItem({
+      entity: "appointment",
+      action: "create",
+      payload: body,
+      localId,
+    });
     void processSyncQueue();
-    const res = await rxApi.appointments.update(id, body);
-    return res.appointment;
+
+    const patients = await getLocalPatients();
+    const patient = patients.find((p) => p.id === Number(body.patientId));
+
+    return {
+      id: 0,
+      doctorId: 0,
+      patientId: Number(body.patientId),
+      appointmentDatetime: String(body.appointmentDatetime),
+      bookingDate: (body.bookingDate as string) ?? null,
+      notes: (body.notes as string) ?? null,
+      status: (body.status as boolean) ?? true,
+      createdAt: now,
+      updatedAt: now,
+      patient: patient
+        ? {
+            id: patient.id,
+            name: patient.name,
+            phone: patient.phone,
+            gender: patient.gender,
+            age: patient.age,
+          }
+        : undefined,
+    } satisfies AppointmentDto;
   }
 
-  return { id, ...(body as object) } as AppointmentDto;
+  const res = await rxApi.appointments.create(body);
+  await cacheAppointmentLocally(res.appointment, Number(body.patientId));
+  return res.appointment;
+}
+
+export async function updateAppointmentOffline(
+  id: number,
+  body: Record<string, unknown>
+) {
+  if (!navigator.onLine) {
+    const db = getRxDb();
+    const existing = await db.appointments
+      .filter((a) => a.serverId === id)
+      .first();
+    const localId = existing?.id ?? `srv-${id}`;
+    const now = new Date().toISOString();
+
+    if (existing) {
+      await db.appointments.update(localId, {
+        patientServerId: Number(body.patientId),
+        patientId: `srv-${body.patientId}`,
+        appointmentDatetime: String(body.appointmentDatetime),
+        bookingDate: String(body.bookingDate ?? body.appointmentDatetime),
+        notes: (body.notes as string) ?? undefined,
+        status: (body.status as boolean) ?? true,
+        synced: false,
+        updatedAt: now,
+      });
+    }
+
+    await enqueueSyncItem({
+      entity: "appointment",
+      action: "update",
+      payload: body,
+      localId,
+      serverId: id,
+    });
+    void processSyncQueue();
+
+    return { id, ...(body as object) } as AppointmentDto;
+  }
+
+  const res = await rxApi.appointments.update(id, body);
+  await cacheAppointmentLocally(res.appointment, Number(body.patientId));
+  return res.appointment;
 }
 
 export async function deleteAppointmentOffline(id: number) {
@@ -377,6 +512,11 @@ export async function deleteAppointmentOffline(id: number) {
 
   if (existing) await db.appointments.delete(localId);
 
+  if (navigator.onLine) {
+    await rxApi.appointments.delete(id);
+    return;
+  }
+
   await enqueueSyncItem({
     entity: "appointment",
     action: "delete",
@@ -384,9 +524,5 @@ export async function deleteAppointmentOffline(id: number) {
     localId,
     serverId: id,
   });
-
-  if (navigator.onLine) {
-    void processSyncQueue();
-    await rxApi.appointments.delete(id);
-  }
+  void processSyncQueue();
 }

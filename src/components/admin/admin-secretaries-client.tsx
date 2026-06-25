@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, UserCog } from "lucide-react";
@@ -12,7 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CardsPageLoading } from "@/components/ui/page-loading";
 import { PageContent, PageHeader } from "@/components/ui/page-shell";
+import { Pagination } from "@/components/ui/pagination";
+import { usePaginationState } from "@/hooks/use-pagination-state";
 import { adminApi } from "@/lib/api/admin-client";
 
 export function AdminSecretariesClient() {
@@ -24,15 +27,18 @@ export function AdminSecretariesClient() {
     password: "",
     doctorId: "",
   });
+  const { page, pageSize, onPageChange, onPageSizeChange } =
+    usePaginationState("secretaries");
 
   const { data: doctorsData } = useQuery({
     queryKey: ["admin-doctors-all"],
-    queryFn: () => adminApi.doctors(),
+    queryFn: () => adminApi.doctors(undefined, { page: 1, pageSize: 500 }),
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-secretaries"],
-    queryFn: () => adminApi.secretaries(),
+    queryKey: ["admin-secretaries", page, pageSize],
+    queryFn: () => adminApi.secretaries({ page, pageSize }),
+    placeholderData: keepPreviousData,
   });
 
   const createMutation = useMutation({
@@ -51,11 +57,19 @@ export function AdminSecretariesClient() {
   });
 
   const secretaries = data?.secretaries ?? [];
+  const pagination = data?.pagination;
   const doctors = doctorsData?.doctors ?? [];
+
+  if (isLoading && !data) {
+    return <CardsPageLoading />;
+  }
 
   return (
     <>
-      <AppHeader title="السكرتارية" subtitle={`${secretaries.length} سكرتير`} />
+      <AppHeader
+        title="السكرتارية"
+        subtitle={`${pagination?.total ?? secretaries.length} سكرتير`}
+      />
       <PageContent className="space-y-6">
         <PageHeader
           title="إدارة السكرتارية"
@@ -165,6 +179,13 @@ export function AdminSecretariesClient() {
                   </Badge>
                 </div>
               ))
+            )}
+            {pagination && (
+              <Pagination
+                pagination={pagination}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+              />
             )}
           </CardContent>
         </Card>

@@ -1,3 +1,7 @@
+import type { PaginationMeta } from "@/lib/pagination";
+
+export type { PaginationMeta };
+
 export type PatientDto = {
   id: number;
   name: string;
@@ -11,6 +15,10 @@ export type PatientDto = {
   lastVisit: string | null;
   createdAt: string;
   updatedAt: string;
+  fieldValues?: Array<{
+    patientFieldId: number;
+    value: string;
+  }>;
 };
 
 export type MedicineDto = {
@@ -60,6 +68,7 @@ export type PrescriptionDto = {
   xrayImage: string | null;
   analysisImage: string | null;
   prescriptionNumber: number;
+  patientName?: string;
   items: Array<{
     id: number;
     name: string;
@@ -73,6 +82,7 @@ export type PrescriptionDto = {
     patientFieldId: number;
     value: string;
   }>;
+  updatedAt?: string | null;
   patient?: PatientDto;
 };
 
@@ -94,7 +104,6 @@ export type AppointmentDto = {
     age: string;
   };
 };
-
 export type RecipeSettingsDto = {
   id: number;
   doctorId: number;
@@ -112,6 +121,7 @@ export type RecipeSettingsDto = {
   logoPath: string | null;
   designImagePath: string | null;
   designMode: string;
+  designTemplate: string;
   designImageScale: number;
   designPatientX: number;
   designPatientY: number;
@@ -146,14 +156,32 @@ async function handleResponse<T>(res: Response | Promise<Response>): Promise<T> 
 
 export const rxApi = {
   patients: {
-    list: (q?: string) =>
-      handleResponse<{ patients: PatientDto[] }>(
-        fetch(`/api/patients${q ? `?q=${encodeURIComponent(q)}` : ""}`)
-      ),
+    list: (params?: { q?: string; page?: number; pageSize?: number }) => {
+      const sp = new URLSearchParams();
+      if (params?.q) sp.set("q", params.q);
+      if (params?.page) sp.set("page", String(params.page));
+      if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+      const q = sp.toString();
+      return handleResponse<{ patients: PatientDto[]; pagination: PaginationMeta }>(
+        fetch(`/api/patients${q ? `?${q}` : ""}`)
+      );
+    },
     get: (id: number) =>
       handleResponse<{ patient: PatientDto }>(fetch(`/api/patients/${id}`)),
+    checkPhone: (phone: string, excludeId?: number) => {
+      const params = new URLSearchParams({ phone });
+      if (excludeId != null) params.set("excludeId", String(excludeId));
+      return handleResponse<{
+        exists: boolean;
+        patientName: string | null;
+      }>(fetch(`/api/patients/check-phone?${params}`));
+    },
     create: (body: Record<string, unknown>) =>
-      handleResponse<{ patient: PatientDto }>(
+      handleResponse<{
+        patient: PatientDto;
+        phoneDuplicate?: boolean;
+        duplicatePatientName?: string | null;
+      }>(
         fetch("/api/patients", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -161,7 +189,11 @@ export const rxApi = {
         })
       ),
     update: (id: number, body: Record<string, unknown>) =>
-      handleResponse<{ patient: PatientDto }>(
+      handleResponse<{
+        patient: PatientDto;
+        phoneDuplicate?: boolean;
+        duplicatePatientName?: string | null;
+      }>(
         fetch(`/api/patients/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -173,11 +205,58 @@ export const rxApi = {
         fetch(`/api/patients/${id}`, { method: "DELETE" })
       ),
   },
-  medicines: {
-    list: (q?: string) =>
-      handleResponse<{ medicines: MedicineDto[] }>(
-        fetch(`/api/medicines${q ? `?q=${encodeURIComponent(q)}` : ""}`)
+  dental: {
+    getChart: (patientId: number) =>
+      handleResponse<{
+        patient: { id: number; name: string };
+        chart: {
+          id: number;
+          patientId: number;
+          doctorId: number;
+          notes: string | null;
+          updatedAt: string | null;
+          teeth: Array<{
+            toothFdi: number;
+            status: string;
+            notes: string | null;
+            updatedAt: string | null;
+          }>;
+        };
+      }>(fetch(`/api/patients/${patientId}/dental-chart`)),
+    saveChart: (patientId: number, body: Record<string, unknown>) =>
+      handleResponse<{
+        chart: {
+          id: number;
+          patientId: number;
+          doctorId: number;
+          notes: string | null;
+          updatedAt: string | null;
+          teeth: Array<{
+            toothFdi: number;
+            status: string;
+            notes: string | null;
+            updatedAt: string | null;
+          }>;
+        };
+      }>(
+        fetch(`/api/patients/${patientId}/dental-chart`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
       ),
+  },
+  medicines: {
+    list: (params?: { q?: string; page?: number; pageSize?: number }) => {
+      const sp = new URLSearchParams();
+      if (params?.q) sp.set("q", params.q);
+      if (params?.page) sp.set("page", String(params.page));
+      if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+      const q = sp.toString();
+      return handleResponse<{ medicines: MedicineDto[]; pagination: PaginationMeta }>(
+        fetch(`/api/medicines${q ? `?${q}` : ""}`)
+      );
+    },
     create: (body: Record<string, unknown>) =>
       handleResponse<{ medicine: MedicineDto }>(
         fetch("/api/medicines", {
@@ -322,10 +401,17 @@ export const rxApi = {
       ),
   },
   prescriptions: {
-    list: () =>
-      handleResponse<{ prescriptions: PrescriptionDto[] }>(
-        fetch("/api/prescriptions")
-      ),
+    list: (params?: { page?: number; pageSize?: number; q?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.page) sp.set("page", String(params.page));
+      if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+      if (params?.q) sp.set("q", params.q);
+      const q = sp.toString();
+      return handleResponse<{
+        prescriptions: PrescriptionDto[];
+        pagination: PaginationMeta;
+      }>(fetch(`/api/prescriptions${q ? `?${q}` : ""}`));
+    },
     nextNumber: () =>
       handleResponse<{ prescriptionNumber: number }>(
         fetch("/api/prescriptions/next-number")
@@ -377,16 +463,32 @@ export const rxApi = {
       ),
   },
   appointments: {
-    list: (params?: { date?: string; from?: string; to?: string; status?: string }) => {
+    list: (params?: {
+      date?: string;
+      from?: string;
+      to?: string;
+      bookingFrom?: string;
+      bookingTo?: string;
+      status?: string;
+      paginate?: boolean;
+      page?: number;
+      pageSize?: number;
+    }) => {
       const sp = new URLSearchParams();
       if (params?.date) sp.set("date", params.date);
       if (params?.from) sp.set("from", params.from);
       if (params?.to) sp.set("to", params.to);
+      if (params?.bookingFrom) sp.set("bookingFrom", params.bookingFrom);
+      if (params?.bookingTo) sp.set("bookingTo", params.bookingTo);
       if (params?.status) sp.set("status", params.status);
+      if (params?.paginate) sp.set("paginate", "1");
+      if (params?.page) sp.set("page", String(params.page));
+      if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
       const q = sp.toString();
-      return handleResponse<{ appointments: AppointmentDto[] }>(
-        fetch(`/api/appointments${q ? `?${q}` : ""}`)
-      );
+      return handleResponse<{
+        appointments: AppointmentDto[];
+        pagination?: PaginationMeta;
+      }>(fetch(`/api/appointments${q ? `?${q}` : ""}`));
     },
     get: (id: number) =>
       handleResponse<{ appointment: AppointmentDto }>(

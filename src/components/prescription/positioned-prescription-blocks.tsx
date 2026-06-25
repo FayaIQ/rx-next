@@ -5,7 +5,7 @@ import {
 import type { PrescriptionDocumentData } from "@/components/prescription/prescription-document";
 import type { RecipeSettingsDto } from "@/lib/recipe-settings";
 import { fieldFontSize } from "@/lib/patient-field-layout";
-import { formatAge, genderLabel } from "@/lib/patient-utils";
+import { formatAge, formatPrescriptionDate, genderLabel } from "@/lib/patient-utils";
 
 export function PositionedPrescriptionBlocks({
   data,
@@ -16,6 +16,7 @@ export function PositionedPrescriptionBlocks({
 }) {
   const printableFields =
     data.printableFields?.filter((field) => field.value.trim()) ?? [];
+  const valueOnlyFields = settings.designMode === "image";
 
   return (
     <>
@@ -74,9 +75,7 @@ export function PositionedPrescriptionBlocks({
           transform: "translate(-50%, -50%)",
         }}
       >
-        {new Date(data.prescriptionDate).toLocaleDateString("ar-SY")}
-        {" · #"}
-        {data.prescriptionNumber}
+        {formatPrescriptionDate(data.prescriptionDate)}
       </div>
 
       {printableFields.map((field) => (
@@ -90,7 +89,13 @@ export function PositionedPrescriptionBlocks({
             fontSize: fieldFontSize(field.size),
           }}
         >
-          <span className="font-medium">{field.name}:</span> {field.value}
+          {valueOnlyFields ? (
+            field.value
+          ) : (
+            <>
+              <span className="font-medium">{field.name}:</span> {field.value}
+            </>
+          )}
         </div>
       ))}
 

@@ -1,13 +1,31 @@
 import { z } from "zod";
+import { parsePatientPhoneInput } from "@/lib/patient-utils";
 
 export const genderSchema = z.enum(["male", "female"]);
+
+const patientPhoneSchema = z
+  .union([z.string(), z.null()])
+  .optional()
+  .superRefine((val, ctx) => {
+    if (val == null || !String(val).trim()) return;
+    const { error } = parsePatientPhoneInput(String(val));
+    if (error) {
+      ctx.addIssue({ code: "custom", message: error });
+    }
+  });
+
+export const prescriptionFieldValueSchema = z.object({
+  patientFieldId: z.number(),
+  value: z.string(),
+});
 
 export const patientSchema = z.object({
   name: z.string().min(1, "اسم المريض مطلوب"),
   gender: genderSchema,
   birthdate: z.string().nullable().optional(),
   diagnosis: z.string().nullable().optional(),
-  phone: z.string().nullable().optional(),
+  phone: patientPhoneSchema,
+  fieldValues: z.array(prescriptionFieldValueSchema).optional().default([]),
 });
 
 export const medicineSchema = z.object({
@@ -27,11 +45,6 @@ export const prescriptionItemSchema = z.object({
   quantity: z.string().nullable().optional(),
   period: z.string().nullable().optional(),
   timeOfUse: z.string().nullable().optional(),
-});
-
-export const prescriptionFieldValueSchema = z.object({
-  patientFieldId: z.number(),
-  value: z.string(),
 });
 
 export const prescriptionSchema = z.object({

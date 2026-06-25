@@ -1,3 +1,7 @@
+import type { PaginationMeta } from "@/lib/pagination";
+
+export type { PaginationMeta };
+
 async function handleResponse<T>(res: Response | Promise<Response>): Promise<T> {
   const response = await res;
   const data = await response.json();
@@ -47,12 +51,14 @@ export const adminApi = {
       appointmentsChart: Array<{ date: string; count: number }>;
     }>(fetch("/api/dashboard/stats")),
 
-  users: (params?: { type?: string; q?: string }) => {
+  users: (params?: { type?: string; q?: string; page?: number; pageSize?: number }) => {
     const sp = new URLSearchParams();
     if (params?.type) sp.set("type", params.type);
     if (params?.q) sp.set("q", params.q);
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
     const q = sp.toString();
-    return handleResponse<{ users: AdminUserDto[] }>(
+    return handleResponse<{ users: AdminUserDto[]; pagination: PaginationMeta }>(
       fetch(`/api/dashboard/users${q ? `?${q}` : ""}`)
     );
   },
@@ -63,10 +69,16 @@ export const adminApi = {
       subscriptionHistory: Array<Record<string, unknown>>;
     }>(fetch(`/api/dashboard/users/${id}`)),
 
-  doctors: (tab?: string) =>
-    handleResponse<{ doctors: AdminUserDto[] }>(
-      fetch(`/api/dashboard/doctors${tab ? `?tab=${tab}` : ""}`)
-    ),
+  doctors: (tab?: string, params?: { page?: number; pageSize?: number }) => {
+    const sp = new URLSearchParams();
+    if (tab) sp.set("tab", tab);
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+    const q = sp.toString();
+    return handleResponse<{ doctors: AdminUserDto[]; pagination: PaginationMeta }>(
+      fetch(`/api/dashboard/doctors${q ? `?${q}` : ""}`)
+    );
+  },
 
   createDoctor: (body: Record<string, unknown>) =>
     handleResponse<{ doctor: AdminUserDto }>(
@@ -77,10 +89,17 @@ export const adminApi = {
       })
     ),
 
-  secretaries: (q?: string) =>
-    handleResponse<{ secretaries: AdminUserDto[] }>(
-      fetch(`/api/dashboard/secretaries${q ? `?q=${encodeURIComponent(q)}` : ""}`)
-    ),
+  secretaries: (params?: { q?: string; page?: number; pageSize?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.q) sp.set("q", params.q);
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+    const q = sp.toString();
+    return handleResponse<{
+      secretaries: AdminUserDto[];
+      pagination: PaginationMeta;
+    }>(fetch(`/api/dashboard/secretaries${q ? `?${q}` : ""}`));
+  },
 
   createSecretary: (body: Record<string, unknown>) =>
     handleResponse<{ secretary: AdminUserDto }>(
@@ -114,12 +133,20 @@ export const adminApi = {
       })
     ),
 
-  subscriptions: (filter?: string) =>
-    handleResponse<{ subscriptions: AdminUserDto[] }>(
-      fetch(
-        `/api/dashboard/subscriptions${filter ? `?filter=${filter}` : ""}`
-      )
-    ),
+  subscriptions: (
+    filter?: string,
+    params?: { page?: number; pageSize?: number }
+  ) => {
+    const sp = new URLSearchParams();
+    if (filter) sp.set("filter", filter);
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+    const q = sp.toString();
+    return handleResponse<{
+      subscriptions: AdminUserDto[];
+      pagination: PaginationMeta;
+    }>(fetch(`/api/dashboard/subscriptions${q ? `?${q}` : ""}`));
+  },
 
   activateSubscription: (userId: number, body: Record<string, unknown>) =>
     handleResponse<{ subscription: Record<string, unknown> }>(

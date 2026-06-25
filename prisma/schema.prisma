@@ -50,8 +50,38 @@ model Patient {
   appointments  Appointment[]
   doctor        User           @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "patients_doctor_id_foreign")
   prescriptions Prescription[]
+  fieldValues   PatientFieldValue[]
+  dentalChart   DentalChart?
 
   @@map("patients")
+}
+
+model DentalChart {
+  id        BigInt              @id @default(autoincrement())
+  patientId BigInt              @unique @map("patient_id")
+  doctorId  BigInt              @map("doctor_id")
+  notes     String?
+  createdAt DateTime?           @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime?           @updatedAt @map("updated_at") @db.Timestamp(0)
+  patient   Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dental_charts_patient_id_foreign")
+  teeth     DentalToothRecord[]
+
+  @@index([doctorId], map: "dental_charts_doctor_id_index")
+  @@map("dental_charts")
+}
+
+model DentalToothRecord {
+  id        BigInt      @id @default(autoincrement())
+  chartId   BigInt      @map("chart_id")
+  toothFdi  Int         @map("tooth_fdi")
+  status    String      @db.VarChar(64)
+  notes     String?
+  createdAt DateTime?   @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt DateTime?   @updatedAt @map("updated_at") @db.Timestamp(0)
+  chart     DentalChart @relation(fields: [chartId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dental_tooth_records_chart_id_foreign")
+
+  @@unique([chartId, toothFdi], map: "dental_tooth_records_chart_id_tooth_fdi_unique")
+  @@map("dental_tooth_records")
 }
 
 model Prescription {
@@ -154,10 +184,25 @@ model PatientField {
   isPersonal  Boolean                  @default(false) @map("is_personal")
   designX     Decimal?                 @map("design_x") @db.Decimal(5, 2)
   designY     Decimal?                 @map("design_y") @db.Decimal(5, 2)
-  doctor      User                     @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "patient_fields_doctor_id_foreign")
-  fieldValues PrescriptionFieldValue[]
+  doctor             User                     @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "patient_fields_doctor_id_foreign")
+  fieldValues        PrescriptionFieldValue[]
+  patientFieldValues PatientFieldValue[]
 
   @@map("patient_fields")
+}
+
+model PatientFieldValue {
+  id             BigInt       @id @default(autoincrement())
+  patientId      BigInt       @map("patient_id")
+  patientFieldId BigInt       @map("patient_field_id")
+  value          String?      @db.VarChar(255)
+  createdAt      DateTime?    @map("created_at") @db.Timestamp(0)
+  updatedAt      DateTime?    @updatedAt @map("updated_at") @db.Timestamp(0)
+  patient        Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "patient_field_values_patient_id_foreign")
+  patientField   PatientField @relation(fields: [patientFieldId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "patient_field_values_patient_field_id_foreign")
+
+  @@unique([patientId, patientFieldId], map: "patient_field_values_patient_id_patient_field_id_unique")
+  @@map("patient_field_values")
 }
 
 model PrescriptionFieldValue {
@@ -189,6 +234,7 @@ model RecipeSettings {
   logoPath         String?   @map("logo_path") @db.VarChar(255)
   designImagePath  String?   @map("design_image_path") @db.VarChar(255)
   designMode       String    @default("design") @map("design_mode") @db.VarChar(255)
+  designTemplate   String    @default("classic") @map("design_template") @db.VarChar(255)
   designImageScale Int       @default(1) @map("design_image_scale") @db.SmallInt
   designPatientX   Decimal   @default(8.00) @map("design_patient_x") @db.Decimal(5, 2)
   designPatientY   Decimal   @default(6.00) @map("design_patient_y") @db.Decimal(5, 2)

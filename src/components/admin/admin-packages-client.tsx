@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FormPageLoading } from "@/components/ui/page-loading";
 import { PageContent, PageHeader } from "@/components/ui/page-shell";
 import { adminApi, type AdminPackageDto } from "@/lib/api/admin-client";
 
@@ -54,6 +55,10 @@ export function AdminPackagesClient() {
   });
 
   const packages = data?.packages ?? [];
+
+  if (isLoading && !data) {
+    return <FormPageLoading />;
+  }
 
   function startEdit(pkg: AdminPackageDto) {
     setEditing(pkg);

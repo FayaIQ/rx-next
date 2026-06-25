@@ -11,7 +11,6 @@ export default function DoctorSignInPage() {
       alternateLabel="ليس لديك حساب؟ أنشئ حساباً مجاناً"
       footerLinks={[
         { href: "/auth/login/secretary", label: "دخول السكرتير" },
-        { href: "/auth/admin", label: "دخول الأدمن" },
       ]}
     />
   );
