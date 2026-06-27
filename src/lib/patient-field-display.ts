@@ -5,12 +5,29 @@ export type FieldValueRow = Array<{
   value: string;
 }>;
 
-export function activePersonalFields(fields: PatientFieldDto[] | undefined) {
-  return fields?.filter((f) => f.isActive && f.isPersonal) ?? [];
+export function normalizePatientFieldsArray(
+  fields: PatientFieldDto[] | { fields: PatientFieldDto[] } | undefined | null
+): PatientFieldDto[] {
+  if (!fields) return [];
+  if (Array.isArray(fields)) return fields;
+  if (Array.isArray(fields.fields)) return fields.fields;
+  return [];
 }
 
-export function activeRecipeFields(fields: PatientFieldDto[] | undefined) {
-  return fields?.filter((f) => f.isActive && !f.isPersonal) ?? [];
+export function activePersonalFields(
+  fields: PatientFieldDto[] | { fields: PatientFieldDto[] } | undefined
+) {
+  return normalizePatientFieldsArray(fields).filter(
+    (f) => f.isActive && f.isPersonal
+  );
+}
+
+export function activeRecipeFields(
+  fields: PatientFieldDto[] | { fields: PatientFieldDto[] } | undefined
+) {
+  return normalizePatientFieldsArray(fields).filter(
+    (f) => f.isActive && !f.isPersonal
+  );
 }
 
 export function getFieldValue(

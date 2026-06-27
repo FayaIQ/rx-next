@@ -2,6 +2,8 @@ import { fromDbId } from "@/lib/bigint";
 import type { RecipeSettings } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
+import { migrateRecipeFontId } from "@/lib/recipe-fonts";
+
 export type RecipeSettingsDto = {
   id: number;
   doctorId: number;
@@ -62,38 +64,56 @@ export const RECIPE_CORE_FIELD_DEFAULTS = {
   designPhoneY: 42,
 } as const;
 
+function clampNum(v: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, v));
+}
+
+function sanitizeEmail(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
+}
+
+function nonEmptyStr(value: string | null | undefined, fallback: string): string {
+  const trimmed = value?.trim();
+  return trimmed || fallback;
+}
+
 export function normalizeRecipeSettingsDto(
   input: Partial<RecipeSettingsDto> & Pick<RecipeSettingsDto, "id" | "doctorId">
 ): RecipeSettingsDto {
+  const opacity =
+    input.opacity == null ? 0.2 : clampNum(Number(input.opacity), 0, 1);
+
   return {
     id: input.id,
     doctorId: input.doctorId,
-    doctorName: input.doctorName ?? "",
-    doctorSpecialty: input.doctorSpecialty ?? "",
-    additionalText1: input.additionalText1 ?? null,
-    phoneNumber: input.phoneNumber ?? null,
-    email: input.email ?? null,
-    address: input.address ?? null,
-    fontFamily: input.fontFamily ?? "Cairo",
-    fontSize: input.fontSize ?? "14",
-    opacity: input.opacity ?? 0.2,
-    paperSize: input.paperSize ?? "A4",
-    color: input.color ?? "#117e65",
+    doctorName: nonEmptyStr(input.doctorName, "طبيب"),
+    doctorSpecialty: nonEmptyStr(input.doctorSpecialty, "طب عام"),
+    additionalText1: input.additionalText1?.trim() || null,
+    phoneNumber: input.phoneNumber?.trim() || null,
+    email: sanitizeEmail(input.email),
+    address: input.address?.trim() || null,
+    fontFamily: migrateRecipeFontId(input.fontFamily),
+    fontSize: nonEmptyStr(input.fontSize, "14"),
+    opacity,
+    paperSize: input.paperSize === "A5" ? "A5" : "A4",
+    color: nonEmptyStr(input.color, "#117e65"),
     logoPath: input.logoPath ?? null,
     designImagePath: input.designImagePath ?? null,
-    designMode: input.designMode ?? "design",
+    designMode: input.designMode === "image" ? "image" : "design",
     designTemplate: input.designTemplate ?? "classic",
-    designImageScale: input.designImageScale ?? 1,
-    designPatientX: input.designPatientX ?? 8,
-    designPatientY: input.designPatientY ?? 6,
-    designAgeX: input.designAgeX ?? 38,
-    designAgeY: input.designAgeY ?? 1,
-    designDateX: input.designDateX ?? 46,
-    designDateY: input.designDateY ?? 1,
-    designItemsX: input.designItemsX ?? 8,
-    designItemsY: input.designItemsY ?? 15,
-    designItemsWidth: input.designItemsWidth ?? 84,
-    designItemsHeight: input.designItemsHeight ?? 45,
+    designImageScale: clampNum(Math.round(Number(input.designImageScale ?? 1)), 1, 3),
+    designPatientX: clampNum(Number(input.designPatientX ?? 8), 0, 100),
+    designPatientY: clampNum(Number(input.designPatientY ?? 6), 0, 100),
+    designAgeX: clampNum(Number(input.designAgeX ?? 38), 0, 100),
+    designAgeY: clampNum(Number(input.designAgeY ?? 1), 0, 100),
+    designDateX: clampNum(Number(input.designDateX ?? 46), 0, 100),
+    designDateY: clampNum(Number(input.designDateY ?? 1), 0, 100),
+    designItemsX: clampNum(Number(input.designItemsX ?? 8), 0, 100),
+    designItemsY: clampNum(Number(input.designItemsY ?? 15), 0, 100),
+    designItemsWidth: clampNum(Number(input.designItemsWidth ?? 84), 25, 92),
+    designItemsHeight: clampNum(Number(input.designItemsHeight ?? 45), 15, 80),
     showGender: bool(input.showGender, RECIPE_CORE_FIELD_DEFAULTS.showGender),
     showAge: bool(input.showAge, RECIPE_CORE_FIELD_DEFAULTS.showAge),
     showPhone: bool(input.showPhone, RECIPE_CORE_FIELD_DEFAULTS.showPhone),
@@ -102,8 +122,16 @@ export function normalizeRecipeSettingsDto(
     printGender: bool(input.printGender, true),
     printPhone: bool(input.printPhone, RECIPE_CORE_FIELD_DEFAULTS.printPhone),
     printDiagnosis: bool(input.printDiagnosis, true),
-    designPhoneX: input.designPhoneX ?? RECIPE_CORE_FIELD_DEFAULTS.designPhoneX,
-    designPhoneY: input.designPhoneY ?? RECIPE_CORE_FIELD_DEFAULTS.designPhoneY,
+    designPhoneX: clampNum(
+      Number(input.designPhoneX ?? RECIPE_CORE_FIELD_DEFAULTS.designPhoneX),
+      0,
+      100
+    ),
+    designPhoneY: clampNum(
+      Number(input.designPhoneY ?? RECIPE_CORE_FIELD_DEFAULTS.designPhoneY),
+      0,
+      100
+    ),
   };
 }
 
@@ -159,19 +187,14 @@ export function serializeRecipeSettings(rs: RecipeSettings): RecipeSettingsDto {
   });
 }
 
-export const FONT_OPTIONS = [
-  { value: "Cairo", label: "Cairo" },
-  { value: "FF_Shamel", label: "FF Shamel" },
-  { value: "Tajawal", label: "Tajawal" },
-] as const;
+export {
+  FONT_OPTIONS,
+  RECIPE_FONT_OPTIONS,
+  fontFamilyCss,
+  migrateRecipeFontId,
+} from "@/lib/recipe-fonts";
 
 export const PAPER_OPTIONS = [
   { value: "A4", label: "A4" },
   { value: "A5", label: "A5" },
 ] as const;
-
-export function fontFamilyCss(family: string): string {
-  if (family === "FF_Shamel") return '"FF Shamel", "Cairo", sans-serif';
-  if (family === "Cairo") return '"Cairo", sans-serif';
-  return "var(--font-tajawal), Tajawal, sans-serif";
-}

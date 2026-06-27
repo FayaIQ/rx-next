@@ -16,8 +16,16 @@ import type {
   MedicinePresetDto,
   PrescriptionDto,
   PatientFieldDto,
+  AppointmentDto,
 } from "@/lib/api/rx-client";
 import { formatAge, countVisitsFromDates } from "@/lib/patient-utils";
+import {
+  mergeAppointments,
+  mergeMedicines,
+  mergePatientFields,
+  mergePatients,
+  mergePrescriptions,
+} from "@/lib/sync/hydration-merge";
 
 export async function persistHydration(data: {
   patients: PatientDto[];
@@ -52,51 +60,41 @@ export async function persistHydration(data: {
       db.meta,
     ],
     async () => {
-      await db.patients.clear();
-      await db.medicines.clear();
-      await db.prescriptions.clear();
-      await db.appointments.clear();
-      await db.patient_fields.clear();
-      await db.medicine_presets.clear();
-
-      await db.patients.bulkPut(
-        data.patients.map(
-          (p): LocalPatient => ({
-            id: `srv-${p.id}`,
-            serverId: p.id,
-            name: p.name,
-            gender: p.gender,
-            birthdate: p.birthdate ?? undefined,
-            diagnosis: p.diagnosis ?? undefined,
-            phone: p.phone ?? undefined,
-            doctorId: p.doctorId,
-            fieldValues: p.fieldValues ?? [],
-            synced: true,
-            updatedAt: p.updatedAt,
-          })
-        )
+      const patients = data.patients.map(
+        (p): LocalPatient => ({
+          id: `srv-${p.id}`,
+          serverId: p.id,
+          name: p.name,
+          gender: p.gender,
+          birthdate: p.birthdate ?? undefined,
+          diagnosis: p.diagnosis ?? undefined,
+          phone: p.phone ?? undefined,
+          doctorId: p.doctorId,
+          fieldValues: p.fieldValues ?? [],
+          synced: true,
+          updatedAt: p.updatedAt,
+        })
       );
+      await mergePatients(patients);
 
-      await db.medicines.bulkPut(
-        data.medicines.map(
-          (m): LocalMedicine => ({
-            id: `srv-${m.id}`,
-            serverId: m.id,
-            doctorId: m.doctorId,
-            name: m.name,
-            type: m.type ?? undefined,
-            dosage: m.dosage ?? undefined,
-            quantity: m.quantity ?? undefined,
-            period: m.period ?? undefined,
-            timeOfUse: m.timeOfUse ?? undefined,
-            synced: true,
-            updatedAt: m.updatedAt,
-          })
-        )
+      const medicines = data.medicines.map(
+        (m): LocalMedicine => ({
+          id: `srv-${m.id}`,
+          serverId: m.id,
+          doctorId: m.doctorId,
+          name: m.name,
+          type: m.type ?? undefined,
+          dosage: m.dosage ?? undefined,
+          quantity: m.quantity ?? undefined,
+          period: m.period ?? undefined,
+          timeOfUse: m.timeOfUse ?? undefined,
+          synced: true,
+          updatedAt: m.updatedAt,
+        })
       );
+      await mergeMedicines(medicines);
 
-      await db.prescriptions.bulkPut(
-        data.prescriptions.map((rx) => {
+      const prescriptions = data.prescriptions.map((rx) => {
           const r = rx as {
             id: number;
             patientId: number;
@@ -134,11 +132,10 @@ export async function persistHydration(data: {
             synced: true,
             updatedAt: r.updatedAt ?? new Date().toISOString(),
           } satisfies LocalPrescription;
-        })
-      );
+        });
+      await mergePrescriptions(prescriptions);
 
-      await db.appointments.bulkPut(
-        data.appointments.map((a) => {
+      const appointments = data.appointments.map((a) => {
           const ap = a as {
             id: number;
             doctorId: number;
@@ -147,6 +144,8 @@ export async function persistHydration(data: {
             bookingDate: string | null;
             notes?: string;
             status: boolean;
+            visitStatus?: string;
+            checkedInAt?: string | null;
             updatedAt: string;
           };
           return {
@@ -159,14 +158,15 @@ export async function persistHydration(data: {
             bookingDate: ap.bookingDate ?? ap.appointmentDatetime,
             notes: ap.notes,
             status: ap.status,
+            visitStatus: ap.visitStatus ?? "scheduled",
+            checkedInAt: ap.checkedInAt ?? null,
             synced: true,
             updatedAt: ap.updatedAt,
           } satisfies LocalAppointment;
-        })
-      );
+        });
+      await mergeAppointments(appointments);
 
-      await db.patient_fields.bulkPut(
-        data.fields.map((f) => {
+      const fields = data.fields.map((f) => {
           const field = f as {
             id: number;
             doctorId: number;
@@ -188,8 +188,8 @@ export async function persistHydration(data: {
             synced: true,
             updatedAt: new Date().toISOString(),
           } satisfies LocalPatientField;
-        })
-      );
+        });
+      await mergePatientFields(fields);
 
       if (data.defaultMedicines.length) {
         await db.default_medicines.clear();
@@ -229,6 +229,172 @@ export async function persistHydration(data: {
       await setMeta("last_full_sync", data.syncedAt);
     }
   );
+}
+
+export async function mergePartialHydration(data: {
+  patients?: PatientDto[];
+  medicines?: MedicineDto[];
+  prescriptions?: Array<Record<string, unknown>>;
+  appointments?: Array<Record<string, unknown>>;
+  fields?: Array<Record<string, unknown>>;
+  syncedAt: string;
+}) {
+  if (data.patients?.length) {
+    await mergePatients(
+      data.patients.map(
+        (p): LocalPatient => ({
+          id: `srv-${p.id}`,
+          serverId: p.id,
+          name: p.name,
+          gender: p.gender,
+          birthdate: p.birthdate ?? undefined,
+          diagnosis: p.diagnosis ?? undefined,
+          phone: p.phone ?? undefined,
+          doctorId: p.doctorId,
+          fieldValues: p.fieldValues ?? [],
+          synced: true,
+          updatedAt: p.updatedAt,
+        })
+      )
+    );
+  }
+
+  if (data.medicines?.length) {
+    await mergeMedicines(
+      data.medicines.map(
+        (m): LocalMedicine => ({
+          id: `srv-${m.id}`,
+          serverId: m.id,
+          doctorId: m.doctorId,
+          name: m.name,
+          type: m.type ?? undefined,
+          dosage: m.dosage ?? undefined,
+          quantity: m.quantity ?? undefined,
+          period: m.period ?? undefined,
+          timeOfUse: m.timeOfUse ?? undefined,
+          synced: true,
+          updatedAt: m.updatedAt ?? new Date().toISOString(),
+        })
+      )
+    );
+  }
+
+  if (data.prescriptions?.length) {
+    await mergePrescriptions(
+      data.prescriptions.map((rx) => {
+        const r = rx as {
+          id: number;
+          patientId: number;
+          doctorId: number;
+          prescriptionDate: string;
+          diagnosis?: string;
+          prescriptionNumber?: number;
+          items: Array<Record<string, unknown>>;
+          fieldValues: Array<{ patientFieldId: number; value: string }>;
+          updatedAt?: string;
+        };
+        return {
+          id: `srv-${r.id}`,
+          serverId: r.id,
+          patientId: `srv-${r.patientId}`,
+          patientServerId: r.patientId,
+          doctorId: r.doctorId,
+          prescriptionDate: r.prescriptionDate,
+          diagnosis: r.diagnosis,
+          prescriptionNumber: r.prescriptionNumber,
+          items: (r.items ?? []).map((item) => {
+            const i = item as {
+              id: number;
+              name: string;
+              type?: string;
+              dosage?: string;
+              quantity?: string;
+              period?: string;
+              timeOfUse?: string;
+            };
+            return {
+              id: `srv-item-${i.id}`,
+              serverId: i.id,
+              name: i.name,
+              type: i.type,
+              dosage: i.dosage,
+              quantity: i.quantity,
+              period: i.period,
+              timeOfUse: i.timeOfUse,
+            };
+          }),
+          fieldValues: r.fieldValues ?? [],
+          synced: true,
+          updatedAt: r.updatedAt ?? new Date().toISOString(),
+        } satisfies LocalPrescription;
+      })
+    );
+  }
+
+  if (data.appointments?.length) {
+    await mergeAppointments(
+      data.appointments.map((a) => {
+        const ap = a as {
+          id: number;
+          doctorId: number;
+          patientId: number;
+          appointmentDatetime: string;
+          bookingDate: string | null;
+          notes?: string;
+          status: boolean;
+          visitStatus?: string;
+          checkedInAt?: string | null;
+          updatedAt: string;
+        };
+        return {
+          id: `srv-${ap.id}`,
+          serverId: ap.id,
+          doctorId: ap.doctorId,
+          patientId: `srv-${ap.patientId}`,
+          patientServerId: ap.patientId,
+          appointmentDatetime: ap.appointmentDatetime,
+          bookingDate: ap.bookingDate ?? ap.appointmentDatetime,
+          notes: ap.notes,
+          status: ap.status,
+          visitStatus: ap.visitStatus ?? "scheduled",
+          checkedInAt: ap.checkedInAt ?? null,
+          synced: true,
+          updatedAt: ap.updatedAt,
+        } satisfies LocalAppointment;
+      })
+    );
+  }
+
+  if (data.fields?.length) {
+    await mergePatientFields(
+      data.fields.map((f) => {
+        const field = f as {
+          id: number;
+          doctorId: number;
+          name: string;
+          size: string;
+          isActive: boolean;
+          isPrintable: boolean;
+          isPersonal: boolean;
+          updatedAt?: string;
+        };
+        return {
+          id: `srv-${field.id}`,
+          serverId: field.id,
+          doctorId: field.doctorId,
+          name: field.name,
+          size: field.size as "larg" | "medium" | "small",
+          isActive: field.isActive,
+          isPrintable: field.isPrintable,
+          isPersonal: field.isPersonal,
+          synced: true,
+          updatedAt: field.updatedAt ?? new Date().toISOString(),
+        } satisfies LocalPatientField;
+      })
+    );
+  }
+
+  await setMeta("last_full_sync", data.syncedAt);
 }
 
 function dedupeLocalPatients(rows: LocalPatient[]): LocalPatient[] {
@@ -544,6 +710,7 @@ export async function enqueueSyncItem(
     retryCount: 0,
   };
   await db.sync_queue.put(record);
+  void import("@/lib/sync/sync-engine").then((m) => m.refreshPendingCount());
   return record;
 }
 
@@ -581,6 +748,8 @@ export async function getLocalAppointments(date?: string): Promise<import("@/lib
       bookingDate: a.bookingDate,
       notes: a.notes ?? null,
       status: a.status,
+      visitStatus: a.visitStatus ?? "scheduled",
+      checkedInAt: a.checkedInAt ?? null,
       createdAt: a.updatedAt,
       updatedAt: a.updatedAt,
       patient: patient
@@ -708,6 +877,44 @@ export async function syncLocalPrescriptionFromDto(
   for (const match of matches) {
     if (match.id !== primaryId) {
       await db.prescriptions.delete(match.id);
+    }
+  }
+}
+
+/** Keep IndexedDB in sync after a server appointment save. */
+export async function syncLocalAppointmentFromDto(
+  appointment: AppointmentDto
+): Promise<void> {
+  if (!appointment.id) return;
+
+  const db = getRxDb();
+  const matches = await db.appointments
+    .filter((a) => a.serverId === appointment.id)
+    .toArray();
+  const primaryId =
+    matches.find((m) => m.id === `srv-${appointment.id}`)?.id ??
+    matches[0]?.id ??
+    `srv-${appointment.id}`;
+
+  await db.appointments.put({
+    id: primaryId,
+    serverId: appointment.id,
+    doctorId: appointment.doctorId,
+    patientId: `srv-${appointment.patientId}`,
+    patientServerId: appointment.patientId,
+    appointmentDatetime: appointment.appointmentDatetime,
+    bookingDate: appointment.bookingDate ?? appointment.appointmentDatetime,
+    notes: appointment.notes ?? undefined,
+    status: appointment.status,
+    visitStatus: appointment.visitStatus ?? "scheduled",
+    checkedInAt: appointment.checkedInAt ?? null,
+    synced: true,
+    updatedAt: appointment.updatedAt ?? new Date().toISOString(),
+  });
+
+  for (const match of matches) {
+    if (match.id !== primaryId) {
+      await db.appointments.delete(match.id);
     }
   }
 }

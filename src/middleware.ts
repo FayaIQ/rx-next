@@ -31,7 +31,7 @@ function isAuthPath(pathname: string): boolean {
 
 function getDefaultRoute(type: string, isConfirmed: boolean): string {
   if (type === "admin") return "/dashboard";
-  if (type === "secretary") return isConfirmed ? "/secretary/patients" : "/secretary";
+  if (type === "secretary") return isConfirmed ? "/secretary/desk" : "/secretary";
   return "/home";
 }
 
@@ -42,6 +42,7 @@ export default auth((req) => {
     pathname === "/manifest.json" ||
     pathname === "/sw.js" ||
     pathname.startsWith("/icons/") ||
+    pathname.startsWith("/fonts/") ||
     pathname.startsWith("/uploads/") ||
     pathname.startsWith("/models/")
   ) {
@@ -90,6 +91,8 @@ export default auth((req) => {
       "/setting",
       "/prescriptions",
       "/dental",
+      "/finances",
+      "/queue",
       "/subscription",
     ];
     const allowed = doctorPaths.some((p) => pathname.startsWith(p));
@@ -99,10 +102,15 @@ export default auth((req) => {
   }
 
   if (type === "secretary") {
-    if (!isConfirmed && pathname !== "/secretary" && !pathname.startsWith("/api/")) {
-      return NextResponse.redirect(new URL("/secretary", req.url));
+    if (isConfirmed && pathname === "/secretary") {
+      return NextResponse.redirect(new URL("/secretary/desk", req.url));
     }
-    if (!isConfirmed && pathname.startsWith("/secretary/")) {
+    if (
+      !isConfirmed &&
+      pathname !== "/secretary" &&
+      !pathname.startsWith("/secretary/") &&
+      !pathname.startsWith("/api/")
+    ) {
       return NextResponse.redirect(new URL("/secretary", req.url));
     }
     if (
@@ -110,7 +118,7 @@ export default auth((req) => {
       !pathname.startsWith("/secretary") &&
       !pathname.startsWith("/api/")
     ) {
-      return NextResponse.redirect(new URL("/secretary/patients", req.url));
+      return NextResponse.redirect(new URL("/secretary/desk", req.url));
     }
   }
 
@@ -123,6 +131,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|glb|gltf|obj|bin)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|fonts/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2|woff|ttf|otf|glb|gltf|obj|bin)$).*)",
   ],
 };

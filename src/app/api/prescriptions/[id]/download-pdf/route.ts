@@ -1,8 +1,8 @@
-import { auth } from "@/auth";
+import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { redirect } from "next/navigation";
-import { toUserId } from "@/lib/user-id";
 import { loadPrescriptionDocument } from "@/lib/prescription-document-data";
 import { fontFamilyCss } from "@/lib/recipe-settings";
+import { getRecipeFontsCss } from "@/lib/recipe-fonts-server";
 import {
   templatePrintHeaderHtml,
   templatePrintStyles,
@@ -28,13 +28,13 @@ import {
   type MedicineLineItem,
 } from "@/lib/medicine-line-format";
 
-export async function GET(_req: Request, { params }: Params) {
-  const session = await auth();
-  if (!session?.user || session.user.type !== "doctor") {
+export async function GET(req: Request, { params }: Params) {
+  const ctx = await requireDoctorApi();
+  if (isApiError(ctx)) {
     redirect("/auth/signin");
   }
 
-  const doctorId = toUserId(session.user.id);
+  const doctorId = ctx.doctorId;
   const { id } = await params;
   const data = await loadPrescriptionDocument(doctorId, Number(id));
   if (!data) {
@@ -42,6 +42,8 @@ export async function GET(_req: Request, { params }: Params) {
   }
 
   const s = data.settings;
+  const origin = new URL(req.url).origin;
+  const fontFacesCss = getRecipeFontsCss(origin);
   const fontCss = fontFamilyCss(s.fontFamily);
   const itemsSize = itemsBoxSize(s);
   const dims = paperDimensions(s.paperSize);
@@ -97,8 +99,8 @@ export async function GET(_req: Request, { params }: Params) {
 <head>
   <meta charset="utf-8"/>
   <title>وصفة #${data.prescriptionNumber}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"/>
   <style>
+    ${fontFacesCss}
     @page { size: ${paperPageSizeCss(s.paperSize)}; margin: 0; }
     body { font-family: ${fontCss}; font-size: ${s.fontSize}px; color: ${s.color}; margin: 0; padding: 0; }
     .wrap { position: relative; width: ${dims.width}; height: ${dims.height}; margin: 0 auto; overflow: hidden; background: white; }

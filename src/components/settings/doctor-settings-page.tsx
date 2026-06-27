@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormPageLoading } from "@/components/ui/page-loading";
 import { PatientFieldsManager } from "@/components/settings/patient-fields-manager";
+import { queryKeys } from "@/lib/query-keys";
 import { rxApi } from "@/lib/api/rx-client";
 import { useLocale, type Locale } from "@/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -102,7 +103,7 @@ export function DoctorSettingsPage() {
   });
 
   const { data: fieldsData, isLoading: fieldsLoading } = useQuery({
-    queryKey: ["fields-all"],
+    queryKey: queryKeys.fieldsAll.all,
     queryFn: () => rxApi.fields.listAll(),
   });
 

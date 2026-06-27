@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -30,8 +30,10 @@ import {
 } from "@/components/recipe/recipe-settings-sections";
 import { rxApi, type RecipeSettingsDto } from "@/lib/api/rx-client";
 import { normalizeRecipeSettingsDto } from "@/lib/recipe-settings";
+import { normalizePatientFieldsArray } from "@/lib/patient-field-display";
+import { queryKeys } from "@/lib/query-keys";
 import { sampleFieldValue } from "@/lib/patient-field-layout";
-import { applyRecipeTemplate, type RecipeTemplateId } from "@/lib/recipe-templates";
+import { applyRecipeTemplate } from "@/lib/recipe-templates";
 import { RecipeDesignerPageLoading } from "@/components/ui/page-loading";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +64,7 @@ const DEFAULT_PREVIEW: PrescriptionDocumentData = {
     phoneNumber: null,
     email: null,
     address: null,
-    fontFamily: "Cairo",
+    fontFamily: "cairo",
     fontSize: "14",
     opacity: 0.2,
     paperSize: "A4",
@@ -132,14 +134,15 @@ export function RecipeSettingsForm() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<RecipeSettingsDto | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>("template");
+  const hydratedRef = useRef(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["recipe-settings"],
+    queryKey: queryKeys.recipeSettings.all,
     queryFn: () => rxApi.recipeSettings.get(),
   });
 
   const { data: fieldsData } = useQuery({
-    queryKey: ["fields"],
+    queryKey: queryKeys.fieldsRecipe.all,
     queryFn: () => rxApi.fields.list(),
   });
 
@@ -148,16 +151,21 @@ export function RecipeSettingsForm() {
   >({});
 
   useEffect(() => {
-    if (data?.settings) setForm(normalizeRecipeSettingsDto(data.settings));
+    if (data?.settings && !hydratedRef.current) {
+      setForm(normalizeRecipeSettingsDto(data.settings));
+      hydratedRef.current = true;
+    }
   }, [data]);
 
   const saveMutation = useMutation({
     mutationFn: () => {
       if (!form) throw new Error("لا توجد بيانات");
-      return rxApi.recipeSettings.update(form);
+      return rxApi.recipeSettings.update(normalizeRecipeSettingsDto(form));
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recipe-settings"] });
+    onSuccess: (res) => {
+      const next = normalizeRecipeSettingsDto(res.settings);
+      setForm(next);
+      queryClient.setQueryData(queryKeys.recipeSettings.all, { settings: next });
       toast.success("تم حفظ إعدادات الوصفة");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -167,8 +175,9 @@ export function RecipeSettingsForm() {
     mutationFn: ({ kind, file }: { kind: "logo" | "design"; file: File }) =>
       rxApi.recipeSettings.upload(kind, file),
     onSuccess: (res) => {
-      setForm(res.settings);
-      queryClient.invalidateQueries({ queryKey: ["recipe-settings"] });
+      const next = normalizeRecipeSettingsDto(res.settings);
+      setForm(next);
+      queryClient.setQueryData(queryKeys.recipeSettings.all, { settings: next });
       toast.success("تم رفع الصورة");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -194,21 +203,35 @@ export function RecipeSettingsForm() {
   }
 
   function handleFieldPositionChange(fieldId: number, x: number, y: number) {
-    setFieldPositions((prev) => ({
-      ...prev,
+    const prev = fieldPositions[fieldId];
+    setFieldPositions((current) => ({
+      ...current,
       [fieldId]: { designX: x, designY: y },
     }));
-    void rxApi.fields.updatePosition(fieldId, x, y).then(() => {
-      queryClient.invalidateQueries({ queryKey: ["fields"] });
-    });
+    void rxApi.fields
+      .updatePosition(fieldId, x, y)
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.fieldsRecipe.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.patientFields.all });
+      })
+      .catch((e: Error) => {
+        setFieldPositions((current) => {
+          if (prev) return { ...current, [fieldId]: prev };
+          const next = { ...current };
+          delete next[fieldId];
+          return next;
+        });
+        toast.error(e.message || "تعذّر حفظ موضع الحقل");
+      });
   }
 
   if (isLoading || !form) {
     return <RecipeDesignerPageLoading />;
   }
 
-  const printableRecipeFields =
-    fieldsData?.fields.filter((f) => !f.isPersonal && f.isPrintable) ?? [];
+  const printableRecipeFields = normalizePatientFieldsArray(fieldsData).filter(
+    (f) => !f.isPersonal && f.isPrintable
+  );
 
   const previewData: PrescriptionDocumentData = {
     ...DEFAULT_PREVIEW,
@@ -305,7 +328,6 @@ export function RecipeSettingsForm() {
             {activeTab === "template" && (
               <DesignTemplateSection
                 form={form}
-                onPatch={patch}
                 onTemplateSelect={(id) =>
                   setForm((prev) =>
                     prev ? applyRecipeTemplate(prev, id) : prev

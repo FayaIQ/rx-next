@@ -13,6 +13,8 @@ import {
   Settings,
   Smile,
   Users,
+  Wallet,
+  ListOrdered,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,10 +28,12 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/home", label: "كتابة الوصفة", icon: Home, exact: true },
+  { href: "/queue", label: "طابور الاستدعاء", icon: ListOrdered },
   { href: "/dates", label: "المواعيد", icon: Calendar },
   { href: "/pharmaceutical", label: "مكتبة الأدوية", icon: Pill },
   { href: "/patients", label: "المرضى", icon: Users },
   { href: "/dental", label: "طبلة الأسنان", icon: Smile },
+  { href: "/finances", label: "المالية", icon: Wallet },
   { href: "/prescriptions", label: "سجل الوصفات", icon: FileText },
   { href: "/recipe-settings", label: "تصميم الوصفة", icon: ClipboardList },
   { href: "/setting", label: "الإعدادات", icon: Settings },

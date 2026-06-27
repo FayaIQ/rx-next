@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSyncStore } from "@/stores/sync-store";
-import { processSyncQueue } from "@/lib/sync/sync-engine";
+import { reconnectAndSync } from "@/lib/sync/reconnect";
 
 const ConnectionStatus = dynamic(
   () =>
@@ -65,7 +65,7 @@ export function AppHeader({ title, subtitle, meta, actions }: AppHeaderProps) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => void processSyncQueue()}
+              onClick={() => void reconnectAndSync()}
               className="hidden border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 sm:inline-flex"
             >
               {pendingCount} معلّق

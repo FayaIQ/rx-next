@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { RecipeSettingsDto } from "@/lib/api/rx-client";
-import { FONT_OPTIONS, PAPER_OPTIONS } from "@/lib/recipe-settings";
+import { PAPER_OPTIONS, fontFamilyCss } from "@/lib/recipe-settings";
+import { RECIPE_FONT_OPTIONS } from "@/lib/recipe-fonts";
 import { resolveImageUrl } from "@/lib/image-url";
 import {
   RecipeTemplatePicker,
@@ -156,19 +157,48 @@ export function AppearanceSection({
         <CardTitle className="text-base">الخط والألوان</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 sm:col-span-2">
           <Label>نوع الخط</Label>
           <select
             className={selectClassName}
             value={form.fontFamily}
             onChange={(e) => onPatch("fontFamily", e.target.value)}
+            style={{ fontFamily: fontFamilyCss(form.fontFamily) }}
           >
-            {FONT_OPTIONS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
+            <optgroup label="خطوط عادية">
+              {RECIPE_FONT_OPTIONS.filter((f) => f.category === "standard").map(
+                (f) => (
+                  <option
+                    key={f.value}
+                    value={f.value}
+                    style={{ fontFamily: fontFamilyCss(f.value) }}
+                  >
+                    {f.label} — {f.hint}
+                  </option>
+                )
+              )}
+            </optgroup>
+            <optgroup label="خطوط مزج / يدوية">
+              {RECIPE_FONT_OPTIONS.filter((f) => f.category === "script").map(
+                (f) => (
+                  <option
+                    key={f.value}
+                    value={f.value}
+                    style={{ fontFamily: fontFamilyCss(f.value) }}
+                  >
+                    {f.label} — {f.hint}
+                  </option>
+                )
+              )}
+            </optgroup>
           </select>
+          <p
+            className="rounded-lg border border-rx-border bg-rx-bg-subtle/50 px-3 py-2 text-sm leading-relaxed"
+            data-recipe-font-preview
+            style={{ fontFamily: fontFamilyCss(form.fontFamily) }}
+          >
+            معاينة الخط: وصفة طبية — أحمد محمد — Amoxicillin 500mg
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label>حجم الخط (px)</Label>
@@ -229,14 +259,12 @@ export function AppearanceSection({
 
 export function DesignTemplateSection({
   form,
-  onPatch,
   onTemplateSelect,
   onDesignModeChange,
   onUpload,
   uploadPending,
 }: {
   form: RecipeSettingsDto;
-  onPatch: PatchFn;
   onTemplateSelect: (id: RecipeTemplateId) => void;
   onDesignModeChange: (mode: "design" | "image") => void;
   onUpload: (kind: "logo" | "design", file: File) => void;

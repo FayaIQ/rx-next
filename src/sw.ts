@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist } from "serwist";
+import { NetworkOnly, Serwist } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -11,12 +11,33 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+/** Dynamic clinic APIs — never cache (queue, finances, live fields). */
+const LIVE_API_PREFIXES = [
+  "/api/appointments",
+  "/api/finances",
+  "/api/fields",
+  "/api/recipe-settings",
+  "/api/prescriptions/next-number",
+];
+
+const liveApiRules = LIVE_API_PREFIXES.map((prefix) => ({
+  matcher: ({
+    sameOrigin,
+    url: { pathname },
+  }: {
+    sameOrigin: boolean;
+    url: URL;
+  }) => sameOrigin && pathname.startsWith(prefix),
+  method: "GET" as const,
+  handler: new NetworkOnly(),
+}));
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  runtimeCaching: [...liveApiRules, ...defaultCache],
 });
 
 serwist.addEventListeners();

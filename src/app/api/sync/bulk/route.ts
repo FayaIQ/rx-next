@@ -1,4 +1,4 @@
-import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
+import { requireClinicApi, isClinicApiError } from "@/lib/api/clinic-auth";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
 import { toDbId } from "@/lib/bigint";
 import { prisma } from "@/lib/prisma";
@@ -12,24 +12,34 @@ import { serializePrescription } from "@/lib/prescription-service";
 import { serializeAppointment } from "@/lib/appointment-serializer";
 import { upsertPatientFieldValues } from "@/lib/patient-field-value-service";
 import { normalizePatientPhoneForSave } from "@/lib/patient-utils";
+import { updateAppointmentVisitStatus } from "@/lib/visit-queue/service";
+import { visitStatusSchema } from "@/lib/validations/visit-queue";
 import { z } from "zod";
 
 const bulkItemSchema = z.object({
   id: z.string(),
   entity: z.enum(["patient", "prescription", "medicine", "appointment", "field"]),
-  action: z.enum(["create", "update", "delete"]),
+  action: z.enum(["create", "update", "delete", "visit_status"]),
   payload: z.record(z.string(), z.unknown()),
   localId: z.string(),
   serverId: z.number().optional(),
 });
 
 export async function POST(request: Request) {
-  const ctx = await requireDoctorApi();
-  if (isApiError(ctx)) return ctx;
+  const ctx = await requireClinicApi();
+  if (isClinicApiError(ctx)) return ctx;
 
   try {
     const body = await request.json();
     const items = z.array(bulkItemSchema).parse(body.items ?? []);
+
+    if (ctx.userType === "secretary") {
+      const forbidden = items.find((item) => item.entity !== "appointment");
+      if (forbidden) {
+        return apiError("المزامنة للسكرتير محصورة بالمواعيد والطابور", 403);
+      }
+    }
+
     const results: Array<{
       queueId: string;
       localId: string;
@@ -268,6 +278,19 @@ async function processSyncItem(
       });
       return {
         serverId: Number(appointment.id),
+        data: serializeAppointment(appointment),
+      };
+    }
+    if (item.action === "visit_status" && item.serverId) {
+      const { visitStatus } = visitStatusSchema.parse(item.payload);
+      const appointment = await updateAppointmentVisitStatus(
+        doctorId,
+        item.serverId,
+        visitStatus
+      );
+      if (!appointment) throw new Error("الموعد غير موجود");
+      return {
+        serverId: item.serverId,
         data: serializeAppointment(appointment),
       };
     }

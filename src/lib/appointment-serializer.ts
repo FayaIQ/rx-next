@@ -9,6 +9,8 @@ export type AppointmentDto = {
   bookingDate: string | null;
   notes: string | null;
   status: boolean;
+  visitStatus: string;
+  checkedInAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   patient?: {
@@ -29,6 +31,8 @@ export function serializeAppointment(
     bookingDate: Date | null;
     notes: string | null;
     status: boolean;
+    visitStatus?: string | null;
+    checkedInAt?: Date | null;
     createdAt?: Date | null;
     updatedAt?: Date | null;
     patient?: {
@@ -48,6 +52,8 @@ export function serializeAppointment(
     bookingDate: appointment.bookingDate?.toISOString() ?? null,
     notes: appointment.notes,
     status: appointment.status,
+    visitStatus: appointment.visitStatus ?? "scheduled",
+    checkedInAt: appointment.checkedInAt?.toISOString() ?? null,
     createdAt: appointment.createdAt?.toISOString() ?? null,
     updatedAt: appointment.updatedAt?.toISOString() ?? null,
     patient: appointment.patient

@@ -2,6 +2,8 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { validateSession } from "@/lib/auth-credentials";
+import { prisma } from "@/lib/prisma";
+import { toDbId, fromDbId } from "@/lib/bigint";
 import { toOptionalUserId, toUserId } from "@/lib/user-id";
 
 export async function requireAuth() {
@@ -36,6 +38,38 @@ export async function requireSubscription() {
     if (!active) redirect("/subscription/expired");
   } catch {
     // Offline — subscription check deferred until connection returns.
+  }
+
+  return session;
+}
+
+export async function requireSecretaryArea() {
+  const session = await requireAuth();
+
+  if (session.user.type !== "secretary") {
+    redirect("/auth/login/secretary");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: toDbId(session.user.id) },
+    select: { isConfirmed: true, doctorId: true },
+  });
+
+  if (!user?.isConfirmed) {
+    redirect("/secretary");
+  }
+
+  const doctorId = user.doctorId ? fromDbId(user.doctorId) : null;
+
+  try {
+    const active = await isSubscriptionActive(
+      toUserId(session.user.id),
+      "secretary",
+      doctorId
+    );
+    if (!active) redirect("/subscription/expired");
+  } catch {
+    // Offline — defer subscription check.
   }
 
   return session;

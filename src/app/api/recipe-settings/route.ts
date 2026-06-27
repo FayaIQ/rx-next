@@ -41,7 +41,10 @@ export async function PUT(req: Request) {
 
   const parsed = recipeSettingsSchema.safeParse(merged);
   if (!parsed.success) {
-    return apiError(parsed.error.issues[0]?.message ?? "بيانات غير صالحة");
+    const message = parsed.error.issues
+      .map((issue) => issue.message)
+      .join(" · ");
+    return apiError(message || "بيانات غير صالحة");
   }
 
   const data = parsed.data;

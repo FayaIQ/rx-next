@@ -16,6 +16,7 @@ import {
   localPatientToDto,
   syncLocalPatientFromDto,
   syncLocalPrescriptionFromDto,
+  syncLocalAppointmentFromDto,
 } from "@/lib/sync/offline-store";
 import { processSyncQueue } from "@/lib/sync/sync-engine";
 import { getRxDb } from "@/lib/db/rx-db";
@@ -44,15 +45,26 @@ function normalizePatientBody(body: Record<string, unknown>) {
 }
 
 export async function fetchPatientsOfflineFirst(q?: string): Promise<PatientDto[]> {
-  try {
-    const local = await getLocalPatients(q);
-    if (local.length > 0 || !navigator.onLine) return local;
-  } catch {
-    // IndexedDB unavailable
+  if (navigator.onLine) {
+    try {
+      const res = await rxApi.patients.list({ q, pageSize: 500 });
+      for (const patient of res.patients) {
+        await syncLocalPatientFromDto(patient);
+      }
+    } catch {
+      // fall through to local cache
+    }
   }
 
-  const res = await rxApi.patients.list({ q });
-  return res.patients;
+  try {
+    return await getLocalPatients(q);
+  } catch {
+    if (navigator.onLine) {
+      const res = await rxApi.patients.list({ q });
+      return res.patients;
+    }
+    return [];
+  }
 }
 
 export async function fetchPatientsPaginated(
@@ -60,29 +72,61 @@ export async function fetchPatientsPaginated(
   page = 1,
   pageSize = DEFAULT_PAGE_SIZE
 ): Promise<{ patients: PatientDto[]; pagination: PaginationMeta }> {
-  try {
-    const local = await getLocalPatients(q);
-    if (local.length > 0 || !navigator.onLine) {
-      const { items, pagination } = paginateSlice(local, page, pageSize);
-      return { patients: items, pagination };
+  if (navigator.onLine) {
+    try {
+      const res = await rxApi.patients.list({ q, page, pageSize });
+      for (const patient of res.patients) {
+        await syncLocalPatientFromDto(patient);
+      }
+      return res;
+    } catch {
+      // fall through
     }
-  } catch {
-    // IndexedDB unavailable
   }
 
-  return rxApi.patients.list({ q, page, pageSize });
+  try {
+    const local = await getLocalPatients(q);
+    const { items, pagination } = paginateSlice(local, page, pageSize);
+    return { patients: items, pagination };
+  } catch {
+    return rxApi.patients.list({ q, page, pageSize });
+  }
 }
 
 export async function fetchMedicinesOfflineFirst(q?: string): Promise<MedicineDto[]> {
-  try {
-    const local = await getLocalMedicines(q);
-    if (local.length > 0 || !navigator.onLine) return local;
-  } catch {
-    // IndexedDB unavailable
+  if (navigator.onLine) {
+    try {
+      const res = await rxApi.medicines.list({ q, pageSize: 500 });
+      const db = getRxDb();
+      for (const medicine of res.medicines) {
+        await db.medicines.put({
+          id: `srv-${medicine.id}`,
+          serverId: medicine.id,
+          doctorId: medicine.doctorId,
+          name: medicine.name,
+          type: medicine.type ?? undefined,
+          dosage: medicine.dosage ?? undefined,
+          quantity: medicine.quantity ?? undefined,
+          period: medicine.period ?? undefined,
+          timeOfUse: medicine.timeOfUse ?? undefined,
+          synced: true,
+          updatedAt: medicine.updatedAt,
+        });
+      }
+    } catch {
+      // fall through
+    }
   }
 
-  const res = await rxApi.medicines.list({ q });
-  return res.medicines;
+  try {
+    return await getLocalMedicines(q);
+  } catch {
+    if (navigator.onLine) {
+      const res = await rxApi.medicines.list({ q });
+      return res.medicines;
+    }
+    return [];
+  }
 }
 
 export async function fetchMedicinesPaginated(
@@ -104,15 +148,38 @@ export async function fetchMedicinesPaginated(
 }
 
 export async function fetchFieldsOfflineFirst(): Promise<PatientFieldDto[]> {
-  try {
-    const local = await getLocalPatientFields();
-    if (local.length > 0 || !navigator.onLine) return local;
-  } catch {
-    // IndexedDB unavailable
+  if (navigator.onLine) {
+    try {
+      const res = await rxApi.fields.list();
+      const db = getRxDb();
+      for (const field of res.fields) {
+        await db.patient_fields.put({
+          id: `srv-${field.id}`,
+          serverId: field.id,
+          doctorId: 0,
+          name: field.name,
+          size: field.size,
+          isActive: field.isActive,
+          isPrintable: field.isPrintable,
+          isPersonal: field.isPersonal,
+          synced: true,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      // fall through
+    }
   }
 
-  const res = await rxApi.fields.list();
-  return res.fields;
+  try {
+    return await getLocalPatientFields();
+  } catch {
+    if (navigator.onLine) {
+      const res = await rxApi.fields.list();
+      return res.fields;
+    }
+    return [];
+  }
 }
 
 export async function fetchPrescriptionsPaginated(
@@ -120,18 +187,26 @@ export async function fetchPrescriptionsPaginated(
   page = 1,
   pageSize = DEFAULT_PAGE_SIZE
 ): Promise<{ prescriptions: PrescriptionDto[]; pagination: PaginationMeta }> {
-  try {
-    const local = await getLocalPrescriptions(q);
-    if (local.length > 0 || !navigator.onLine) {
-      const { items, pagination } = paginateSlice(local, page, pageSize);
-      return { prescriptions: items, pagination };
+  if (navigator.onLine) {
+    try {
+      const res = await rxApi.prescriptions.list({ q, page, pageSize });
+      for (const prescription of res.prescriptions) {
+        await syncLocalPrescriptionFromDto(prescription);
+      }
+      return { prescriptions: res.prescriptions, pagination: res.pagination };
+    } catch {
+      // fall through
     }
-  } catch {
-    // IndexedDB unavailable
   }
 
-  const res = await rxApi.prescriptions.list({ q, page, pageSize });
-  return { prescriptions: res.prescriptions, pagination: res.pagination };
+  try {
+    const local = await getLocalPrescriptions(q);
+    const { items, pagination } = paginateSlice(local, page, pageSize);
+    return { prescriptions: items, pagination };
+  } catch {
+    const res = await rxApi.prescriptions.list({ q, page, pageSize });
+    return { prescriptions: res.prescriptions, pagination: res.pagination };
+  }
 }
 
 export async function fetchMedicinePresetsOfflineFirst(): Promise<MedicinePresetDto[]> {
@@ -293,10 +368,14 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
   if (!navigator.onLine) {
     const localId = uuidv4();
     const now = new Date().toISOString();
+    const patientServerId = Number(body.patientId);
+    const patientLocalId =
+      patientServerId > 0 ? undefined : String(body.patientLocalId ?? "");
+
     await getRxDb().prescriptions.put({
       id: localId,
-      patientId: `srv-${body.patientId}`,
-      patientServerId: Number(body.patientId),
+      patientId: patientServerId > 0 ? `srv-${patientServerId}` : patientLocalId!,
+      patientServerId: patientServerId > 0 ? patientServerId : undefined,
       doctorId: 0,
       prescriptionDate: String(body.prescriptionDate),
       diagnosis: (body.diagnosis as string) ?? undefined,
@@ -316,7 +395,10 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
     await enqueueSyncItem({
       entity: "prescription",
       action: "create",
-      payload: body,
+      payload: {
+        ...body,
+        patientLocalId: patientLocalId || undefined,
+      },
       localId,
     });
     void processSyncQueue();
@@ -334,13 +416,108 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
   return result;
 }
 
+export async function updatePrescriptionOffline(
+  id: number,
+  body: Record<string, unknown>
+) {
+  const items =
+    (body.items as Array<{
+      name: string;
+      type?: string | null;
+      dosage?: string | null;
+      quantity?: string | null;
+      period?: string | null;
+      timeOfUse?: string | null;
+    }>) ?? [];
+
+  if (!navigator.onLine) {
+    const db = getRxDb();
+    const existing = await db.prescriptions
+      .filter((rx) => rx.serverId === id)
+      .first();
+    const localId = existing?.id ?? `srv-${id}`;
+    const now = new Date().toISOString();
+    const patientServerId = Number(body.patientId);
+
+    await db.prescriptions.put({
+      id: localId,
+      serverId: id,
+      patientId: existing?.patientId ?? `srv-${patientServerId}`,
+      patientServerId: patientServerId || existing?.patientServerId,
+      doctorId: existing?.doctorId ?? 0,
+      prescriptionDate: String(body.prescriptionDate),
+      diagnosis: (body.diagnosis as string) ?? undefined,
+      prescriptionNumber: existing?.prescriptionNumber,
+      items: ((body.items as Array<Record<string, unknown>>) ?? []).map((item) => ({
+        id: uuidv4(),
+        name: String(item.name),
+        type: item.type as string | undefined,
+        dosage: item.dosage as string | undefined,
+        quantity: item.quantity as string | undefined,
+        period: item.period as string | undefined,
+        timeOfUse: item.timeOfUse as string | undefined,
+      })),
+      fieldValues:
+        (body.fieldValues as Array<{ patientFieldId: number; value: string }>) ??
+        existing?.fieldValues ??
+        [],
+      synced: false,
+      updatedAt: now,
+    });
+
+    await enqueueSyncItem({
+      entity: "prescription",
+      action: "update",
+      payload: body,
+      localId,
+      serverId: id,
+    });
+    void processSyncQueue();
+    void upsertLocalMedicinePresets(items);
+    void upsertLocalMedicinesFromPrescription(items);
+    return { prescription: { id, ...(body as object) } };
+  }
+
+  const result = await rxApi.prescriptions.update(id, body);
+  if (result.prescription?.id) {
+    await syncLocalPrescriptionFromDto(result.prescription);
+  }
+  void upsertLocalMedicinePresets(items);
+  void upsertLocalMedicinesFromPrescription(items);
+  return result;
+}
+
 export async function fetchAppointmentsOfflineFirst(
   params?: {
     date?: string;
     bookingFrom?: string;
     bookingTo?: string;
+    status?: string;
   }
 ): Promise<AppointmentDto[]> {
+  if (navigator.onLine) {
+    try {
+      const res = await rxApi.appointments.list(
+        params?.date
+          ? { date: params.date, status: params.status }
+          : params?.bookingFrom || params?.bookingTo
+            ? {
+                bookingFrom: params.bookingFrom,
+                bookingTo: params.bookingTo,
+                status: params.status,
+              }
+            : params?.status
+              ? { status: params.status }
+              : undefined
+      );
+      for (const appointment of res.appointments) {
+        await syncLocalAppointmentFromDto(appointment);
+      }
+    } catch {
+      // fall through to local
+    }
+  }
+
   let local: AppointmentDto[] = [];
   try {
     local = await getLocalAppointments(params?.date);
@@ -352,57 +529,23 @@ export async function fetchAppointmentsOfflineFirst(
         return true;
       });
     }
+    if (params?.status === "active") {
+      local = local.filter((a) => a.status);
+    }
   } catch {
-    // IndexedDB unavailable
+    return [];
   }
 
-  if (!navigator.onLine) return local;
-
-  try {
-    const res = await rxApi.appointments.list(
-      params?.date
-        ? { date: params.date }
-        : params?.bookingFrom || params?.bookingTo
-          ? {
-              bookingFrom: params.bookingFrom,
-              bookingTo: params.bookingTo,
-            }
-          : undefined
-    );
-    const serverIds = new Set(res.appointments.map((a) => a.id));
-    const unsynced = local.filter((a) => a.id === 0);
-    const merged = [
-      ...res.appointments,
-      ...unsynced.filter((a) => !serverIds.has(a.id)),
-    ];
-    merged.sort(
-      (a, b) =>
-        new Date(a.appointmentDatetime).getTime() -
-        new Date(b.appointmentDatetime).getTime()
-    );
-    return merged;
-  } catch {
-    return local;
-  }
+  return local;
 }
 
 async function cacheAppointmentLocally(
   appointment: AppointmentDto,
   patientId: number
 ) {
-  const db = getRxDb();
-  await db.appointments.put({
-    id: `srv-${appointment.id}`,
-    serverId: appointment.id,
-    doctorId: appointment.doctorId,
-    patientId: `srv-${patientId}`,
-    patientServerId: patientId,
-    appointmentDatetime: appointment.appointmentDatetime,
-    bookingDate: appointment.bookingDate ?? appointment.appointmentDatetime,
-    notes: appointment.notes ?? undefined,
-    status: appointment.status,
-    synced: true,
-    updatedAt: appointment.updatedAt ?? new Date().toISOString(),
+  await syncLocalAppointmentFromDto({
+    ...appointment,
+    patientId: appointment.patientId || patientId,
   });
 }
 
@@ -421,6 +564,8 @@ export async function createAppointmentOffline(body: Record<string, unknown>) {
       bookingDate: String(body.bookingDate ?? body.appointmentDatetime),
       notes: (body.notes as string) ?? undefined,
       status: (body.status as boolean) ?? true,
+      visitStatus: "scheduled",
+      checkedInAt: null,
       synced: false,
       updatedAt: now,
     });
@@ -428,7 +573,11 @@ export async function createAppointmentOffline(body: Record<string, unknown>) {
     await enqueueSyncItem({
       entity: "appointment",
       action: "create",
-      payload: body,
+      payload: {
+        ...body,
+        patientLocalId:
+          Number(body.patientId) > 0 ? undefined : String(body.patientLocalId),
+      },
       localId,
     });
     void processSyncQueue();
@@ -444,6 +593,8 @@ export async function createAppointmentOffline(body: Record<string, unknown>) {
       bookingDate: (body.bookingDate as string) ?? null,
       notes: (body.notes as string) ?? null,
       status: (body.status as boolean) ?? true,
+      visitStatus: "scheduled",
+      checkedInAt: null,
       createdAt: now,
       updatedAt: now,
       patient: patient

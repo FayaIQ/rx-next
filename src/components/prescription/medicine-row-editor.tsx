@@ -68,7 +68,7 @@ function handleOptionListKeyDown(
   e: React.KeyboardEvent,
   optionCount: number,
   highlight: number,
-  setHighlight: (index: number) => void,
+  setHighlight: React.Dispatch<React.SetStateAction<number>>,
   onPick: (index: number) => void,
   onEnterWithoutPick?: () => void
 ) {
@@ -76,21 +76,26 @@ function handleOptionListKeyDown(
 
   if (e.key === "ArrowDown") {
     e.preventDefault();
-    setHighlight(
-      highlight < 0 ? 0 : Math.min(highlight + 1, optionCount - 1)
-    );
+    const next = highlight < 0 ? 0 : Math.min(highlight + 1, optionCount - 1);
+    setHighlight(next);
     return true;
   }
 
   if (e.key === "ArrowUp") {
     e.preventDefault();
-    setHighlight(
-      highlight < 0 ? optionCount - 1 : Math.max(highlight - 1, 0)
-    );
+    const next =
+      highlight < 0 ? optionCount - 1 : Math.max(highlight - 1, 0);
+    setHighlight(next);
     return true;
   }
 
   if (e.key === "Enter" && highlight >= 0) {
+    e.preventDefault();
+    onPick(highlight);
+    return true;
+  }
+
+  if (e.key === "Tab" && !e.shiftKey && highlight >= 0) {
     e.preventDefault();
     onPick(highlight);
     return true;
@@ -124,6 +129,8 @@ export function MedicineRowEditor({
   canRemove,
   compact = false,
   mockup = false,
+  isLastRow = false,
+  onAddRow,
 }: Props) {
   const [focusedField, setFocusedField] = useState<MedicineFillField | null>(
     null
@@ -131,15 +138,23 @@ export function MedicineRowEditor({
   const [nameHighlight, setNameHighlight] = useState(-1);
   const [usageHighlight, setUsageHighlight] = useState(-1);
 
-  const suggestions = isOpen ? filterMedicineGroups(groups, row.name) : [];
+  const suggestions = useMemo(
+    () => (isOpen ? filterMedicineGroups(groups, row.name) : []),
+    [isOpen, groups, row.name]
+  );
 
   useEffect(() => {
-    setNameHighlight(-1);
-  }, [row.name, suggestions.length, isOpen]);
+    if (nameHighlight < 0) return;
+    document
+      .getElementById(`${rowKey}-name-suggestion-${nameHighlight}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [nameHighlight, rowKey]);
 
   useEffect(() => {
-    setUsageHighlight(-1);
-  }, [focusedField, row.name, row.type, row.dosage, row.quantity, row.period, row.timeOfUse]);
+    if (nameHighlight >= suggestions.length) {
+      setNameHighlight(suggestions.length > 0 ? suggestions.length - 1 : -1);
+    }
+  }, [suggestions.length, nameHighlight]);
 
   const fieldOptions = useMemo(() => {
     const map = new Map<MedicineFillField, ReturnType<typeof getMedicineFieldOptions>>();
@@ -174,6 +189,12 @@ export function MedicineRowEditor({
     if (options.length === 1) {
       onChange({ ...row, [field]: options[0]!.value });
     }
+  }
+
+  function handleLastFieldAdvance() {
+    if (!isLastRow || !onAddRow) return false;
+    onAddRow();
+    return true;
   }
 
   function renderUsageField(field: MedicineFillField, label: string) {
@@ -216,6 +237,7 @@ export function MedicineRowEditor({
               onChange({ ...row, [field]: e.target.value });
             }}
             onKeyDown={(e) => {
+              const isLastField = field === "timeOfUse";
               if (
                 handleOptionListKeyDown(
                   e,
@@ -228,10 +250,18 @@ export function MedicineRowEditor({
                     onChange({ ...row, [field]: option.value });
                     setFocusedField(null);
                     setUsageHighlight(-1);
-                  }
+                  },
+                  isLastField ? handleLastFieldAdvance : undefined
                 )
               ) {
                 return;
+              }
+              if (
+                isLastField &&
+                (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) &&
+                handleLastFieldAdvance()
+              ) {
+                e.preventDefault();
               }
             }}
           />
@@ -257,7 +287,8 @@ export function MedicineRowEditor({
                       mockup
                         ? "w-full px-2 py-1.5 text-right hover:bg-rx-bg-subtle"
                         : "rx-list-item",
-                      index === activeHighlight && "bg-rx-primary/12 text-rx-primary"
+                      index === activeHighlight &&
+                        "bg-rx-primary/15 font-semibold text-rx-primary ring-1 ring-inset ring-rx-primary/25"
                     )}
                     onMouseDown={(e) => e.preventDefault()}
                     onMouseEnter={() => setUsageHighlight(index)}
@@ -304,6 +335,11 @@ export function MedicineRowEditor({
         aria-expanded={isOpen && suggestions.length > 0}
         aria-autocomplete="list"
         aria-label={mockup ? "اسم الدواء" : undefined}
+        aria-activedescendant={
+          nameHighlight >= 0
+            ? `${rowKey}-name-suggestion-${nameHighlight}`
+            : undefined
+        }
         onFocus={() => {
           onOpen();
           setNameHighlight(-1);
@@ -353,6 +389,7 @@ export function MedicineRowEditor({
           {suggestions.map((g, index) => (
             <li
               key={g.key}
+              id={`${rowKey}-name-suggestion-${index}`}
               role="option"
               aria-selected={index === nameHighlight}
             >
@@ -363,7 +400,8 @@ export function MedicineRowEditor({
                   mockup
                     ? "w-full px-2 py-1.5 text-right hover:bg-rx-bg-subtle"
                     : "rx-list-item",
-                  index === nameHighlight && "bg-rx-primary/12 text-rx-primary"
+                  index === nameHighlight &&
+                    "bg-rx-primary/15 font-semibold text-rx-primary ring-1 ring-inset ring-rx-primary/25"
                 )}
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setNameHighlight(index)}

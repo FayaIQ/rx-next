@@ -32,6 +32,9 @@ model User {
   subscriptions    Subscription[]
   doctor           User?             @relation("DoctorSecretaries", fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_doctor_id_foreign")
   secretaries      User[]            @relation("DoctorSecretaries")
+  clinicFinanceSettings ClinicFinanceSettings?
+  financeTransactions   FinanceTransaction[] @relation("DoctorFinanceTransactions")
+  financeRecordsCreated FinanceTransaction[] @relation("FinanceCreatedBy")
 
   @@index([activeSessionId], map: "users_active_session_id_index")
   @@map("users")
@@ -52,6 +55,7 @@ model Patient {
   prescriptions Prescription[]
   fieldValues   PatientFieldValue[]
   dentalChart   DentalChart?
+  financeTransactions FinanceTransaction[]
 
   @@map("patients")
 }
@@ -82,6 +86,44 @@ model DentalToothRecord {
 
   @@unique([chartId, toothFdi], map: "dental_tooth_records_chart_id_tooth_fdi_unique")
   @@map("dental_tooth_records")
+}
+
+model ClinicFinanceSettings {
+  id              BigInt    @id @default(autoincrement())
+  doctorId        BigInt    @unique @map("doctor_id")
+  consultationFee Decimal   @default(0) @map("consultation_fee") @db.Decimal(12, 2)
+  followUpFee     Decimal   @default(0) @map("follow_up_fee") @db.Decimal(12, 2)
+  procedureFee    Decimal   @default(0) @map("procedure_fee") @db.Decimal(12, 2)
+  currency        String    @default("SYP") @db.VarChar(8)
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
+  doctor          User      @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "clinic_finance_settings_doctor_id_foreign")
+
+  @@map("clinic_finance_settings")
+}
+
+model FinanceTransaction {
+  id              BigInt       @id @default(autoincrement())
+  doctorId        BigInt       @map("doctor_id")
+  patientId       BigInt?      @map("patient_id")
+  appointmentId   BigInt?      @map("appointment_id")
+  type            String       @db.VarChar(16)
+  category        String       @db.VarChar(64)
+  amount          Decimal      @db.Decimal(12, 2)
+  paymentMethod   String?      @map("payment_method") @db.VarChar(32)
+  description     String?
+  transactionDate DateTime     @map("transaction_date") @db.Date
+  createdById     BigInt?      @map("created_by_id")
+  createdAt       DateTime?    @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime?    @updatedAt @map("updated_at") @db.Timestamp(0)
+  doctor          User         @relation("DoctorFinanceTransactions", fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "finance_transactions_doctor_id_foreign")
+  patient         Patient?     @relation(fields: [patientId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "finance_transactions_patient_id_foreign")
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "finance_transactions_appointment_id_foreign")
+  createdBy       User?        @relation("FinanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "finance_transactions_created_by_id_foreign")
+
+  @@index([doctorId, transactionDate], map: "finance_transactions_doctor_date_index")
+  @@index([doctorId, type], map: "finance_transactions_doctor_type_index")
+  @@map("finance_transactions")
 }
 
 model Prescription {
@@ -164,10 +206,13 @@ model Appointment {
   bookingDate         DateTime? @map("booking_date") @db.Date
   notes               String?
   status              Boolean   @default(true)
+  visitStatus         String    @default("scheduled") @map("visit_status") @db.VarChar(20)
+  checkedInAt         DateTime? @map("checked_in_at") @db.Timestamp(0)
   createdAt           DateTime? @map("created_at") @db.Timestamp(0)
   updatedAt           DateTime? @updatedAt @map("updated_at") @db.Timestamp(0)
   doctor              User      @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "appointments_doctor_id_foreign")
   patient             Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "appointments_patient_id_foreign")
+  financeTransactions FinanceTransaction[]
 
   @@map("appointments")
 }

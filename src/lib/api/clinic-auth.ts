@@ -1,6 +1,10 @@
 import { auth } from "@/auth";
-import { validateSession } from "@/lib/auth-credentials";
-import { toUserId, toOptionalUserId } from "@/lib/user-id";
+import { toUserId } from "@/lib/user-id";
+import {
+  assertActiveSubscription,
+  assertValidSession,
+  resolveSecretaryDoctorId,
+} from "@/lib/api/api-guard";
 import { apiForbidden, apiUnauthorized } from "./response";
 
 export type ClinicContext = {
@@ -10,17 +14,15 @@ export type ClinicContext = {
   userType: "doctor" | "secretary";
 };
 
-export async function requireClinicApi(): Promise<
-  ClinicContext | ReturnType<typeof apiUnauthorized>
-> {
+export async function requireClinicApi(): Promise<ClinicContext | Response> {
   const session = await auth();
   if (!session?.user) return apiUnauthorized();
 
-  const valid = await validateSession(
-    toUserId(session.user.id),
-    session.user.sessionId
-  );
-  if (!valid) return apiUnauthorized();
+  const sessionError = await assertValidSession(session);
+  if (sessionError) return sessionError;
+
+  const subscriptionError = await assertActiveSubscription(session);
+  if (subscriptionError) return subscriptionError;
 
   if (session.user.type === "doctor") {
     return {
@@ -32,12 +34,11 @@ export async function requireClinicApi(): Promise<
   }
 
   if (session.user.type === "secretary") {
-    if (!session.user.isConfirmed) return apiForbidden();
-    const doctorId = toOptionalUserId(session.user.doctorId);
-    if (!doctorId) return apiForbidden();
+    const resolved = await resolveSecretaryDoctorId(toUserId(session.user.id));
+    if (resolved instanceof Response) return resolved;
 
     return {
-      doctorId,
+      doctorId: resolved.doctorId,
       userId: toUserId(session.user.id),
       userName: session.user.name ?? "",
       userType: "secretary",
@@ -48,7 +49,7 @@ export async function requireClinicApi(): Promise<
 }
 
 export function isClinicApiError(
-  result: ClinicContext | ReturnType<typeof apiUnauthorized>
-): result is ReturnType<typeof apiUnauthorized> {
+  result: ClinicContext | Response
+): result is Response {
   return result instanceof Response;
 }

@@ -324,6 +324,15 @@ body {
   color: var(--rx-text);
 }
 
+[data-recipe-canvas] * {
+  font-family: inherit !important;
+}
+
+.prescription-doc,
+.prescription-doc * {
+  font-family: inherit !important;
+}
+
 @media print {
   @page {
     size: A4 portrait;
@@ -362,5 +371,10 @@ body {
     margin: 0 auto !important;
     page-break-after: avoid;
     page-break-inside: avoid;
+  }
+
+  .prescription-doc,
+  .prescription-doc * {
+    font-family: inherit;
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import {
   hydrateFromServer,
@@ -9,11 +9,20 @@ import {
   refreshPendingCount,
 } from "@/lib/sync/sync-engine";
 import { getLastSync } from "@/lib/sync/offline-store";
+import {
+  backgroundRefresh,
+  notifyOfflineMode,
+  reconnectAndSync,
+} from "@/lib/sync/reconnect";
 import { useSyncStore } from "@/stores/sync-store";
+import { SyncQueryListener } from "@/components/sync/sync-query-listener";
+
+const CLINIC_ROLES = new Set(["doctor", "secretary"]);
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const setOnline = useSyncStore((s) => s.setOnline);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setOnline(navigator.onLine);
@@ -30,24 +39,62 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       }
     })();
 
+    const scheduleReconnect = () => {
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = setTimeout(() => {
+        void reconnectAndSync();
+      }, 800);
+    };
+
+    const onOnline = () => scheduleReconnect();
+    const onOffline = () => notifyOfflineMode();
+
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        void reconnectAndSync();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    const refreshInterval = setInterval(() => {
+      void backgroundRefresh();
+    }, 30_000);
+
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.addEventListener("message", (event) => {
         if (event.data?.type === "RX_SYNC") {
-          void processSyncQueue();
+          void reconnectAndSync();
         }
       });
     }
 
-    return cleanup;
+    return () => {
+      cleanup?.();
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(refreshInterval);
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+    };
   }, [setOnline]);
 
   useEffect(() => {
-    if (session?.user?.type !== "doctor") return;
+    const role = session?.user?.type;
+    if (!role || !CLINIC_ROLES.has(role)) return;
+
     void (async () => {
       await hydrateFromServer();
       await processSyncQueue();
     })();
   }, [session?.user?.type, session?.user?.id]);
 
-  return <>{children}</>;
+  return (
+    <>
+      <SyncQueryListener />
+      {children}
+    </>
+  );
 }

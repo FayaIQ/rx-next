@@ -2,6 +2,6 @@ import { AppointmentsPageClient } from "@/components/appointments/appointments-p
 
 export default function SecretaryDatesPage() {
   return (
-    <AppointmentsPageClient title="مواعيد الطبيب" offline={false} />
+    <AppointmentsPageClient title="مواعيد الطبيب" />
   );
 }

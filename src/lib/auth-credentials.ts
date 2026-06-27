@@ -79,7 +79,7 @@ export async function registerDoctor(data: {
           doctorName: data.name,
           phoneNumber,
           doctorSpecialty: "",
-          fontFamily: "Cairo",
+          fontFamily: "cairo",
           fontSize: "14",
           opacity: 0.2,
           color: "#117e65",

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Tajawal } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
+import "@/styles/recipe-fonts.css";
 
 const tajawal = Tajawal({
   subsets: ["arabic", "latin"],

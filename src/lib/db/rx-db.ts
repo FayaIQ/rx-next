@@ -5,7 +5,7 @@ export type SyncEntity =
   | "appointment"
   | "field";
 
-export type SyncAction = "create" | "update" | "delete";
+export type SyncAction = "create" | "update" | "delete" | "visit_status";
 
 export type SyncStatus = "pending" | "syncing" | "synced" | "failed";
 
@@ -94,6 +94,8 @@ export interface LocalAppointment {
   bookingDate: string;
   notes?: string;
   status: boolean;
+  visitStatus?: string;
+  checkedInAt?: string | null;
   synced: boolean;
   updatedAt: string;
 }
@@ -172,6 +174,10 @@ export class RxDatabase extends Dexie {
     this.version(2).stores({
       medicine_presets:
         "id, serverId, doctorId, medicineKey, type, lastUsedAt, updatedAt",
+    });
+    this.version(3).stores({
+      appointments:
+        "id, serverId, doctorId, patientId, visitStatus, synced, updatedAt",
     });
   }
 }

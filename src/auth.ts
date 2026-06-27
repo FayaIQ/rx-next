@@ -38,7 +38,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/auth/signin",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = toUserId(user.id);
         token.phoneNumber = user.phoneNumber;
@@ -47,6 +47,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.isConfirmed = user.isConfirmed;
         token.sessionId = user.sessionId;
       }
+
+      if (trigger === "update" && token.id) {
+        const { prisma } = await import("@/lib/prisma");
+        const { toDbId, fromDbId } = await import("@/lib/bigint");
+        const dbUser = await prisma.user.findUnique({
+          where: { id: toDbId(token.id as number) },
+          select: { isConfirmed: true, doctorId: true },
+        });
+        if (dbUser) {
+          token.isConfirmed = dbUser.isConfirmed;
+          token.doctorId = dbUser.doctorId
+            ? fromDbId(dbUser.doctorId)
+            : null;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
 import { ClipboardList, Pencil, Plus, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -237,8 +238,9 @@ function FieldsSection({
   const [draft, setDraft] = useState<FieldDraft>(() => emptyDraft(defaults));
 
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: ["fields-all"] });
-    void queryClient.invalidateQueries({ queryKey: ["fields"] });
+    for (const key of queryKeys.patientFields.invalidate()) {
+      void queryClient.invalidateQueries({ queryKey: key });
+    }
   };
 
   const addField = useMutation({

@@ -17,6 +17,10 @@ export function apiForbidden() {
   return apiError("غير مسموح", 403);
 }
 
+export function apiSubscriptionExpired() {
+  return apiError("انتهى الاشتراك", 402);
+}
+
 export function apiNotFound(message = "غير موجود") {
   return apiError(message, 404);
 }

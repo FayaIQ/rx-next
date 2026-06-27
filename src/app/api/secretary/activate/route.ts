@@ -3,9 +3,25 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { toDbId } from "@/lib/bigint";
+import {
+  normalizeSecretaryInviteCode,
+  SECRETARY_INVITE_CODE_LENGTH,
+} from "@/lib/secretary-invite";
 
 const schema = z.object({
-  code: z.string().length(16, "رمز الدعوة يجب أن يكون 16 حرفاً"),
+  code: z
+    .string()
+    .min(1, "رمز الدعوة مطلوب")
+    .transform(normalizeSecretaryInviteCode)
+    .pipe(
+      z
+        .string()
+        .length(
+          SECRETARY_INVITE_CODE_LENGTH,
+          `رمز الدعوة يجب أن يكون ${SECRETARY_INVITE_CODE_LENGTH} أحرف`
+        )
+        .regex(/^[A-F0-9]+$/, "رمز الدعوة غير صالح")
+    ),
 });
 
 export async function POST(request: Request) {
@@ -15,18 +31,37 @@ export async function POST(request: Request) {
   }
 
   if (session.user.isConfirmed) {
-    return NextResponse.json({ error: "الحساب مفعّل مسبقاً" }, { status: 400 });
+    return NextResponse.json({ success: true, alreadyActivated: true });
   }
 
   try {
     const body = await request.json();
     const { code } = schema.parse(body);
 
+    const dbUser = await prisma.user.findUnique({
+      where: { id: toDbId(session.user.id) },
+      select: { isConfirmed: true },
+    });
+    if (dbUser?.isConfirmed) {
+      return NextResponse.json({ success: true, alreadyActivated: true });
+    }
+
     const invite = await prisma.secretaryInvite.findUnique({
-      where: { code: code.toUpperCase() },
+      where: { code },
     });
 
-    if (!invite || invite.used) {
+    if (!invite) {
+      return NextResponse.json({ error: "رمز الدعوة غير صالح" }, { status: 400 });
+    }
+
+    if (
+      invite.used &&
+      invite.secretaryId?.toString() === String(session.user.id)
+    ) {
+      return NextResponse.json({ success: true, alreadyActivated: true });
+    }
+
+    if (invite.used) {
       return NextResponse.json({ error: "رمز الدعوة غير صالح" }, { status: 400 });
     }
 

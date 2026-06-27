@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
-import { PatientForm } from "@/components/patients/patient-form";
+import { PatientForm, type PatientFormHandle } from "@/components/patients/patient-form";
 import { rxApi, type AppointmentDto, type PatientDto } from "@/lib/api/rx-client";
 import {
   createAppointmentOffline,
@@ -67,6 +67,7 @@ export function AppointmentForm({
   offline = true,
 }: Props) {
   const queryClient = useQueryClient();
+  const patientFormRef = useRef<PatientFormHandle>(null);
   const initial = splitDatetime(
     appointment?.appointmentDatetime,
     defaultDate
@@ -123,10 +124,22 @@ export function AppointmentForm({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedPatient) throw new Error("اختر مريضاً");
+      let patient = selectedPatient;
+
+      if (!patient && showNewPatient) {
+        patient = (await patientFormRef.current?.submit()) ?? null;
+        if (!patient) throw new Error("أكمل بيانات المريض الجديد");
+        if (patient.id <= 0) {
+          throw new Error("تعذّر حفظ المريض — حاول مرة أخرى");
+        }
+        selectPatient(patient);
+      }
+
+      if (!patient) throw new Error("اختر مريضاً أو أضف مريضاً جديداً");
+
       const appointmentDatetime = new Date(`${date}T${time}`).toISOString();
       const payload = {
-        patientId: selectedPatient.id,
+        patientId: patient.id,
         appointmentDatetime,
         bookingDate: date,
         notes: notes.trim() || null,
@@ -149,7 +162,14 @@ export function AppointmentForm({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      toast.success(appointment ? "تم تحديث الموعد" : "تم حجز الموعد");
+      queryClient.invalidateQueries({ queryKey: ["patients"] });
+      toast.success(
+        appointment
+          ? "تم تحديث الموعد"
+          : showNewPatient
+            ? "تم إنشاء المريض وحجز الموعد"
+            : "تم حجز الموعد"
+      );
       onSuccess();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -236,8 +256,13 @@ export function AppointmentForm({
 
         {showNewPatient && (
           <div className="rounded-lg border border-dashed border-rx-border p-3">
+            <p className="mb-2 text-xs text-rx-muted">
+              أكمل بيانات المريض ثم اضغط «حجز الموعد» — سيُنشأ المريض تلقائياً.
+            </p>
             <PatientForm
+              ref={patientFormRef}
               compact
+              embedded
               initialName={patientSearch.trim()}
               onSuccess={(p) => selectPatient(p)}
               onCancel={() => setShowNewPatient(false)}
@@ -294,9 +319,15 @@ export function AppointmentForm({
         <Button
           type="submit"
           size="sm"
-          disabled={saveMutation.isPending || !selectedPatient}
+          disabled={
+            saveMutation.isPending || (!selectedPatient && !showNewPatient)
+          }
         >
-          {appointment ? "حفظ" : "حجز الموعد"}
+          {appointment
+            ? "حفظ"
+            : showNewPatient
+              ? "حجز الموعد وإنشاء المريض"
+              : "حجز الموعد"}
         </Button>
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
           إلغاء

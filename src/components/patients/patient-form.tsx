@@ -1,7 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +35,8 @@ import {
   patientFieldValuesFromRecord,
   recordFromPatientFieldValues,
 } from "@/components/patients/patient-dynamic-fields";
+import { usePatientFields } from "@/hooks/use-patient-fields";
+import { activePersonalFields } from "@/lib/patient-field-display";
 
 type FocusField = CoreFocusField;
 
@@ -40,19 +50,30 @@ interface PatientFormProps {
   onSyncStart?: (promise: Promise<PatientDto>) => void;
   onCancel?: () => void;
   compact?: boolean;
+  /** داخل نموذج آخر — يمنع form متداخل */
+  embedded?: boolean;
 }
 
-export function PatientForm({
-  patient,
-  initialName,
-  autoFocusField,
-  fieldVisibility = DEFAULT_PATIENT_FIELD_VISIBILITY,
-  onSuccess,
-  onPatientSynced,
-  onSyncStart,
-  onCancel,
-  compact,
-}: PatientFormProps) {
+export type PatientFormHandle = {
+  submit: () => Promise<PatientDto | null>;
+};
+
+export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
+  function PatientForm(
+    {
+      patient,
+      initialName,
+      autoFocusField,
+      fieldVisibility = DEFAULT_PATIENT_FIELD_VISIBILITY,
+      onSuccess,
+      onPatientSynced,
+      onSyncStart,
+      onCancel,
+      compact,
+      embedded = false,
+    },
+    ref
+  ) {
   const queryClient = useQueryClient();
   const nameRef = useRef<HTMLInputElement>(null);
   const genderRef = useRef<HTMLSelectElement>(null);
@@ -74,17 +95,15 @@ export function PatientForm({
   const [phoneDuplicateName, setPhoneDuplicateName] = useState<string | null>(
     null
   );
+  const [isSaving, setIsSaving] = useState(false);
   const [dynamicFieldValues, setDynamicFieldValues] = useState<
     Record<number, string>
   >(() => recordFromPatientFieldValues(patient?.fieldValues));
 
-  const { data: fieldsData } = useQuery({
-    queryKey: ["fields"],
-    queryFn: () => rxApi.fields.list(),
-  });
+  const { data: fieldsData } = usePatientFields();
 
   const personalFields = useMemo(
-    () => fieldsData?.fields.filter((f) => f.isActive && f.isPersonal) ?? [],
+    () => activePersonalFields(fieldsData),
     [fieldsData]
   );
 
@@ -201,44 +220,16 @@ export function PatientForm({
     void checkPhoneDuplicate(phone);
   }, [phone, validatePhone, checkPhoneDuplicate]);
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const body = buildBody();
-      if (patient) {
-        return updatePatientOffline(patient.id, body);
-      }
-      return createPatientOffline(body);
-    },
-    onSuccess: (result) => {
-      finishPatientSave(result.patient, result);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  function finishPatientSave(
-    savedPatient: PatientDto,
-    duplicate?: { phoneDuplicate?: boolean; duplicatePatientName?: string | null }
-  ) {
-    if (duplicate?.phoneDuplicate) {
-      notifyPhoneDuplicate(duplicate.duplicatePatientName);
+  async function submitPatient(options?: { quiet?: boolean }): Promise<PatientDto | null> {
+    if (!name.trim()) {
+      toast.error("أدخل اسم المريض");
+      nameRef.current?.focus();
+      return null;
     }
-    void queryClient.invalidateQueries({ queryKey: ["patients"] });
-    if (savedPatient.id > 0) {
-      void queryClient.invalidateQueries({
-        queryKey: ["patient", savedPatient.id],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["patient-record", savedPatient.id],
-      });
-    }
-    toast.success(patient ? "تم تحديث المريض" : "تم إضافة المريض");
-    onSuccess(savedPatient);
-  }
 
-  async function submitPatient() {
     if (!validatePhone(phone, { focusOnError: true })) {
       toast.error(phoneError ?? "رقم الهاتف غير صالح");
-      return;
+      return null;
     }
 
     let duplicateName = phoneDuplicateName;
@@ -271,31 +262,88 @@ export function PatientForm({
     }
 
     const body = buildBody();
+    const quiet = options?.quiet ?? embedded;
 
-    if (!patient && navigator.onLine) {
-      const optimistic = buildOptimisticPatient(body);
-      if (duplicateName !== null) {
-        notifyPhoneDuplicate(duplicateName);
+    setIsSaving(true);
+    try {
+      if (embedded && !patient) {
+        const result = await createPatientOffline(body);
+        if (result.phoneDuplicate) {
+          notifyPhoneDuplicate(result.duplicatePatientName);
+        }
+        void queryClient.invalidateQueries({ queryKey: ["patients"] });
+        onSuccess(result.patient);
+        return result.patient;
       }
-      onSuccess(optimistic);
-      toast.success("تم إضافة المريض");
 
-      const syncPromise = createPatientOffline(body);
-      onSyncStart?.(syncPromise.then((result) => result.patient));
-      void syncPromise
-        .then((result) => {
-          onPatientSynced?.(result.patient);
-          if (result.phoneDuplicate) {
-            notifyPhoneDuplicate(result.duplicatePatientName);
-          }
-          void queryClient.invalidateQueries({ queryKey: ["patients"] });
-        })
-        .catch((e: Error) => toast.error(e.message));
-      return;
+      if (!patient && navigator.onLine && !embedded) {
+        const optimistic = buildOptimisticPatient(body);
+        if (duplicateName !== null) {
+          notifyPhoneDuplicate(duplicateName);
+        }
+        onSuccess(optimistic);
+        if (!quiet) toast.success("تم إضافة المريض");
+
+        const syncPromise = createPatientOffline(body);
+        onSyncStart?.(syncPromise.then((result) => result.patient));
+        void syncPromise
+          .then((result) => {
+            onPatientSynced?.(result.patient);
+            if (result.phoneDuplicate) {
+              notifyPhoneDuplicate(result.duplicatePatientName);
+            }
+            void queryClient.invalidateQueries({ queryKey: ["patients"] });
+          })
+          .catch((e: Error) => toast.error(e.message));
+        return optimistic;
+      }
+
+      const result = patient
+        ? await updatePatientOffline(patient.id, body)
+        : await createPatientOffline(body);
+
+      if (quiet) {
+        if (result.phoneDuplicate) {
+          notifyPhoneDuplicate(result.duplicatePatientName);
+        }
+        void queryClient.invalidateQueries({ queryKey: ["patients"] });
+        onSuccess(result.patient);
+        return result.patient;
+      }
+
+      finishPatientSave(result.patient, result);
+      return result.patient;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "فشل حفظ المريض");
+      return null;
+    } finally {
+      setIsSaving(false);
     }
-
-    mutation.mutate();
   }
+
+  function finishPatientSave(
+    savedPatient: PatientDto,
+    duplicate?: { phoneDuplicate?: boolean; duplicatePatientName?: string | null }
+  ) {
+    if (duplicate?.phoneDuplicate) {
+      notifyPhoneDuplicate(duplicate.duplicatePatientName);
+    }
+    void queryClient.invalidateQueries({ queryKey: ["patients"] });
+    if (savedPatient.id > 0) {
+      void queryClient.invalidateQueries({
+        queryKey: ["patient", savedPatient.id],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["patient-record", savedPatient.id],
+      });
+    }
+    toast.success(patient ? "تم تحديث المريض" : "تم إضافة المريض");
+    onSuccess(savedPatient);
+  }
+
+  useImperativeHandle(ref, () => ({
+    submit: () => submitPatient({ quiet: embedded }),
+  }));
 
   const focusField = useCallback((field: FocusField) => {
     const refs = {
@@ -320,7 +368,7 @@ export function PatientForm({
     e.preventDefault();
     const next = nextCoreField(current, visibility);
     if (next === "submit") {
-      submitPatient();
+      if (!embedded) void submitPatient();
       return;
     }
     focusField(next);
@@ -340,13 +388,19 @@ export function PatientForm({
     handleFieldEnter(e, "gender");
   }
 
+  const FormTag = embedded ? "div" : "form";
+
   return (
-    <form
+    <FormTag
       className={compact ? "grid gap-2 sm:grid-cols-2" : "space-y-4"}
-      onSubmit={(e) => {
-        e.preventDefault();
-        submitPatient();
-      }}
+      {...(!embedded
+        ? {
+            onSubmit: (e: React.FormEvent) => {
+              e.preventDefault();
+              submitPatient();
+            },
+          }
+        : {})}
     >
       <div className={compact ? "space-y-0.5 sm:col-span-2" : "space-y-2 sm:col-span-2"}>
         <Label className={compact ? "rx-label" : undefined}>اسم المريض</Label>
@@ -442,16 +496,30 @@ export function PatientForm({
           />
         </div>
       )}
-      <div className={`flex gap-2 ${compact ? "sm:col-span-2" : ""}`}>
-        <Button
-          type="submit"
-          size={compact ? "sm" : "default"}
-          tabIndex={compact ? -1 : undefined}
-          disabled={mutation.isPending}
-        >
-          {mutation.isPending ? "جاري الحفظ..." : patient ? "تحديث" : "إضافة"}
-        </Button>
-        {onCancel && (
+      {!embedded ? (
+        <div className={`flex gap-2 ${compact ? "sm:col-span-2" : ""}`}>
+          <Button
+            type="submit"
+            size={compact ? "sm" : "default"}
+            tabIndex={compact ? -1 : undefined}
+            disabled={isSaving}
+          >
+            {isSaving ? "جاري الحفظ..." : patient ? "تحديث" : "إضافة"}
+          </Button>
+          {onCancel ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size={compact ? "sm" : "default"}
+              tabIndex={compact ? -1 : undefined}
+              onClick={onCancel}
+            >
+              إلغاء
+            </Button>
+          ) : null}
+        </div>
+      ) : onCancel ? (
+        <div className={`flex gap-2 ${compact ? "sm:col-span-2" : ""}`}>
           <Button
             type="button"
             variant="secondary"
@@ -461,8 +529,8 @@ export function PatientForm({
           >
             إلغاء
           </Button>
-        )}
-      </div>
-    </form>
+        </div>
+      ) : null}
+    </FormTag>
   );
-}
+});

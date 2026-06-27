@@ -1,10 +1,10 @@
-import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
+import { requireClinicApi, isClinicApiError } from "@/lib/api/clinic-auth";
 import { apiOk, apiError } from "@/lib/api/response";
 import { fetchDoctorChanges } from "@/lib/sync/server-data";
 
 export async function GET(request: Request) {
-  const ctx = await requireDoctorApi();
-  if (isApiError(ctx)) return ctx;
+  const ctx = await requireClinicApi();
+  if (isClinicApiError(ctx)) return ctx;
 
   const sinceParam = new URL(request.url).searchParams.get("since");
   if (!sinceParam) return apiError("since مطلوب");

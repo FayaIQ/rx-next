@@ -65,6 +65,8 @@ export async function fetchDoctorHydration(doctorId: number) {
       bookingDate: a.bookingDate?.toISOString() ?? null,
       notes: a.notes,
       status: a.status,
+      visitStatus: a.visitStatus ?? "scheduled",
+      checkedInAt: a.checkedInAt?.toISOString() ?? null,
       updatedAt: a.updatedAt?.toISOString() ?? new Date().toISOString(),
     })),
     fields: fields.map((f) => ({
@@ -150,6 +152,8 @@ export async function fetchDoctorChanges(doctorId: number, since: Date) {
       bookingDate: a.bookingDate?.toISOString() ?? null,
       notes: a.notes,
       status: a.status,
+      visitStatus: a.visitStatus ?? "scheduled",
+      checkedInAt: a.checkedInAt?.toISOString() ?? null,
       updatedAt: a.updatedAt?.toISOString() ?? new Date().toISOString(),
     })),
     fields: fields.map((f) => ({

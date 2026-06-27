@@ -30,6 +30,7 @@ import {
   fetchMedicinesOfflineFirst,
   fetchMedicinePresetsOfflineFirst,
   createPrescriptionOffline,
+  updatePrescriptionOffline,
 } from "@/lib/data/offline-api";
 import {
   rxApi,
@@ -50,13 +51,20 @@ import {
   patientFieldVisibilityFromSettings,
   type CoreFocusField,
 } from "@/lib/patient-core-fields";
+import {
+  activePersonalFields,
+  activeRecipeFields,
+  normalizePatientFieldsArray,
+} from "@/lib/patient-field-display";
 import { useMedicineGroups } from "@/lib/medicine-utils";
 import { resolveImageUrl } from "@/lib/image-url";
 import { mergePresetsFromItems } from "@/lib/medicine-preset-utils";
 import { upsertLocalMedicinePresets, upsertLocalMedicinesFromPrescription, syncLocalPrescriptionFromDto } from "@/lib/sync/offline-store";
+import { queryKeys } from "@/lib/query-keys";
 import { useFieldsOnlyTab } from "@/lib/fields-only-tab";
 import { buildPrescriptionPreviewData } from "@/lib/prescription-preview-data";
 import { PrescriptionLivePreview } from "@/components/prescription/prescription-live-preview";
+import { DoctorQueuePanel } from "@/components/waiting-room/doctor-queue-panel";
 
 function emptyRow(key = "medicine-row-0"): MedicineRowData {
   return {
@@ -113,6 +121,7 @@ export function PrescriptionComposer() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
+  const preselectPatientId = searchParams.get("patientId");
   const queryClient = useQueryClient();
   const nextRowKeyRef = useRef(1);
   const diagnosisRef = useRef<HTMLTextAreaElement>(null);
@@ -124,6 +133,24 @@ export function PrescriptionComposer() {
   function newEmptyRow() {
     const key = `medicine-row-${nextRowKeyRef.current++}`;
     return emptyRow(key);
+  }
+
+  function focusMedicineRowName(rowKey: string) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.querySelector(
+          `[data-rx-medicine-row="${rowKey}"][data-rx-medicine-field="name"]`
+        ) as HTMLInputElement | null;
+        el?.focus();
+      });
+    });
+  }
+
+  function addMedicineRowAndFocus() {
+    const newRow = newEmptyRow();
+    setItems((rows) => [...rows, newRow]);
+    setActiveMedicineRowKey(newRow.key);
+    focusMedicineRowName(newRow.key);
   }
 
   const [prescriptionNumber, setPrescriptionNumber] = useState<number | null>(
@@ -167,7 +194,7 @@ export function PrescriptionComposer() {
   const medicinePresets = presetsData ?? [];
 
   const { data: fieldsData } = useQuery({
-    queryKey: ["fields"],
+    queryKey: queryKeys.fieldsRecipe.all,
     queryFn: () => rxApi.fields.list(),
     staleTime: 0,
     refetchOnMount: "always",
@@ -244,7 +271,7 @@ export function PrescriptionComposer() {
     );
     const fv: Record<number, string> = {};
     const personalIds = new Set(
-      (fieldsData?.fields ?? [])
+      normalizePatientFieldsArray(fieldsData)
         .filter((f) => f.isPersonal)
         .map((f) => f.id)
     );
@@ -267,13 +294,19 @@ export function PrescriptionComposer() {
     setPatientSearch(editPatientData.patient.name);
   }, [editPatientData]);
 
+  const { data: preselectPatientData } = useQuery({
+    queryKey: ["patient", "preselect", preselectPatientId],
+    queryFn: () => rxApi.patients.get(Number(preselectPatientId)),
+    enabled: !!preselectPatientId && !editId,
+  });
+
   const personalFields = useMemo(
-    () => fieldsData?.fields.filter((f) => f.isActive && f.isPersonal) ?? [],
+    () => activePersonalFields(fieldsData),
     [fieldsData]
   );
 
   const recipeFields = useMemo(
-    () => fieldsData?.fields.filter((f) => f.isActive && !f.isPersonal) ?? [],
+    () => activeRecipeFields(fieldsData),
     [fieldsData]
   );
 
@@ -332,7 +365,7 @@ export function PrescriptionComposer() {
       }
 
       const result = currentPrescriptionId
-        ? await rxApi.prescriptions.update(currentPrescriptionId, payload)
+        ? await updatePrescriptionOffline(currentPrescriptionId, payload)
         : await createPrescriptionOffline(payload);
 
       return {
@@ -436,6 +469,11 @@ export function PrescriptionComposer() {
       requestAnimationFrame(() => diagnosisRef.current?.focus());
     }
   }
+
+  useEffect(() => {
+    if (!preselectPatientData?.patient || editId) return;
+    selectPatient(preselectPatientData.patient, { focusDiagnosis: true });
+  }, [preselectPatientData, editId]);
 
   function findPatientByExactName(name: string) {
     const q = name.trim().toLowerCase();
@@ -707,6 +745,16 @@ export function PrescriptionComposer() {
       <PageContent wide className="px-3 py-2 pb-3 lg:px-4">
         <div className="grid gap-3 xl:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] xl:items-start">
         <div className="rx-prescription-sheet min-w-0 space-y-0 xl:col-start-2">
+        <DoctorQueuePanel
+          onSelectPatient={async (patientId) => {
+            try {
+              const { patient } = await rxApi.patients.get(patientId);
+              selectPatient(patient, { focusDiagnosis: true });
+            } catch {
+              toast.error("تعذّر تحميل بيانات المريض");
+            }
+          }}
+        />
         {/* Patient */}
         <section className="rx-section space-y-2">
           <div className="flex flex-wrap items-end gap-2">
@@ -894,7 +942,7 @@ export function PrescriptionComposer() {
             </Button>
           </div>
           <div className="space-y-1">
-            {items.map((row) => (
+            {items.map((row, index) => (
               <MedicineRowEditor
                 key={row.key}
                 compact
@@ -914,6 +962,8 @@ export function PrescriptionComposer() {
                   setItems((rows) => rows.filter((r) => r.key !== row.key))
                 }
                 canRemove={items.length > 1}
+                isLastRow={index === items.length - 1}
+                onAddRow={addMedicineRowAndFocus}
               />
             ))}
           </div>

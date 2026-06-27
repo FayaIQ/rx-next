@@ -40,6 +40,11 @@ export function AuthForm({
         : "/home";
 
   async function resolveCallbackUrl(): Promise<string> {
+    if (role === "secretary") {
+      const session = await getSession();
+      if (session?.user?.isConfirmed) return "/secretary/desk";
+      return "/secretary";
+    }
     if (role !== "doctor") return defaultCallbackUrl;
 
     const session = await getSession();

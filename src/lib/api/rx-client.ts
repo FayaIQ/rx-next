@@ -94,6 +94,8 @@ export type AppointmentDto = {
   bookingDate: string | null;
   notes: string | null;
   status: boolean;
+  visitStatus: string;
+  checkedInAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   patient?: {
@@ -103,6 +105,40 @@ export type AppointmentDto = {
     gender: string;
     age: string;
   };
+};
+
+export type FinanceSettingsDto = {
+  id: number;
+  doctorId: number;
+  consultationFee: number;
+  followUpFee: number;
+  procedureFee: number;
+  currency: string;
+  updatedAt: string | null;
+};
+
+export type FinanceTransactionDto = {
+  id: number;
+  doctorId: number;
+  patientId: number | null;
+  appointmentId: number | null;
+  type: "income" | "expense";
+  category: string;
+  amount: number;
+  paymentMethod: string | null;
+  description: string | null;
+  transactionDate: string;
+  createdById: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  patient?: { id: number; name: string } | null;
+};
+
+export type FinanceSummaryDto = {
+  totalIncome: number;
+  totalExpenses: number;
+  balance: number;
+  transactionCount: number;
 };
 export type RecipeSettingsDto = {
   id: number;
@@ -517,6 +553,88 @@ export const rxApi = {
     toggleStatus: (id: number) =>
       handleResponse<{ appointment: AppointmentDto }>(
         fetch(`/api/appointments/${id}/toggle-status`, { method: "PATCH" })
+      ),
+    updateVisitStatus: (id: number, visitStatus: string) =>
+      handleResponse<{ appointment: AppointmentDto }>(
+        fetch(`/api/appointments/${id}/visit-status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visitStatus }),
+        })
+      ),
+    advanceVisit: (id: number) =>
+      handleResponse<{ appointment: AppointmentDto }>(
+        fetch(`/api/appointments/${id}/advance-visit`, { method: "POST" })
+      ),
+    callNext: (date?: string) =>
+      handleResponse<{ appointment: AppointmentDto | null; message: string | null }>(
+        fetch("/api/appointments/queue/call-next", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(date ? { date } : {}),
+        })
+      ),
+  },
+  finances: {
+    getSettings: () =>
+      handleResponse<{ settings: FinanceSettingsDto }>(
+        fetch("/api/finances/settings")
+      ),
+    saveSettings: (body: Partial<FinanceSettingsDto>) =>
+      handleResponse<{ settings: FinanceSettingsDto }>(
+        fetch("/api/finances/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ),
+    getSummary: (params?: { from?: string; to?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.from) sp.set("from", params.from);
+      if (params?.to) sp.set("to", params.to);
+      const q = sp.toString();
+      return handleResponse<{ summary: FinanceSummaryDto }>(
+        fetch(`/api/finances/summary${q ? `?${q}` : ""}`)
+      );
+    },
+    listTransactions: (params?: {
+      type?: "income" | "expense";
+      from?: string;
+      to?: string;
+      page?: number;
+      pageSize?: number;
+    }) => {
+      const sp = new URLSearchParams();
+      if (params?.type) sp.set("type", params.type);
+      if (params?.from) sp.set("from", params.from);
+      if (params?.to) sp.set("to", params.to);
+      if (params?.page) sp.set("page", String(params.page));
+      if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+      const q = sp.toString();
+      return handleResponse<{
+        transactions: FinanceTransactionDto[];
+        pagination: PaginationMeta;
+      }>(fetch(`/api/finances/transactions${q ? `?${q}` : ""}`));
+    },
+    createTransaction: (body: Record<string, unknown>) =>
+      handleResponse<{ transaction: FinanceTransactionDto }>(
+        fetch("/api/finances/transactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ),
+    updateTransaction: (id: number, body: Record<string, unknown>) =>
+      handleResponse<{ transaction: FinanceTransactionDto }>(
+        fetch(`/api/finances/transactions/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ),
+    deleteTransaction: (id: number) =>
+      handleResponse<{ success: boolean }>(
+        fetch(`/api/finances/transactions/${id}`, { method: "DELETE" })
       ),
   },
 };

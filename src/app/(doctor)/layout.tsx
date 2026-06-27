@@ -2,6 +2,8 @@ import { requireSubscription } from "@/lib/auth-server";
 import { DoctorNavPill } from "@/components/layout/doctor-nav-pill";
 import { SyncProvider } from "@/components/sync/sync-provider";
 
+export const dynamic = "force-dynamic";
+
 export default async function DoctorLayout({
   children,
 }: {

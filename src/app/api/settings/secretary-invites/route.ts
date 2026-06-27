@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiOk } from "@/lib/api/response";
 import { toDbId, fromDbId } from "@/lib/bigint";
+import { SECRETARY_INVITE_CODE_LENGTH } from "@/lib/secretary-invite";
 
 function serializeInvite(invite: {
   id: bigint;
@@ -37,7 +38,9 @@ export async function POST() {
   const ctx = await requireDoctorApi();
   if (isApiError(ctx)) return ctx;
 
-  const code = randomBytes(4).toString("hex").toUpperCase();
+  const code = randomBytes(SECRETARY_INVITE_CODE_LENGTH / 2)
+    .toString("hex")
+    .toUpperCase();
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 
