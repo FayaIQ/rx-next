@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/layout/app-header";
+import { SmartAlertsPanel } from "@/components/alerts/smart-alerts-panel";
 import { PageContent } from "@/components/ui/page-shell";
 import { WaitingRoomBoard } from "@/components/waiting-room/waiting-room-board";
 import { rxApi } from "@/lib/api/rx-client";
@@ -36,6 +37,9 @@ export function DoctorQueuePage() {
         subtitle={formatTodayLabel()}
       />
       <PageContent className="space-y-4">
+        <div className="xl:hidden">
+          <SmartAlertsPanel compact />
+        </div>
         <WaitingRoomBoard
           role="doctor"
           onSelectPatient={handleSelectPatient}

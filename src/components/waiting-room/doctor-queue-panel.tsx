@@ -6,13 +6,14 @@ import { toast } from "sonner";
 import Link from "next/link";
 import {
   ChevronLeft,
+  FileText,
   ListOrdered,
   Stethoscope,
   UserCheck,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { type AppointmentDto } from "@/lib/api/rx-client";
+import { rxApi, type AppointmentDto } from "@/lib/api/rx-client";
 import { fetchAppointmentsOfflineFirst } from "@/lib/data/offline-api";
 import {
   callNextOffline,
@@ -37,6 +38,15 @@ type Props = {
   onSelectPatient?: (patientId: number) => void;
 };
 
+type TodaySession = {
+  id: number;
+  patientId: number;
+  patientName: string;
+  toothFdi: number;
+  treatmentLabel: string;
+  sessionNumber: number;
+};
+
 export function DoctorQueuePanel({ onSelectPatient }: Props) {
   const queryClient = useQueryClient();
   const day = todayKey();
@@ -53,7 +63,25 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
     refetchInterval: navigator.onLine ? 10_000 : false,
   });
 
+  const { data: sessionsData } = useQuery({
+    queryKey: ["treatment-sessions-today", day],
+    queryFn: () => rxApi.treatment.todaySessions(day),
+    enabled: navigator.onLine,
+    refetchInterval: navigator.onLine ? 30_000 : false,
+  });
+
   const appointments = data?.appointments ?? [];
+  const todaySessions = sessionsData?.sessions ?? [];
+
+  const sessionsByPatient = useMemo(() => {
+    const map = new Map<number, TodaySession[]>();
+    for (const s of todaySessions) {
+      const list = map.get(s.patientId) ?? [];
+      list.push(s);
+      map.set(s.patientId, list);
+    }
+    return map;
+  }, [todaySessions]);
 
   const { current, waiting } = useMemo(() => {
     const currentAp = appointments.find((a) => a.visitStatus === "with_doctor");
@@ -141,17 +169,19 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
         <>
           <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-violet-100/90 px-2.5 py-1">
             <Stethoscope size={12} className="text-violet-700" />
-            <button
-              type="button"
-              className="max-w-[8rem] truncate text-xs font-bold text-violet-950 sm:max-w-[10rem]"
-              onClick={() => {
-                if (current.patient && onSelectPatient) {
-                  onSelectPatient(current.patient.id);
-                }
-              }}
+            <PatientChip
+              patientId={current.patient?.id}
+              name={current.patient?.name ?? "مريض"}
+              sessions={sessionsByPatient.get(current.patient?.id ?? 0)}
+              onSelect={onSelectPatient}
+            />
+            <Link
+              href={`/patients/${current.patient?.id}/record`}
+              className="shrink-0 rounded-full bg-white/80 p-1 text-violet-800 hover:bg-white"
+              title="ملف المريض"
             >
-              {current.patient?.name ?? "مريض"}
-            </button>
+              <FileText size={11} />
+            </Link>
             <button
               type="button"
               className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-medium text-violet-800 hover:bg-white"
@@ -177,6 +207,7 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
               key={ap.id}
               appointment={ap}
               index={i + 1}
+              sessions={sessionsByPatient.get(ap.patient?.id ?? 0)}
               onSelect={onSelectPatient}
             />
           ))}
@@ -217,27 +248,80 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
   );
 }
 
+function PatientChip({
+  patientId,
+  name,
+  sessions,
+  onSelect,
+}: {
+  patientId?: number;
+  name: string;
+  sessions?: TodaySession[];
+  onSelect?: (patientId: number) => void;
+}) {
+  if (patientId && onSelect) {
+    return (
+      <button
+        type="button"
+        className="flex max-w-[10rem] items-center gap-1 truncate text-xs font-bold text-violet-950 sm:max-w-[12rem]"
+        onClick={() => onSelect(patientId)}
+      >
+        <span className="truncate">{name}</span>
+        {sessions?.length ? (
+          <span className="shrink-0 rounded bg-sky-100 px-1 text-[9px] font-medium text-sky-800">
+            {sessions.length} علاج
+          </span>
+        ) : null}
+      </button>
+    );
+  }
+
+  return (
+    <span className="max-w-[8rem] truncate text-xs font-bold text-violet-950 sm:max-w-[10rem]">
+      {name}
+    </span>
+  );
+}
+
 function WaitingCapsuleChip({
   appointment,
   index,
+  sessions,
   onSelect,
 }: {
   appointment: AppointmentDto;
   index: number;
+  sessions?: TodaySession[];
   onSelect?: (patientId: number) => void;
 }) {
+  const patientId = appointment.patient?.id;
+
   return (
-    <button
-      type="button"
-      className="shrink-0 rounded-full border border-amber-200/90 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-950 transition hover:bg-amber-100"
-      onClick={() => {
-        if (appointment.patient && onSelect) {
-          onSelect(appointment.patient.id);
-        }
-      }}
-    >
-      <span className="font-mono opacity-50">{index}.</span>{" "}
-      {appointment.patient?.name ?? "مريض"}
-    </button>
+    <div className="flex shrink-0 items-center gap-0.5">
+      <button
+        type="button"
+        className="rounded-full border border-amber-200/90 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-950 transition hover:bg-amber-100"
+        onClick={() => {
+          if (patientId && onSelect) onSelect(patientId);
+        }}
+      >
+        <span className="font-mono opacity-50">{index}.</span>{" "}
+        {appointment.patient?.name ?? "مريض"}
+        {sessions?.length ? (
+          <span className="mr-1 rounded bg-sky-100 px-1 text-[9px] text-sky-800">
+            {sessions[0].treatmentLabel}
+          </span>
+        ) : null}
+      </button>
+      {patientId ? (
+        <Link
+          href={`/patients/${patientId}/record`}
+          className="rounded-full p-0.5 text-amber-800 hover:bg-amber-100"
+          title="ملف المريض"
+        >
+          <FileText size={10} />
+        </Link>
+      ) : null}
+    </div>
   );
 }

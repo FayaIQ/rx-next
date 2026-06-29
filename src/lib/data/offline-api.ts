@@ -495,6 +495,28 @@ export async function fetchAppointmentsOfflineFirst(
     status?: string;
   }
 ): Promise<AppointmentDto[]> {
+  const filterAppointments = (appointments: AppointmentDto[]) => {
+    let filtered = appointments;
+    if (params?.date) {
+      filtered = filtered.filter(
+        (a) => appointmentDayKey(a) === params.date
+      );
+    } else if (params?.bookingFrom || params?.bookingTo) {
+      filtered = filtered.filter((a) => {
+        const key = appointmentDayKey(a);
+        if (params.bookingFrom && key < params.bookingFrom) return false;
+        if (params.bookingTo && key > params.bookingTo) return false;
+        return true;
+      });
+    }
+    if (params?.status === "active") {
+      filtered = filtered.filter((a) => a.status);
+    } else if (params?.status === "cancelled") {
+      filtered = filtered.filter((a) => !a.status);
+    }
+    return filtered;
+  };
+
   if (navigator.onLine) {
     try {
       const res = await rxApi.appointments.list(
@@ -510,33 +532,27 @@ export async function fetchAppointmentsOfflineFirst(
               ? { status: params.status }
               : undefined
       );
-      for (const appointment of res.appointments) {
-        await syncLocalAppointmentFromDto(appointment);
-      }
+      await Promise.all(
+        res.appointments.map((appointment) =>
+          syncLocalAppointmentFromDto(appointment).catch(() => undefined)
+        )
+      );
+      return filterAppointments(res.appointments);
     } catch {
       // fall through to local
     }
   }
 
-  let local: AppointmentDto[] = [];
   try {
-    local = await getLocalAppointments(params?.date);
-    if (params?.bookingFrom || params?.bookingTo) {
-      local = local.filter((a) => {
-        const key = (a.bookingDate ?? a.appointmentDatetime).slice(0, 10);
-        if (params.bookingFrom && key < params.bookingFrom) return false;
-        if (params.bookingTo && key > params.bookingTo) return false;
-        return true;
-      });
-    }
-    if (params?.status === "active") {
-      local = local.filter((a) => a.status);
-    }
+    const local = await getLocalAppointments(params?.date);
+    return filterAppointments(local);
   } catch {
     return [];
   }
+}
 
-  return local;
+function appointmentDayKey(ap: AppointmentDto): string {
+  return ap.bookingDate?.slice(0, 10) ?? ap.appointmentDatetime.slice(0, 10);
 }
 
 async function cacheAppointmentLocally(

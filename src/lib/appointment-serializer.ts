@@ -1,3 +1,4 @@
+import { parseToothFdiFromNotes } from "@/lib/appointment-treatment-link";
 import { fromDbId } from "@/lib/bigint";
 import { formatAge, genderLabel } from "@/lib/patient-utils";
 
@@ -13,6 +14,8 @@ export type AppointmentDto = {
   checkedInAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  /** سن مرتبط بجلسة علاج (من قاعدة البيانات أو ملاحظات الموعد) */
+  treatmentToothFdi?: number | null;
   patient?: {
     id: number;
     name: string;
@@ -42,8 +45,12 @@ export function serializeAppointment(
       gender: string;
       birthdate: Date | null;
     };
-  }
+  },
+  options?: { treatmentToothFdi?: number | null }
 ): AppointmentDto {
+  const treatmentToothFdi =
+    options?.treatmentToothFdi ?? parseToothFdiFromNotes(appointment.notes);
+
   return {
     id: fromDbId(appointment.id),
     doctorId: fromDbId(appointment.doctorId),
@@ -56,6 +63,7 @@ export function serializeAppointment(
     checkedInAt: appointment.checkedInAt?.toISOString() ?? null,
     createdAt: appointment.createdAt?.toISOString() ?? null,
     updatedAt: appointment.updatedAt?.toISOString() ?? null,
+    treatmentToothFdi,
     patient: appointment.patient
       ? {
           id: fromDbId(appointment.patient.id),

@@ -86,6 +86,9 @@ export function serializePatientLight(
     birthdate: Date | null;
     diagnosis: string | null;
     phone: string | null;
+    allergies?: string | null;
+    currentMedications?: string | null;
+    portalInstructions?: string | null;
     doctorId: bigint | number;
     createdAt: Date | null;
     updatedAt: Date | null;
@@ -103,6 +106,13 @@ export function serializePatientLight(
     birthdate: patient.birthdate?.toISOString() ?? null,
     diagnosis: patient.diagnosis,
     phone: patient.phone,
+    allergies: (patient as { allergies?: string | null }).allergies ?? null,
+    currentMedications:
+      (patient as { currentMedications?: string | null }).currentMedications ??
+      null,
+    portalInstructions:
+      (patient as { portalInstructions?: string | null }).portalInstructions ??
+      null,
     doctorId: fromDbId(patient.doctorId),
     age: formatAge(patient.birthdate),
     visitCount: visitStats?.visitCount ?? 0,
@@ -121,6 +131,9 @@ export async function serializePatient(
     birthdate: Date | null;
     diagnosis: string | null;
     phone: string | null;
+    allergies?: string | null;
+    currentMedications?: string | null;
+    portalInstructions?: string | null;
     doctorId: bigint | number;
     createdAt: Date | null;
     updatedAt: Date | null;
@@ -142,6 +155,13 @@ export async function serializePatient(
     birthdate: patient.birthdate?.toISOString() ?? null,
     diagnosis: patient.diagnosis,
     phone: patient.phone,
+    allergies: (patient as { allergies?: string | null }).allergies ?? null,
+    currentMedications:
+      (patient as { currentMedications?: string | null }).currentMedications ??
+      null,
+    portalInstructions:
+      (patient as { portalInstructions?: string | null }).portalInstructions ??
+      null,
     doctorId: fromDbId(patient.doctorId),
     age: formatAge(patient.birthdate),
     visitCount: stats.visitCount,

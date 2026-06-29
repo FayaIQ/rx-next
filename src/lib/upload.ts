@@ -16,7 +16,8 @@ export type UploadKind =
   | "design"
   | "xray"
   | "analysis"
-  | "profile";
+  | "profile"
+  | "tooth";
 
 function uploadDir(doctorId: number, kind: UploadKind): string {
   return path.join(process.cwd(), "public", "uploads", String(doctorId), kind);

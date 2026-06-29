@@ -12,8 +12,10 @@ import { getLastSync } from "@/lib/sync/offline-store";
 import {
   backgroundRefresh,
   notifyOfflineMode,
+  notifySubscriptionBlocked,
   reconnectAndSync,
 } from "@/lib/sync/reconnect";
+import { activateLocalCacheMode } from "@/lib/sync/sync-local";
 import { useSyncStore } from "@/stores/sync-store";
 import { SyncQueryListener } from "@/components/sync/sync-query-listener";
 
@@ -86,8 +88,16 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     if (!role || !CLINIC_ROLES.has(role)) return;
 
     void (async () => {
-      await hydrateFromServer();
-      await processSyncQueue();
+      const hydrated = await hydrateFromServer();
+      if (!hydrated) {
+        await activateLocalCacheMode();
+        if (useSyncStore.getState().subscriptionBlocked) {
+          notifySubscriptionBlocked();
+        }
+      }
+      if (!useSyncStore.getState().subscriptionBlocked) {
+        await processSyncQueue();
+      }
     })();
   }, [session?.user?.type, session?.user?.id]);
 

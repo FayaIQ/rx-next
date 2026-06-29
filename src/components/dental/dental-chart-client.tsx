@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight, Save, Smile } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
@@ -13,7 +14,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageContent } from "@/components/ui/page-shell";
 import { Badge } from "@/components/ui/badge";
+import { ToothSessionsPanel } from "@/components/dental/tooth-sessions-panel";
+import { buildTreatmentPlanMarkers } from "@/lib/dental/treatment-plan-markers";
 import { rxApi } from "@/lib/api/rx-client";
+import {
+  fetchDentalChartOfflineFirst,
+  fetchTreatmentPlansOfflineFirst,
+  saveDentalChartOffline,
+  updateTreatmentSessionOffline,
+} from "@/lib/data/dental-offline-api";
 import {
   FDI_ALL,
   TOOTH_STATUSES,
@@ -21,16 +30,17 @@ import {
   toothStatusLabel,
   type ToothStatusId,
 } from "@/lib/dental/constants";
+import { cn } from "@/lib/utils";
 
-const DentalArchViewer = dynamic(
+const DentalViewerShell = dynamic(
   () =>
-    import("@/components/dental/dental-arch-viewer").then(
-      (m) => m.DentalArchViewer
+    import("@/components/dental/dental-viewer-shell").then(
+      (m) => m.DentalViewerShell
     ),
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[min(58vh,520px)] items-center justify-center rounded-2xl border border-rx-border bg-rx-bg-subtle text-sm text-rx-muted">
+      <div className="flex h-[min(62vh,560px)] items-center justify-center rounded-2xl border border-slate-700 bg-black text-sm text-slate-400">
         جاري تحميل المشهد ثلاثي الأبعاد...
       </div>
     ),
@@ -42,6 +52,7 @@ type Props = {
 };
 
 export function DentalChartClient({ patientId }: Props) {
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedFdi, setSelectedFdi] = useState<number | null>(null);
   const [chartNotes, setChartNotes] = useState("");
@@ -51,8 +62,26 @@ export function DentalChartClient({ patientId }: Props) {
 
   const { data, isLoading } = useQuery({
     queryKey: ["dental-chart", patientId],
-    queryFn: () => rxApi.dental.getChart(patientId),
+    queryFn: () => fetchDentalChartOfflineFirst(patientId),
   });
+
+  const { data: plansData } = useQuery({
+    queryKey: ["treatment-plans", patientId],
+    queryFn: () => fetchTreatmentPlansOfflineFirst(patientId),
+  });
+
+  const treatmentPlanMarkers = useMemo(
+    () => buildTreatmentPlanMarkers(plansData?.plans ?? []),
+    [plansData?.plans]
+  );
+
+  useEffect(() => {
+    const tooth = searchParams.get("tooth");
+    if (tooth) {
+      const fdi = Number(tooth);
+      if (Number.isFinite(fdi)) setSelectedFdi(fdi);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!data?.chart) return;
@@ -87,7 +116,7 @@ export function DentalChartClient({ patientId }: Props) {
 
   const saveMutation = useMutation({
     mutationFn: () =>
-      rxApi.dental.saveChart(patientId, {
+      saveDentalChartOffline(patientId, {
         notes: chartNotes || null,
         teeth: teethList.filter(
           (t) => t.status !== "healthy" || t.notes.trim().length > 0
@@ -143,7 +172,7 @@ export function DentalChartClient({ patientId }: Props) {
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/patients/${patientId}/record`}>سجل الوصفات</Link>
+            <Link href={`/patients/${patientId}/record`}>ملف المريض</Link>
           </Button>
           <Button
             size="sm"
@@ -161,15 +190,16 @@ export function DentalChartClient({ patientId }: Props) {
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Smile size={18} className="text-rx-primary" />
-                الفك العلوي والسفلي — نموذج أسنان توضيحي
+                الفك العلوي والسفلي — عرض تشريحي
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0">
-              <DentalArchViewer
+              <DentalViewerShell
                 teeth={teethList}
                 selectedFdi={selectedFdi}
                 onSelect={setSelectedFdi}
                 showAnnotations={recordedCount > 0}
+                treatmentPlanMarkers={treatmentPlanMarkers}
               />
             </CardContent>
           </Card>
@@ -183,42 +213,58 @@ export function DentalChartClient({ patientId }: Props) {
                     : "اختر سناً من النموذج"}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 {selectedFdi ? (
                   <>
-                    <div className="grid grid-cols-2 gap-2">
-                      {TOOTH_STATUSES.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() =>
-                            updateTooth(selectedFdi, { status: s.id })
-                          }
-                          className={`rounded-lg border px-2 py-2 text-right text-xs transition ${
-                            (selected?.status ?? "healthy") === s.id
-                              ? "border-rx-primary bg-rx-primary/10 font-semibold text-rx-primary"
-                              : "border-rx-border hover:bg-rx-bg-subtle"
-                          }`}
-                        >
-                          <span
-                            className="ml-1.5 inline-block size-2.5 rounded-full align-middle"
-                            style={{ backgroundColor: s.color }}
-                          />
-                          {s.label}
-                        </button>
-                      ))}
+                    <div>
+                      <Label className="mb-2 block text-xs text-rx-muted">
+                        حالة السن
+                      </Label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {TOOTH_STATUSES.map((s) => {
+                          const active =
+                            (selected?.status ?? "healthy") === s.id;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() =>
+                                updateTooth(selectedFdi, { status: s.id })
+                              }
+                              className={cn(
+                                "rounded-md border px-2 py-1.5 text-right text-[11px] transition",
+                                active
+                                  ? "border-slate-800 bg-slate-900 font-semibold text-white shadow-sm"
+                                  : "border-rx-border bg-white text-slate-700 hover:border-slate-400"
+                              )}
+                            >
+                              <span
+                                className="ml-1 inline-block size-2 rounded-full align-middle"
+                                style={{ backgroundColor: s.color }}
+                              />
+                              {s.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label>ملاحظات السن</Label>
+                      <Label className="text-xs text-rx-muted">
+                        ملاحظات السن
+                      </Label>
                       <Textarea
-                        rows={3}
+                        rows={2}
                         value={selected?.notes ?? ""}
                         onChange={(e) =>
                           updateTooth(selectedFdi, { notes: e.target.value })
                         }
-                        placeholder="مثال: تسوس سطح ماضغ، يحتاج حشوة..."
+                        placeholder="وصف مختصر لحالة السن..."
                       />
                     </div>
+                    <ToothSessionsPanel
+                      patientId={patientId}
+                      toothFdi={selectedFdi}
+                    />
                   </>
                 ) : (
                   <p className="text-sm text-rx-muted">

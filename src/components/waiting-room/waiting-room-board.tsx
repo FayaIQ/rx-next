@@ -36,6 +36,7 @@ import {
   secretaryStatusLabel,
 } from "@/lib/visit-queue/constants";
 import { cn } from "@/lib/utils";
+import { PatientQueueSummary } from "@/components/waiting-room/patient-queue-summary";
 
 const SECRETARY_COLUMNS: VisitStatus[] = [
   "scheduled",
@@ -275,6 +276,12 @@ export function WaitingRoomBoard({
             يمكنك تسجيل وصول المريض أو استدعائه من الانتظار.
           </p>
         )}
+
+        {isDoctor && calledPatients[0]?.patient?.id ? (
+          <div className="mt-3">
+            <PatientQueueSummary patientId={calledPatients[0].patient.id} />
+          </div>
+        ) : null}
       </CardHeader>
 
       <CardContent>

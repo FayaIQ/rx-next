@@ -7,19 +7,42 @@ import {
 } from "@/lib/sync/offline-store";
 import { collectReadyQueueItems } from "@/lib/sync/sync-priority";
 import { dispatchSyncComplete } from "@/lib/sync/sync-events";
+import {
+  activateLocalCacheMode,
+  classifySyncResponse,
+  isSubscriptionBlocked,
+} from "@/lib/sync/sync-local";
 import { useSyncStore } from "@/stores/sync-store";
 import type { PrescriptionDto } from "@/lib/api/rx-client";
 
 let syncing = false;
+let subscriptionWarned = false;
+
+function warnSubscriptionOnce() {
+  if (subscriptionWarned) return;
+  subscriptionWarned = true;
+  console.warn("انتهى الاشتراك — سيتم استخدام البيانات المحلية فقط");
+}
 
 export async function hydrateFromServer(): Promise<boolean> {
-  if (!navigator.onLine) return false;
+  if (!navigator.onLine || isSubscriptionBlocked()) return false;
 
   try {
     useSyncStore.getState().setHydrating(true);
     const res = await fetch("/api/sync/hydrate");
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "فشل التحميل");
+    const issue = classifySyncResponse(res, data);
+
+    if (issue === "subscription_expired") {
+      warnSubscriptionOnce();
+      await activateLocalCacheMode();
+      return false;
+    }
+    if (issue === "error") {
+      console.warn("hydrate failed:", data.error ?? "فشل التحميل");
+      await activateLocalCacheMode();
+      return false;
+    }
 
     await persistHydration(data);
     useSyncStore.getState().setLastSync(data.syncedAt);
@@ -28,7 +51,8 @@ export async function hydrateFromServer(): Promise<boolean> {
     dispatchSyncComplete();
     return true;
   } catch (error) {
-    console.error("hydrate failed", error);
+    console.warn("hydrate failed", error);
+    await activateLocalCacheMode();
     return false;
   } finally {
     useSyncStore.getState().setHydrating(false);
@@ -36,7 +60,7 @@ export async function hydrateFromServer(): Promise<boolean> {
 }
 
 export async function pullRemoteChanges(): Promise<boolean> {
-  if (!navigator.onLine) return false;
+  if (!navigator.onLine || isSubscriptionBlocked()) return false;
 
   const since = await getMeta("last_full_sync");
   if (!since) {
@@ -48,14 +72,24 @@ export async function pullRemoteChanges(): Promise<boolean> {
       `/api/sync/changes?since=${encodeURIComponent(since)}`
     );
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "فشل جلب التغييرات");
+    const issue = classifySyncResponse(res, data);
+
+    if (issue === "subscription_expired") {
+      warnSubscriptionOnce();
+      await activateLocalCacheMode();
+      return false;
+    }
+    if (issue === "error") {
+      console.warn("pull changes failed:", data.error ?? "فشل جلب التغييرات");
+      return false;
+    }
 
     await mergePartialHydration(data);
     useSyncStore.getState().setLastSync(data.syncedAt);
     useSyncStore.getState().setHydrated(true);
     return true;
   } catch (error) {
-    console.error("pull changes failed", error);
+    console.warn("pull changes failed", error);
     return false;
   }
 }
@@ -69,7 +103,7 @@ export async function refreshPendingCount() {
 }
 
 export async function processSyncQueue(): Promise<void> {
-  if (syncing || !navigator.onLine) return;
+  if (syncing || !navigator.onLine || isSubscriptionBlocked()) return;
   syncing = true;
   useSyncStore.getState().setSyncing(true);
 
@@ -77,7 +111,7 @@ export async function processSyncQueue(): Promise<void> {
     const db = getRxDb();
     let progress = true;
 
-    while (progress && navigator.onLine) {
+    while (progress && navigator.onLine && !isSubscriptionBlocked()) {
       progress = false;
 
       const pending = await db.sync_queue
@@ -100,9 +134,22 @@ export async function processSyncQueue(): Promise<void> {
         body: JSON.stringify({ items: ready }),
       });
       const data = await res.json();
+      const issue = classifySyncResponse(res, data);
 
-      if (!res.ok) {
-        throw new Error(data.error ?? "فشلت المزامنة");
+      if (issue === "subscription_expired") {
+        warnSubscriptionOnce();
+        for (const item of ready) {
+          await db.sync_queue.update(item.id, { status: "pending" });
+        }
+        await activateLocalCacheMode();
+        break;
+      }
+      if (issue === "error") {
+        console.warn("sync queue failed:", data.error ?? "فشلت المزامنة");
+        for (const item of ready) {
+          await db.sync_queue.update(item.id, { status: "pending" });
+        }
+        break;
       }
 
       for (const result of data.results as Array<{
@@ -133,11 +180,13 @@ export async function processSyncQueue(): Promise<void> {
       }
     }
 
-    await pullRemoteChanges();
-    dispatchSyncComplete();
+    if (!isSubscriptionBlocked()) {
+      await pullRemoteChanges();
+      dispatchSyncComplete();
+    }
     await refreshPendingCount();
   } catch (error) {
-    console.error("sync queue failed", error);
+    console.warn("sync queue failed", error);
     await refreshPendingCount();
   } finally {
     syncing = false;
@@ -216,6 +265,49 @@ async function applySyncedItem(
 
   if (item.entity === "prescription" && item.action === "delete") {
     await db.prescriptions.delete(item.localId);
+  }
+
+  if (item.entity === "dental_chart" && item.action === "update" && data) {
+    const chart = data as import("@/lib/dental/serializer").DentalChartDto;
+    const patientId = chart.patientId;
+    const existing = await db.dental_charts.get(patientId);
+    await db.dental_charts.put({
+      patientServerId: patientId,
+      patientName: existing?.patientName ?? "المريض",
+      chart,
+      synced: true,
+      updatedAt: chart.updatedAt ?? new Date().toISOString(),
+    });
+  }
+
+  if (item.entity === "treatment_session" && item.action === "update" && data) {
+    const session = data as import("@/lib/api/rx-client").TreatmentSessionDto;
+    const cached = await db.treatment_cache.get(session.patientId);
+    if (cached) {
+      const plans = cached.plans as import("@/lib/api/rx-client").TreatmentPlanDto[];
+      const next = plans.map((plan) => ({
+        ...plan,
+        sessions: plan.sessions?.map((s) =>
+          s.id === session.id ? { ...s, ...session } : s
+        ),
+      }));
+      await db.treatment_cache.put({
+        ...cached,
+        plans: next as unknown as Array<Record<string, unknown>>,
+        synced: true,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  if (item.entity === "treatment_plan" && item.action === "create" && data) {
+    const plan = data as import("@/lib/api/rx-client").TreatmentPlanDto;
+    const { cacheTreatmentPlansLocally } = await import(
+      "@/lib/data/dental-offline-api"
+    );
+    const cached = await db.treatment_cache.get(plan.patientId);
+    const existing = (cached?.plans ?? []) as unknown as import("@/lib/api/rx-client").TreatmentPlanDto[];
+    await cacheTreatmentPlansLocally(plan.patientId, [...existing, plan]);
   }
 }
 

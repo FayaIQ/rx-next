@@ -81,6 +81,9 @@ export async function POST(request: Request) {
           birthdate,
           diagnosis: data.diagnosis ?? null,
           phone,
+          allergies: data.allergies?.trim() || null,
+          currentMedications: data.currentMedications?.trim() || null,
+          portalInstructions: data.portalInstructions?.trim() || null,
           doctorId: toDbId(ctx.doctorId),
         },
       });

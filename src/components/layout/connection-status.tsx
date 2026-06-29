@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/stores/sync-store";
 
 export function ConnectionStatus() {
-  const { online, syncing, hydrating, pendingCount, hydrated } = useSyncStore();
+  const { online, syncing, hydrating, pendingCount, hydrated, subscriptionBlocked } =
+    useSyncStore();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -29,7 +30,11 @@ export function ConnectionStatus() {
   let icon = <Wifi size={13} />;
   let className = "bg-cyan-50 text-cyan-700";
 
-  if (busy) {
+  if (subscriptionBlocked) {
+    label = "انتهى الاشتراك";
+    icon = <CloudOff size={13} />;
+    className = "bg-orange-50 text-orange-800";
+  } else if (busy) {
     label = hydrating ? "تحميل" : "مزامنة";
     icon = <RefreshCw size={13} className="animate-spin" />;
     className = "bg-sky-50 text-sky-700";
@@ -51,7 +56,9 @@ export function ConnectionStatus() {
         className
       )}
       title={
-        !online
+        subscriptionBlocked
+          ? "انتهى الاشتراك — البيانات المحلية متاحة بدون مزامنة"
+          : !online
           ? offlineReady
             ? "وضع أوفلاين — البيانات المحلية جاهزة"
             : "لا يوجد اتصال"

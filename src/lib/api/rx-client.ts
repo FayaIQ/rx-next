@@ -1,6 +1,27 @@
 import type { PaginationMeta } from "@/lib/pagination";
+import type {
+  TreatmentPlanDto,
+  TreatmentSessionDto,
+} from "@/lib/treatment/serializer";
 
 export type { PaginationMeta };
+export type { TreatmentPlanDto, TreatmentSessionDto };
+
+export type TodayTreatmentSessionDto = {
+  id: number;
+  planId: number;
+  patientId: number;
+  patientName: string;
+  sessionNumber: number;
+  status: string;
+  scheduledDate: string | null;
+  notes: string | null;
+  toothFdi: number;
+  treatmentType: string;
+  treatmentLabel: string;
+  planTitle: string | null;
+  totalSessions: number | null;
+};
 
 export type PatientDto = {
   id: number;
@@ -9,6 +30,9 @@ export type PatientDto = {
   birthdate: string | null;
   diagnosis: string | null;
   phone: string | null;
+  allergies?: string | null;
+  currentMedications?: string | null;
+  portalInstructions?: string | null;
   doctorId: number;
   age: string;
   visitCount: number;
@@ -98,6 +122,7 @@ export type AppointmentDto = {
   checkedInAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  treatmentToothFdi?: number | null;
   patient?: {
     id: number;
     name: string;
@@ -185,6 +210,13 @@ async function handleResponse<T>(res: Response | Promise<Response>): Promise<T> 
   const response = await res;
   const data = await response.json();
   if (!response.ok) {
+    if (response.status === 402 && typeof window !== "undefined") {
+      const { markSubscriptionExpired, activateLocalCacheMode } = await import(
+        "@/lib/sync/sync-local"
+      );
+      markSubscriptionExpired();
+      void activateLocalCacheMode();
+    }
     throw new Error(data.error ?? "فشل الطلب");
   }
   return data as T;
@@ -281,6 +313,118 @@ export const rxApi = {
           body: JSON.stringify(body),
         })
       ),
+  },
+  treatment: {
+    listPlans: (patientId: number, params?: { toothFdi?: number }) => {
+      const sp = new URLSearchParams();
+      if (params?.toothFdi != null) sp.set("toothFdi", String(params.toothFdi));
+      const q = sp.toString();
+      return handleResponse<{
+        plans: TreatmentPlanDto[];
+      }>(
+        fetch(
+          `/api/patients/${patientId}/treatment-plans${q ? `?${q}` : ""}`
+        )
+      );
+    },
+    createPlan: (patientId: number, body: Record<string, unknown>) =>
+      handleResponse<{ plan: TreatmentPlanDto }>(
+        fetch(`/api/patients/${patientId}/treatment-plans`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ),
+    updatePlan: (planId: number, body: Record<string, unknown>) =>
+      handleResponse<{ plan: TreatmentPlanDto }>(
+        fetch(`/api/treatment-plans/${planId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ),
+    deletePlan: (planId: number) =>
+      handleResponse<{ success: boolean }>(
+        fetch(`/api/treatment-plans/${planId}`, { method: "DELETE" })
+      ),
+    addSession: (planId: number, body: Record<string, unknown>) =>
+      handleResponse<{ session: TreatmentSessionDto }>(
+        fetch(`/api/treatment-plans/${planId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ),
+    updateSession: (sessionId: number, body: Record<string, unknown>) =>
+      handleResponse<{ session: TreatmentSessionDto }>(
+        fetch(`/api/treatment-sessions/${sessionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ),
+    deleteSession: (sessionId: number) =>
+      handleResponse<{ success: boolean }>(
+        fetch(`/api/treatment-sessions/${sessionId}`, { method: "DELETE" })
+      ),
+    todaySessions: (date?: string) => {
+      const sp = date ? `?date=${encodeURIComponent(date)}` : "";
+      return handleResponse<{
+        date: string;
+        sessions: TodayTreatmentSessionDto[];
+      }>(fetch(`/api/treatment-sessions/today${sp}`));
+    },
+    weekSessions: (params: {
+      from: string;
+      to: string;
+      treatmentType?: string;
+    }) => {
+      const sp = new URLSearchParams({
+        from: params.from,
+        to: params.to,
+      });
+      if (params.treatmentType) sp.set("treatmentType", params.treatmentType);
+      return handleResponse<{
+        from: string;
+        to: string;
+        sessions: TodayTreatmentSessionDto[];
+        byDate: Record<
+          string,
+          Array<{
+            id: number;
+            patientId: number;
+            patientName: string;
+            sessionNumber: number;
+            toothFdi: number;
+            treatmentLabel: string;
+            totalSessions: number | null;
+          }>
+        >;
+      }>(fetch(`/api/treatment-sessions/week?${sp}`));
+    },
+  },
+  alerts: {
+    smart: () =>
+      handleResponse<{
+        count: number;
+        summary: {
+          unscheduledSessions: number;
+          incompletePlans: number;
+          allergyPatients: number;
+        };
+        alerts: Array<{
+          id: string;
+          type: "unscheduled_session" | "incomplete_plan" | "patient_allergy";
+          severity: "danger" | "warning" | "info";
+          title: string;
+          message: string;
+          patientId?: number;
+          toothFdi?: number;
+          planId?: number;
+          sessionId?: number;
+          href: string;
+        }>;
+      }>(fetch("/api/alerts/smart")),
   },
   medicines: {
     list: (params?: { q?: string; page?: number; pageSize?: number }) => {

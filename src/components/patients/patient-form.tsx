@@ -88,6 +88,10 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
   );
   const [phone, setPhone] = useState(patient?.phone ?? "");
   const [diagnosis, setDiagnosis] = useState(patient?.diagnosis ?? "");
+  const [allergies, setAllergies] = useState(patient?.allergies ?? "");
+  const [currentMedications, setCurrentMedications] = useState(
+    patient?.currentMedications ?? ""
+  );
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneDuplicateHint, setPhoneDuplicateHint] = useState<string | null>(
     null
@@ -113,6 +117,8 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
     setBirthdateInput(birthdateToFormInput(patient?.birthdate));
     setPhone(patient?.phone ?? "");
     setDiagnosis(patient?.diagnosis ?? "");
+    setAllergies(patient?.allergies ?? "");
+    setCurrentMedications(patient?.currentMedications ?? "");
     setDynamicFieldValues(recordFromPatientFieldValues(patient?.fieldValues));
     setPhoneError(null);
     setPhoneDuplicateHint(null);
@@ -135,9 +141,11 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
       birthdate: serializeBirthdateInput(birthdateInput),
       phone: normalizePatientPhoneForSave(phone),
       diagnosis: diagnosis || null,
+      allergies: allergies || null,
+      currentMedications: currentMedications || null,
       fieldValues: patientFieldValuesFromRecord(dynamicFieldValues),
     }),
-    [name, gender, birthdateInput, phone, diagnosis, dynamicFieldValues]
+    [name, gender, birthdateInput, phone, diagnosis, allergies, currentMedications, dynamicFieldValues]
   );
 
   const notifyPhoneDuplicate = useCallback(
@@ -480,6 +488,28 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
             onChange={(e) => setDiagnosis(e.target.value)}
           />
         </div>
+      )}
+      {!compact && (
+        <>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>الحساسية</Label>
+            <Textarea
+              value={allergies}
+              onChange={(e) => setAllergies(e.target.value)}
+              placeholder="مثال: بنسلين، لاتكس..."
+              rows={2}
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>الأدوية الحالية</Label>
+            <Textarea
+              value={currentMedications}
+              onChange={(e) => setCurrentMedications(e.target.value)}
+              placeholder="الأدوية التي يتناولها المريض حالياً"
+              rows={2}
+            />
+          </div>
+        </>
       )}
       {personalFields.length > 0 && (
         <div className={compact ? "sm:col-span-2" : "sm:col-span-2"}>

@@ -64,6 +64,9 @@ export async function PUT(request: Request, { params }: Params) {
           birthdate,
           diagnosis: data.diagnosis ?? null,
           phone,
+          allergies: data.allergies?.trim() || null,
+          currentMedications: data.currentMedications?.trim() || null,
+          portalInstructions: data.portalInstructions?.trim() || null,
         },
       });
 

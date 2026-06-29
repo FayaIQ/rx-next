@@ -3,11 +3,13 @@ import { requireClinicApi, isClinicApiError } from "@/lib/api/clinic-auth";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
 import { appointmentSchema } from "@/lib/validations/rx";
 import { serializeAppointment } from "@/lib/appointment-serializer";
+import { loadTreatmentToothMap } from "@/lib/appointment-treatment-link";
 import { toDbId } from "@/lib/bigint";
 import {
   buildPaginationMeta,
   parsePaginationParams,
 } from "@/lib/pagination";
+import { endOfDayUtc } from "@/lib/treatment/plan-utils";
 import { z } from "zod";
 
 export async function GET(request: Request) {
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
   } else if (bookingFrom || bookingTo) {
     const bookingFilter: { gte?: Date; lte?: Date } = {};
     if (bookingFrom) bookingFilter.gte = new Date(bookingFrom);
-    if (bookingTo) bookingFilter.lte = new Date(bookingTo);
+    if (bookingTo) bookingFilter.lte = endOfDayUtc(bookingTo);
     dayFilter = { bookingDate: bookingFilter };
   } else if (from || to) {
     const datetimeFilter: { gte?: Date; lte?: Date } = {};
@@ -81,8 +83,14 @@ export async function GET(request: Request) {
     ? await prisma.appointment.count({ where })
     : appointments.length;
 
+  const toothMap = await loadTreatmentToothMap(appointments.map((a) => a.id));
+
   return apiOk({
-    appointments: appointments.map(serializeAppointment),
+    appointments: appointments.map((a) =>
+      serializeAppointment(a, {
+        treatmentToothFdi: toothMap.get(a.id.toString()) ?? null,
+      })
+    ),
     ...(paginate
       ? { pagination: buildPaginationMeta(page, pageSize, total) }
       : {}),

@@ -7,12 +7,14 @@ interface SyncState {
   syncing: boolean;
   pendingCount: number;
   lastSync: string | null;
+  subscriptionBlocked: boolean;
   setOnline: (v: boolean) => void;
   setHydrated: (v: boolean) => void;
   setHydrating: (v: boolean) => void;
   setSyncing: (v: boolean) => void;
   setPendingCount: (v: number) => void;
   setLastSync: (v: string) => void;
+  setSubscriptionBlocked: (v: boolean) => void;
 }
 
 export const useSyncStore = create<SyncState>((set) => ({
@@ -23,10 +25,12 @@ export const useSyncStore = create<SyncState>((set) => ({
   syncing: false,
   pendingCount: 0,
   lastSync: null,
+  subscriptionBlocked: false,
   setOnline: (online) => set({ online }),
   setHydrated: (hydrated) => set({ hydrated }),
   setHydrating: (hydrating) => set({ hydrating }),
   setSyncing: (syncing) => set({ syncing }),
   setPendingCount: (pendingCount) => set({ pendingCount }),
   setLastSync: (lastSync) => set({ lastSync }),
+  setSubscriptionBlocked: (subscriptionBlocked) => set({ subscriptionBlocked }),
 }));

@@ -4,11 +4,121 @@ import { serializePatient, fetchVisitStatsMap } from "@/lib/patient-serializer";
 import { serializePrescription, emptyMed } from "@/lib/prescription-service";
 import { listMedicinePresets } from "@/lib/medicine-preset-service";
 import { fromDbId } from "@/lib/bigint";
+import { serializeDentalChart } from "@/lib/dental/serializer";
+import { serializeTreatmentPlan } from "@/lib/treatment/serializer";
+
+export async function fetchSecretaryHydration(doctorId: number) {
+  const doctorDbId = toDbId(doctorId);
+
+  const [patients, appointments, fields] = await Promise.all([
+    prisma.patient.findMany({
+      where: { doctorId: doctorDbId },
+      include: { fieldValues: true },
+    }),
+    prisma.appointment.findMany({
+      where: { doctorId: doctorDbId },
+      orderBy: { appointmentDatetime: "desc" },
+      take: 200,
+    }),
+    prisma.patientField.findMany({
+      where: { doctorId: doctorDbId, isActive: true },
+    }),
+  ]);
+
+  const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
+
+  return {
+    patients: await Promise.all(
+      patients.map((patient) =>
+        serializePatient(patient, visitStatsMap.get(patient.id.toString()))
+      )
+    ),
+    appointments: appointments.map((a) => ({
+      id: fromDbId(a.id),
+      doctorId: fromDbId(a.doctorId),
+      patientId: fromDbId(a.patientId),
+      appointmentDatetime: a.appointmentDatetime.toISOString(),
+      bookingDate: a.bookingDate?.toISOString() ?? null,
+      notes: a.notes,
+      status: a.status,
+      visitStatus: a.visitStatus ?? "scheduled",
+      checkedInAt: a.checkedInAt?.toISOString() ?? null,
+      updatedAt: a.updatedAt?.toISOString() ?? new Date().toISOString(),
+    })),
+    fields: fields.map((f) => ({
+      id: fromDbId(f.id),
+      doctorId: fromDbId(f.doctorId),
+      name: f.name,
+      size: f.size,
+      isActive: f.isActive,
+      isPrintable: f.isPrintable,
+      isPersonal: f.isPersonal,
+    })),
+    medicines: [],
+    prescriptions: [],
+    defaultMedicines: [],
+    medicinePresets: [],
+    dentalCharts: [],
+    treatmentPlans: [],
+    recipeSettings: null,
+  };
+}
+
+export async function fetchSecretaryChanges(doctorId: number, since: Date) {
+  const doctorDbId = toDbId(doctorId);
+
+  const [patients, appointments, fields] = await Promise.all([
+    prisma.patient.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+      include: { fieldValues: true },
+    }),
+    prisma.appointment.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+    }),
+    prisma.patientField.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+    }),
+  ]);
+
+  const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
+
+  return {
+    patients: await Promise.all(
+      patients.map((patient) =>
+        serializePatient(patient, visitStatsMap.get(patient.id.toString()))
+      )
+    ),
+    appointments: appointments.map((a) => ({
+      id: fromDbId(a.id),
+      doctorId: fromDbId(a.doctorId),
+      patientId: fromDbId(a.patientId),
+      appointmentDatetime: a.appointmentDatetime.toISOString(),
+      bookingDate: a.bookingDate?.toISOString() ?? null,
+      notes: a.notes,
+      status: a.status,
+      visitStatus: a.visitStatus ?? "scheduled",
+      checkedInAt: a.checkedInAt?.toISOString() ?? null,
+      updatedAt: a.updatedAt?.toISOString() ?? new Date().toISOString(),
+    })),
+    fields: fields.map((f) => ({
+      id: fromDbId(f.id),
+      doctorId: fromDbId(f.doctorId),
+      name: f.name,
+      size: f.size,
+      isActive: f.isActive,
+      isPrintable: f.isPrintable,
+      isPersonal: f.isPersonal,
+      updatedAt: f.updatedAt?.toISOString() ?? new Date().toISOString(),
+    })),
+    medicines: [],
+    prescriptions: [],
+  };
+}
 
 export async function fetchDoctorHydration(doctorId: number) {
   const doctorDbId = toDbId(doctorId);
 
-  const [patients, medicines, appointments, fields, recipeSettings, categories, medicinePresets] =
+  const [patients, medicines, appointments, fields, recipeSettings, categories, medicinePresets, dentalCharts, treatmentPlans] =
     await Promise.all([
       prisma.patient.findMany({
         where: { doctorId: doctorDbId },
@@ -28,6 +138,16 @@ export async function fetchDoctorHydration(doctorId: number) {
         include: { default_medicines: true },
       }),
       listMedicinePresets(doctorId),
+      prisma.dentalChart.findMany({
+        where: { doctorId: doctorDbId },
+        include: { teeth: true, patient: { select: { id: true, name: true } } },
+      }),
+      prisma.treatmentPlan.findMany({
+        where: { doctorId: doctorDbId },
+        include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+        orderBy: { updatedAt: "desc" },
+        take: 500,
+      }),
     ]);
 
   const prescriptions = await prisma.prescription.findMany({
@@ -95,6 +215,12 @@ export async function fetchDoctorHydration(doctorId: number) {
       }))
     ),
     medicinePresets,
+    dentalCharts: dentalCharts.map((c) => ({
+      patientId: fromDbId(c.patientId),
+      patientName: c.patient.name,
+      chart: serializeDentalChart(c),
+    })),
+    treatmentPlans: treatmentPlans.map(serializeTreatmentPlan),
   };
 }
 

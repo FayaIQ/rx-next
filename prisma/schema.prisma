@@ -47,6 +47,10 @@ model Patient {
   birthdate     DateTime?      @db.Date
   diagnosis     String?
   phone         String?        @db.VarChar(255)
+  allergies     String?
+  currentMedications String?   @map("current_medications")
+  portalToken   String?        @unique @map("portal_token") @db.VarChar(64)
+  portalInstructions String?   @map("portal_instructions")
   doctorId      BigInt         @map("doctor_id")
   createdAt     DateTime?      @map("created_at") @db.Timestamp(0)
   updatedAt     DateTime?      @updatedAt @map("updated_at") @db.Timestamp(0)
@@ -56,6 +60,10 @@ model Patient {
   fieldValues   PatientFieldValue[]
   dentalChart   DentalChart?
   financeTransactions FinanceTransaction[]
+  treatmentPlans      TreatmentPlan[]
+  treatmentSessions   TreatmentSession[]
+  patientVisits       PatientVisit[]
+  dentalToothImages   DentalToothImage[]
 
   @@map("patients")
 }
@@ -86,6 +94,86 @@ model DentalToothRecord {
 
   @@unique([chartId, toothFdi], map: "dental_tooth_records_chart_id_tooth_fdi_unique")
   @@map("dental_tooth_records")
+}
+
+model TreatmentPlan {
+  id            BigInt             @id @default(autoincrement())
+  doctorId      BigInt             @map("doctor_id")
+  patientId     BigInt             @map("patient_id")
+  toothFdi      Int                @map("tooth_fdi")
+  treatmentType String             @map("treatment_type") @db.VarChar(64)
+  title         String?            @db.VarChar(255)
+  totalSessions Int?               @map("total_sessions")
+  status        String             @default("active") @db.VarChar(32)
+  notes         String?
+  createdAt     DateTime?          @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime?          @updatedAt @map("updated_at") @db.Timestamp(0)
+  patient       Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "treatment_plans_patient_id_foreign")
+  sessions      TreatmentSession[]
+
+  @@index([doctorId, patientId], map: "treatment_plans_doctor_patient_index")
+  @@index([patientId, toothFdi], map: "treatment_plans_patient_tooth_index")
+  @@map("treatment_plans")
+}
+
+model TreatmentSession {
+  id            BigInt        @id @default(autoincrement())
+  planId        BigInt        @map("plan_id")
+  doctorId      BigInt        @map("doctor_id")
+  patientId     BigInt        @map("patient_id")
+  appointmentId BigInt?       @unique @map("appointment_id")
+  sessionNumber Int           @map("session_number")
+  status        String        @default("planned") @db.VarChar(32)
+  scheduledDate DateTime?     @map("scheduled_date") @db.Date
+  performedAt   DateTime?     @map("performed_at") @db.Timestamp(0)
+  notes         String?
+  createdAt     DateTime?     @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt     DateTime?     @updatedAt @map("updated_at") @db.Timestamp(0)
+  plan          TreatmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "treatment_sessions_plan_id_foreign")
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "treatment_sessions_patient_id_foreign")
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "treatment_sessions_appointment_id_foreign")
+  patientVisit  PatientVisit?
+
+  @@unique([planId, sessionNumber], map: "treatment_sessions_plan_session_unique")
+  @@index([doctorId, scheduledDate], map: "treatment_sessions_doctor_scheduled_index")
+  @@index([doctorId, status], map: "treatment_sessions_doctor_status_index")
+  @@map("treatment_sessions")
+}
+
+model PatientVisit {
+  id                 BigInt            @id @default(autoincrement())
+  doctorId           BigInt            @map("doctor_id")
+  patientId          BigInt            @map("patient_id")
+  visitDate          DateTime          @map("visit_date") @db.Date
+  summary            String?           @db.VarChar(500)
+  notes              String?
+  appointmentId      BigInt?           @map("appointment_id")
+  prescriptionId     BigInt?           @map("prescription_id")
+  treatmentSessionId BigInt?           @unique @map("treatment_session_id")
+  createdAt          DateTime?         @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt          DateTime?         @updatedAt @map("updated_at") @db.Timestamp(0)
+  patient            Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "patient_visits_patient_id_foreign")
+  appointment        Appointment?      @relation(fields: [appointmentId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "patient_visits_appointment_id_foreign")
+  prescription       Prescription?     @relation(fields: [prescriptionId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "patient_visits_prescription_id_foreign")
+  treatmentSession   TreatmentSession? @relation(fields: [treatmentSessionId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "patient_visits_treatment_session_id_foreign")
+
+  @@index([doctorId, patientId, visitDate], map: "patient_visits_doctor_patient_date_index")
+  @@map("patient_visits")
+}
+
+model DentalToothImage {
+  id        BigInt    @id @default(autoincrement())
+  doctorId  BigInt    @map("doctor_id")
+  patientId BigInt    @map("patient_id")
+  toothFdi  Int       @map("tooth_fdi")
+  imageUrl  String    @map("image_url") @db.VarChar(512)
+  imageType String    @default("photo") @map("image_type") @db.VarChar(32)
+  caption   String?
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(0)
+  patient   Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dental_tooth_images_patient_id_foreign")
+
+  @@index([patientId, toothFdi], map: "dental_tooth_images_patient_tooth_index")
+  @@map("dental_tooth_images")
 }
 
 model ClinicFinanceSettings {
@@ -142,6 +230,7 @@ model Prescription {
   items              PrescriptionItem[]
   doctor             User?                    @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "prescriptions_doctor_id_foreign")
   patient            Patient                  @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "prescriptions_patient_id_foreign")
+  patientVisits      PatientVisit[]
 
   @@map("prescriptions")
 }
@@ -213,6 +302,8 @@ model Appointment {
   doctor              User      @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "appointments_doctor_id_foreign")
   patient             Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "appointments_patient_id_foreign")
   financeTransactions FinanceTransaction[]
+  treatmentSession    TreatmentSession?
+  patientVisits       PatientVisit[]
 
   @@map("appointments")
 }

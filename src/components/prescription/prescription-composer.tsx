@@ -65,6 +65,7 @@ import { useFieldsOnlyTab } from "@/lib/fields-only-tab";
 import { buildPrescriptionPreviewData } from "@/lib/prescription-preview-data";
 import { PrescriptionLivePreview } from "@/components/prescription/prescription-live-preview";
 import { DoctorQueuePanel } from "@/components/waiting-room/doctor-queue-panel";
+import { TodayTreatmentSessionsPanel } from "@/components/treatment/today-sessions-panel";
 
 function emptyRow(key = "medicine-row-0"): MedicineRowData {
   return {
@@ -745,6 +746,16 @@ export function PrescriptionComposer() {
       <PageContent wide className="px-3 py-2 pb-3 lg:px-4">
         <div className="grid gap-3 xl:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] xl:items-start">
         <div className="rx-prescription-sheet min-w-0 space-y-0 xl:col-start-2">
+        <TodayTreatmentSessionsPanel
+          onSelectPatient={async (patientId) => {
+            try {
+              const { patient } = await rxApi.patients.get(patientId);
+              selectPatient(patient, { focusDiagnosis: true });
+            } catch {
+              toast.error("تعذّر تحميل بيانات المريض");
+            }
+          }}
+        />
         <DoctorQueuePanel
           onSelectPatient={async (patientId) => {
             try {
@@ -852,6 +863,16 @@ export function PrescriptionComposer() {
 
           {selectedPatient && !showNewPatient && (
             <>
+              {selectedPatient.allergies?.trim() ? (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  <strong>تنبيه حساسية:</strong> {selectedPatient.allergies}
+                </div>
+              ) : null}
+              {selectedPatient.currentMedications?.trim() ? (
+                <p className="text-xs text-slate-600">
+                  <strong>أدوية حالية:</strong> {selectedPatient.currentMedications}
+                </p>
+              ) : null}
               <div className="flex flex-wrap items-center gap-2">
                 <p className="rx-patient-chip">
                   <strong>{selectedPatient.name}</strong>

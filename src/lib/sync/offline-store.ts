@@ -42,6 +42,12 @@ export async function persistHydration(data: {
   }>;
   medicinePresets?: MedicinePresetDto[];
   recipeSettings?: { doctorId: number; data: Record<string, unknown> } | null;
+  dentalCharts?: Array<{
+    patientId: number;
+    patientName: string;
+    chart: Record<string, unknown>;
+  }>;
+  treatmentPlans?: Array<Record<string, unknown>>;
   syncedAt: string;
 }) {
   const db = getRxDb();
@@ -57,6 +63,8 @@ export async function persistHydration(data: {
       db.default_medicines,
       db.medicine_presets,
       db.recipe_settings,
+      db.dental_charts,
+      db.treatment_cache,
       db.meta,
     ],
     async () => {
@@ -224,6 +232,38 @@ export async function persistHydration(data: {
           data: data.recipeSettings.data,
           updatedAt: new Date().toISOString(),
         });
+      }
+
+      if (data.dentalCharts?.length) {
+        await db.dental_charts.bulkPut(
+          data.dentalCharts.map((entry) => ({
+            patientServerId: entry.patientId,
+            patientName: entry.patientName,
+            chart: entry.chart as import("@/lib/dental/serializer").DentalChartDto,
+            synced: true,
+            updatedAt:
+              (entry.chart.updatedAt as string | null) ??
+              new Date().toISOString(),
+          }))
+        );
+      }
+
+      if (data.treatmentPlans?.length) {
+        const byPatient = new Map<number, Array<Record<string, unknown>>>();
+        for (const plan of data.treatmentPlans) {
+          const patientId = plan.patientId as number;
+          const list = byPatient.get(patientId) ?? [];
+          list.push(plan);
+          byPatient.set(patientId, list);
+        }
+        await db.treatment_cache.bulkPut(
+          [...byPatient.entries()].map(([patientServerId, plans]) => ({
+            patientServerId,
+            plans,
+            synced: true,
+            updatedAt: new Date().toISOString(),
+          }))
+        );
       }
 
       await setMeta("last_full_sync", data.syncedAt);

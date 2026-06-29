@@ -5,12 +5,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   CheckCircle2,
+  ExternalLink,
   Pencil,
   Plus,
   Trash2,
   X,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   title?: string;
   offline?: boolean;
+  showTreatmentLinks?: boolean;
 };
 
 type FilterKey = "all" | "active" | "cancelled";
@@ -79,6 +82,7 @@ type AppointmentRowProps = {
   onDelete: (id: number) => void;
   onToggle: (id: number) => void;
   togglePending: boolean;
+  showTreatmentLinks?: boolean;
 };
 
 function AppointmentRow({
@@ -87,6 +91,7 @@ function AppointmentRow({
   onDelete,
   onToggle,
   togglePending,
+  showTreatmentLinks = true,
 }: AppointmentRowProps) {
   return (
     <li
@@ -130,10 +135,33 @@ function AppointmentRow({
             {ap.notes}
           </p>
         )}
+
+        {showTreatmentLinks && ap.treatmentToothFdi != null && ap.patientId > 0 ? (
+          <Link
+            href={`/dental/${ap.patientId}?tooth=${ap.treatmentToothFdi}`}
+            className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline"
+          >
+            <ExternalLink size={12} />
+            فتح سن {ap.treatmentToothFdi} في الطبلة
+          </Link>
+        ) : null}
       </div>
 
       {ap.id > 0 && (
         <div className="flex shrink-0 gap-0.5">
+          {showTreatmentLinks && ap.treatmentToothFdi != null && ap.patientId > 0 ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              title="فتح الطبلة"
+              asChild
+            >
+              <Link href={`/dental/${ap.patientId}?tooth=${ap.treatmentToothFdi}`}>
+                <ExternalLink size={15} className="text-teal-700" />
+              </Link>
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon"
@@ -177,6 +205,7 @@ function AppointmentRow({
 export function AppointmentsPageClient({
   title = "المواعيد",
   offline = true,
+  showTreatmentLinks = true,
 }: Props) {
   const queryClient = useQueryClient();
   const todayKey = toDateKey(new Date());
@@ -198,6 +227,8 @@ export function AppointmentsPageClient({
     queryKey: ["appointments", monthKey],
     queryFn: () =>
       fetchAppointmentsOfflineFirst({ bookingFrom, bookingTo }),
+    refetchOnMount: "always",
+    staleTime: 0,
   });
 
   const sortedAppointments = useMemo(() => {
@@ -323,10 +354,17 @@ export function AppointmentsPageClient({
         title={title}
         subtitle={`${stats.total} موعد · ${formatDayLabel(selectedDate)}`}
         actions={
-          <Button size="sm" onClick={openCreateForm}>
-            <Plus size={16} />
-            موعد جديد
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {showTreatmentLinks ? (
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/treatment/week">تقويم العلاج</Link>
+              </Button>
+            ) : null}
+            <Button size="sm" onClick={openCreateForm}>
+              <Plus size={16} />
+              موعد جديد
+            </Button>
+          </div>
         }
       />
 
@@ -421,6 +459,7 @@ export function AppointmentsPageClient({
                       onDelete={(id) => deleteMutation.mutate(id)}
                       onToggle={(id) => toggleMutation.mutate(id)}
                       togglePending={toggleMutation.isPending}
+                      showTreatmentLinks={showTreatmentLinks}
                     />
                   ))}
                 </ul>

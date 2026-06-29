@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { requireClinicApi, isClinicApiError } from "@/lib/api/clinic-auth";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiOk, apiError } from "@/lib/api/response";
 import { toDbId } from "@/lib/bigint";
@@ -10,8 +11,8 @@ import {
 } from "@/lib/patient-field-serializer";
 
 export async function GET(req: Request) {
-  const ctx = await requireDoctorApi();
-  if (isApiError(ctx)) return ctx;
+  const ctx = await requireClinicApi();
+  if (isClinicApiError(ctx)) return ctx;
 
   const url = new URL(req.url);
   const all = url.searchParams.get("all") === "1";

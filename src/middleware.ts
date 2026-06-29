@@ -1,5 +1,6 @@
-import { auth } from "@/auth";
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { isSecretaryApiAllowed } from "@/lib/api/secretary-api-access";
 
 const PUBLIC_PATHS = [
   "/auth/signin",
@@ -9,6 +10,8 @@ const PUBLIC_PATHS = [
   "/auth/register/secretary",
   "/subscription/expired",
   "/api/auth",
+  "/portal",
+  "/api/portal",
 ];
 
 const AUTH_PATHS = [
@@ -69,6 +72,11 @@ export default auth((req) => {
 
   const { type, isConfirmed } = session.user;
 
+  // بوابة المريض ومسارات عامة — متاحة حتى للمستخدم المسجّل
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
   if (isAuthPath(pathname)) {
     return NextResponse.redirect(
       new URL(getDefaultRoute(type, isConfirmed), req.url)
@@ -94,6 +102,9 @@ export default auth((req) => {
       "/finances",
       "/queue",
       "/subscription",
+      "/print",
+      "/reports",
+      "/treatment",
     ];
     const allowed = doctorPaths.some((p) => pathname.startsWith(p));
     if (!allowed && !pathname.startsWith("/api/")) {
@@ -102,6 +113,16 @@ export default auth((req) => {
   }
 
   if (type === "secretary") {
+    if (
+      pathname.startsWith("/api/") &&
+      !isSecretaryApiAllowed(pathname)
+    ) {
+      return NextResponse.json(
+        { error: "غير مصرح لهذا الدور" },
+        { status: 403 }
+      );
+    }
+
     if (isConfirmed && pathname === "/secretary") {
       return NextResponse.redirect(new URL("/secretary/desk", req.url));
     }

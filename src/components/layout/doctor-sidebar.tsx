@@ -10,6 +10,7 @@ import {
   Users,
   FileText,
   Wallet,
+  BarChart3,
 } from "lucide-react";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/patients", label: "المرضى", icon: Users },
   { href: "/dental", label: "طبلة الأسنان", icon: Smile },
   { href: "/finances", label: "المالية", icon: Wallet },
+  { href: "/reports", label: "التقارير", icon: BarChart3 },
   { href: "/prescriptions", label: "سجل الوصفات", icon: FileText },
   { href: "/recipe-settings", label: "تصميم الوصفة", icon: ClipboardList },
   { href: "/setting", label: "الإعدادات", icon: Settings },

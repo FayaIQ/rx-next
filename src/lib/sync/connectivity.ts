@@ -1,4 +1,5 @@
 import { getMeta } from "@/lib/db/rx-db";
+import { markSubscriptionExpired } from "@/lib/sync/sync-local";
 
 const PING_TIMEOUT_MS = 4000;
 
@@ -16,6 +17,10 @@ export async function verifyOnline(): Promise<boolean> {
       `/api/sync/changes?since=${encodeURIComponent(since)}`,
       { signal: controller.signal, cache: "no-store" }
     );
+    if (res.status === 402) {
+      markSubscriptionExpired();
+      return true;
+    }
     return res.ok;
   } catch {
     return false;

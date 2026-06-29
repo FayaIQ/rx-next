@@ -3,7 +3,10 @@ export type SyncEntity =
   | "prescription"
   | "medicine"
   | "appointment"
-  | "field";
+  | "field"
+  | "dental_chart"
+  | "treatment_session"
+  | "treatment_plan";
 
 export type SyncAction = "create" | "update" | "delete" | "visit_status";
 
@@ -143,6 +146,33 @@ export interface LocalMedicinePreset {
   updatedAt: string;
 }
 
+export interface LocalDentalChart {
+  patientServerId: number;
+  patientName: string;
+  chart: {
+    id: number;
+    patientId: number;
+    doctorId: number;
+    notes: string | null;
+    updatedAt: string | null;
+    teeth: Array<{
+      toothFdi: number;
+      status: string;
+      notes: string | null;
+      updatedAt?: string | null;
+    }>;
+  };
+  synced: boolean;
+  updatedAt: string;
+}
+
+export interface LocalTreatmentCache {
+  patientServerId: number;
+  plans: Array<Record<string, unknown>>;
+  synced: boolean;
+  updatedAt: string;
+}
+
 import Dexie, { type Table } from "dexie";
 
 export class RxDatabase extends Dexie {
@@ -154,6 +184,8 @@ export class RxDatabase extends Dexie {
   recipe_settings!: Table<LocalRecipeSettings, number>;
   default_medicines!: Table<LocalDefaultMedicine, number>;
   medicine_presets!: Table<LocalMedicinePreset, string>;
+  dental_charts!: Table<LocalDentalChart, number>;
+  treatment_cache!: Table<LocalTreatmentCache, number>;
   sync_queue!: Table<SyncQueueItem, string>;
   meta!: Table<MetaRecord, string>;
 
@@ -178,6 +210,10 @@ export class RxDatabase extends Dexie {
     this.version(3).stores({
       appointments:
         "id, serverId, doctorId, patientId, visitStatus, synced, updatedAt",
+    });
+    this.version(4).stores({
+      dental_charts: "patientServerId, synced, updatedAt",
+      treatment_cache: "patientServerId, synced, updatedAt",
     });
   }
 }

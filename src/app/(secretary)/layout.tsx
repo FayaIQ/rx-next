@@ -1,5 +1,4 @@
 import { SecretarySidebar } from "@/components/layout/secretary-sidebar";
-import { SyncProvider } from "@/components/sync/sync-provider";
 import { requireSecretaryArea } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +14,7 @@ export default async function SecretaryLayout({
     <div className="min-h-screen">
       <SecretarySidebar />
       <div className="min-h-screen rx-app-bg lg:mr-[var(--rx-sidebar-width)]">
-        <SyncProvider>{children}</SyncProvider>
+        {children}
       </div>
     </div>
   );

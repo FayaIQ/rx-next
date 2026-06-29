@@ -2,6 +2,9 @@ import { AppointmentsPageClient } from "@/components/appointments/appointments-p
 
 export default function SecretaryDatesPage() {
   return (
-    <AppointmentsPageClient title="مواعيد الطبيب" />
+    <AppointmentsPageClient
+      title="مواعيد الطبيب"
+      showTreatmentLinks={false}
+    />
   );
 }

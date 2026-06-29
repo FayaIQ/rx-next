@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { useState } from "react";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { LocaleProvider } from "@/i18n/locale-provider";
+import { SyncProvider } from "@/components/sync/sync-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -24,7 +25,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <LocaleProvider>
         <QueryClientProvider client={queryClient}>
-          {children}
+          <SyncProvider>
+            {children}
+          </SyncProvider>
           <InstallPrompt />
         <Toaster
           position="top-center"

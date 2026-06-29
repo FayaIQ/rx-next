@@ -7,6 +7,9 @@ const ENTITY_ORDER: Record<SyncEntity, number> = {
   medicine: 2,
   appointment: 3,
   prescription: 4,
+  dental_chart: 5,
+  treatment_plan: 6,
+  treatment_session: 7,
 };
 
 export function sortSyncQueue(items: SyncQueueItem[]): SyncQueueItem[] {

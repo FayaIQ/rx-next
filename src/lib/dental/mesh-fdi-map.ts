@@ -1,4 +1,7 @@
-/** Maps mesh names in teeth-set.glb (Poly by Google) to FDI numbers. */
+/**
+ * teeth-set.glb — "Teeth" by Poly by Google (CC-BY).
+ * Source: https://poly.pizza/m/eNR_DPPP1Hp
+ */
 export const TEETH_SET_MESH_FDI: Record<string, number> = {
   Box010: 18,
   Box009: 17,
@@ -30,4 +33,14 @@ export const TEETH_SET_MESH_FDI: Record<string, number> = {
   Box019: 36,
 };
 
+/** Stray meshes in the GLB — not part of the dental arch. */
+export const TEETH_SET_HIDDEN_MESHES = new Set(["Box015", "Box030"]);
+
 export const DENTAL_MODEL_PATH = "/models/dental/teeth-set.glb";
+
+export function resolveMeshFdi(meshName: string): number | undefined {
+  const direct = TEETH_SET_MESH_FDI[meshName];
+  if (direct !== undefined) return direct;
+  const base = meshName.replace(/_\d+$/, "");
+  return TEETH_SET_MESH_FDI[base];
+}

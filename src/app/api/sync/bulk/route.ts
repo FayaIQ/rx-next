@@ -14,11 +14,34 @@ import { upsertPatientFieldValues } from "@/lib/patient-field-value-service";
 import { normalizePatientPhoneForSave } from "@/lib/patient-utils";
 import { updateAppointmentVisitStatus } from "@/lib/visit-queue/service";
 import { visitStatusSchema } from "@/lib/validations/visit-queue";
+import { dentalChartUpdateSchema } from "@/lib/validations/dental";
+import { treatmentSessionUpdateSchema, treatmentPlanCreateSchema } from "@/lib/validations/treatment";
+import { serializeDentalChart } from "@/lib/dental/serializer";
+import { createTreatmentPlanForPatient } from "@/lib/treatment/create-plan-service";
+import {
+  assertSessionAccess,
+  parseDateKey,
+  refreshPlanStatus,
+} from "@/lib/treatment/plan-utils";
+import {
+  recordSessionVisit,
+  syncSessionAppointment,
+} from "@/lib/treatment/session-appointment";
+import { serializeTreatmentSession } from "@/lib/treatment/serializer";
 import { z } from "zod";
 
 const bulkItemSchema = z.object({
   id: z.string(),
-  entity: z.enum(["patient", "prescription", "medicine", "appointment", "field"]),
+  entity: z.enum([
+    "patient",
+    "prescription",
+    "medicine",
+    "appointment",
+    "field",
+    "dental_chart",
+    "treatment_session",
+    "treatment_plan",
+  ]),
   action: z.enum(["create", "update", "delete", "visit_status"]),
   payload: z.record(z.string(), z.unknown()),
   localId: z.string(),
@@ -92,6 +115,9 @@ async function processSyncItem(
             birthdate,
             diagnosis: data.diagnosis ?? null,
             phone,
+            allergies: data.allergies?.trim() || null,
+            currentMedications: data.currentMedications?.trim() || null,
+            portalInstructions: data.portalInstructions?.trim() || null,
             doctorId: doctorDbId,
           },
         });
@@ -130,6 +156,9 @@ async function processSyncItem(
             birthdate,
             diagnosis: data.diagnosis ?? null,
             phone,
+            allergies: data.allergies?.trim() || null,
+            currentMedications: data.currentMedications?.trim() || null,
+            portalInstructions: data.portalInstructions?.trim() || null,
           },
         });
 
@@ -298,6 +327,143 @@ async function processSyncItem(
       await prisma.appointment.delete({ where: { id: toDbId(item.serverId) } });
       return { serverId: item.serverId };
     }
+  }
+
+  if (item.entity === "dental_chart" && item.action === "update") {
+    const patientId = Number(item.payload.patientId ?? item.serverId);
+    if (!patientId) throw new Error("معرّف المريض مطلوب");
+
+    const patientDbId = toDbId(patientId);
+    const patient = await prisma.patient.findFirst({
+      where: { id: patientDbId, doctorId: doctorDbId },
+    });
+    if (!patient) throw new Error("المريض غير موجود");
+
+    const data = dentalChartUpdateSchema.parse(item.payload);
+
+    const chart = await prisma.$transaction(async (tx) => {
+      const upserted = await tx.dentalChart.upsert({
+        where: { patientId: patientDbId },
+        create: {
+          patientId: patientDbId,
+          doctorId: doctorDbId,
+          notes: data.notes ?? null,
+        },
+        update: { notes: data.notes ?? null },
+      });
+
+      for (const tooth of data.teeth) {
+        if (tooth.status === "healthy" && !(tooth.notes?.trim())) {
+          await tx.dentalToothRecord.deleteMany({
+            where: { chartId: upserted.id, toothFdi: tooth.toothFdi },
+          });
+          continue;
+        }
+
+        await tx.dentalToothRecord.upsert({
+          where: {
+            chartId_toothFdi: {
+              chartId: upserted.id,
+              toothFdi: tooth.toothFdi,
+            },
+          },
+          create: {
+            chartId: upserted.id,
+            toothFdi: tooth.toothFdi,
+            status: tooth.status,
+            notes: tooth.notes?.trim() || null,
+          },
+          update: {
+            status: tooth.status,
+            notes: tooth.notes?.trim() || null,
+          },
+        });
+      }
+
+      return tx.dentalChart.findUnique({
+        where: { id: upserted.id },
+        include: { teeth: true },
+      });
+    });
+
+    if (!chart) throw new Error("فشل حفظ الطبلة");
+
+    return {
+      serverId: patientId,
+      data: serializeDentalChart(chart),
+    };
+  }
+
+  if (item.entity === "treatment_session" && item.action === "update" && item.serverId) {
+    const sessionDbId = toDbId(item.serverId);
+    const existing = await assertSessionAccess(sessionDbId, doctorDbId);
+    if (!existing) throw new Error("الجلسة غير موجودة");
+
+    const data = treatmentSessionUpdateSchema.parse(item.payload);
+
+    const performedAt =
+      data.status === "completed" && !data.performedAt
+        ? new Date()
+        : data.performedAt
+          ? new Date(data.performedAt)
+          : data.performedAt === null
+            ? null
+            : undefined;
+
+    const session = await prisma.treatmentSession.update({
+      where: { id: sessionDbId },
+      data: {
+        ...(data.status !== undefined ? { status: data.status } : {}),
+        ...(data.scheduledDate !== undefined
+          ? {
+              scheduledDate: data.scheduledDate
+                ? parseDateKey(data.scheduledDate)
+                : null,
+            }
+          : {}),
+        ...(performedAt !== undefined ? { performedAt } : {}),
+        ...(data.notes !== undefined ? { notes: data.notes?.trim() || null } : {}),
+      },
+    });
+
+    await refreshPlanStatus(session.planId);
+
+    if (data.scheduledDate !== undefined) {
+      await syncSessionAppointment(session.id);
+    }
+    if (data.status === "completed") {
+      await recordSessionVisit(session.id);
+      await syncSessionAppointment(session.id);
+    }
+
+    const refreshed = await prisma.treatmentSession.findUnique({
+      where: { id: sessionDbId },
+    });
+
+    return {
+      serverId: item.serverId,
+      data: serializeTreatmentSession(refreshed ?? session),
+    };
+  }
+
+  if (item.entity === "treatment_plan" && item.action === "create") {
+    const patientId = Number(item.payload.patientId);
+    if (!patientId) throw new Error("معرّف المريض مطلوب");
+
+    const patientDbId = toDbId(patientId);
+    const patient = await prisma.patient.findFirst({
+      where: { id: patientDbId, doctorId: doctorDbId },
+    });
+    if (!patient) throw new Error("المريض غير موجود");
+
+    const data = treatmentPlanCreateSchema.parse(item.payload);
+    const plan = await createTreatmentPlanForPatient(
+      doctorId,
+      patientDbId,
+      data
+    );
+
+    return { serverId: plan.id, data: plan };
   }
 
   throw new Error("عملية غير مدعومة");
