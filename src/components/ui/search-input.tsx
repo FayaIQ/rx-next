@@ -9,6 +9,7 @@ type Props = {
   placeholder?: string;
   className?: string;
   onKeyDown?: KeyboardEventHandler<HTMLInputElement>;
+  fieldSize?: "default" | "compact";
 };
 
 export function SearchInput({
@@ -17,6 +18,7 @@ export function SearchInput({
   placeholder = "بحث...",
   className,
   onKeyDown,
+  fieldSize = "compact",
 }: Props) {
   return (
     <div className={cn("relative", className)}>
@@ -25,7 +27,7 @@ export function SearchInput({
         strokeWidth={2}
       />
       <Input
-        fieldSize="compact"
+        fieldSize={fieldSize}
         className="!ps-10"
         placeholder={placeholder}
         value={value}

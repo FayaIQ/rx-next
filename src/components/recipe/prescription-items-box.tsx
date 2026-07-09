@@ -20,14 +20,14 @@ export function PrescriptionItemsContent({
   settings: Pick<RecipeSettingsDto, "printDiagnosis">;
 }) {
   return (
-    <>
+    <div dir="ltr" className="text-left">
       {settings.printDiagnosis && data.diagnosis && (
-        <p className="mb-1">
+        <p className="mb-1 text-left">
           <strong>التشخيص:</strong> {data.diagnosis}
         </p>
       )}
       <MedicineLineList items={data.items} />
-    </>
+    </div>
   );
 }
 

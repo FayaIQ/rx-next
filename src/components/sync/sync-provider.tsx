@@ -87,18 +87,22 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     const role = session?.user?.type;
     if (!role || !CLINIC_ROLES.has(role)) return;
 
-    void (async () => {
-      const hydrated = await hydrateFromServer();
-      if (!hydrated) {
-        await activateLocalCacheMode();
-        if (useSyncStore.getState().subscriptionBlocked) {
-          notifySubscriptionBlocked();
+    const timer = setTimeout(() => {
+      void (async () => {
+        const hydrated = await hydrateFromServer();
+        if (!hydrated) {
+          await activateLocalCacheMode();
+          if (useSyncStore.getState().subscriptionBlocked) {
+            notifySubscriptionBlocked();
+          }
         }
-      }
-      if (!useSyncStore.getState().subscriptionBlocked) {
-        await processSyncQueue();
-      }
-    })();
+        if (!useSyncStore.getState().subscriptionBlocked) {
+          await processSyncQueue();
+        }
+      })();
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, [session?.user?.type, session?.user?.id]);
 
   return (

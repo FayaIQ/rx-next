@@ -13,6 +13,14 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "bcryptjs"],
   transpilePackages: ["three", "@react-three/fiber", "@react-three/drei"],
+  async rewrites() {
+    return [
+      {
+        source: "/uploads/:path*",
+        destination: "/api/storage/:path*",
+      },
+    ];
+  },
 };
 
 export default withSerwist(nextConfig);

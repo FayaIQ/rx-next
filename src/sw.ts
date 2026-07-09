@@ -20,6 +20,8 @@ const LIVE_API_PREFIXES = [
   "/api/prescriptions/next-number",
 ];
 
+const LIVE_ASSET_PREFIXES = ["/api/storage/", "/uploads/"];
+
 const liveApiRules = LIVE_API_PREFIXES.map((prefix) => ({
   matcher: ({
     sameOrigin,
@@ -32,12 +34,23 @@ const liveApiRules = LIVE_API_PREFIXES.map((prefix) => ({
   handler: new NetworkOnly(),
 }));
 
+const liveAssetRules = LIVE_ASSET_PREFIXES.map((prefix) => ({
+  matcher: ({
+    sameOrigin,
+    url: { pathname },
+  }: {
+    sameOrigin: boolean;
+    url: URL;
+  }) => sameOrigin && pathname.startsWith(prefix),
+  handler: new NetworkOnly(),
+}));
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: [...liveApiRules, ...defaultCache],
+  runtimeCaching: [...liveApiRules, ...liveAssetRules, ...defaultCache],
 });
 
 serwist.addEventListeners();

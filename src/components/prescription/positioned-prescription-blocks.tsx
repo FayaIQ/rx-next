@@ -100,7 +100,8 @@ export function PositionedPrescriptionBlocks({
       ))}
 
       <div
-        className="absolute z-10 overflow-hidden break-words [overflow-wrap:anywhere]"
+        className="absolute z-10 overflow-hidden break-words text-left [overflow-wrap:anywhere]"
+        dir="ltr"
         style={itemsBoxStyle(settings)}
       >
         <PrescriptionItemsContent data={data} settings={settings} />

@@ -59,8 +59,8 @@ export function formatMedicineLineHtml(
 }
 
 export const MEDICINE_LINE_STYLES = `
-  .med-list { list-style: none; margin: 0; padding: 0; direction: rtl; text-align: right; }
-  .med-list li { margin: 0 0 4px; direction: rtl; text-align: right; }
-  .med-latin { unicode-bidi: isolate; direction: ltr; display: inline-block; text-align: left; font-weight: 600; }
+  .med-list { list-style: none; margin: 0; padding: 0; direction: ltr; text-align: left; }
+  .med-list li { margin: 0 0 4px; direction: ltr; text-align: left; }
+  .med-latin { font-weight: 600; }
   .med-arabic { unicode-bidi: plaintext; }
 `;

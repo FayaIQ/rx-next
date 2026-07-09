@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
-import { apiOk, apiError, apiNotFound } from "@/lib/api/response";
-import { toDbId } from "@/lib/bigint";
-import { serializeRecipeSettings } from "@/lib/recipe-settings";
+import { apiOk, apiError } from "@/lib/api/response";
+import { serializeRecipeSettings, ensureRecipeSettings } from "@/lib/recipe-settings";
 import {
   saveUploadedImage,
   deleteUploadedFile,
@@ -29,11 +28,7 @@ export async function POST(req: Request) {
     return apiError("الملف مطلوب");
   }
 
-  const doctorDbId = toDbId(ctx.doctorId);
-  const settings = await prisma.recipeSettings.findFirst({
-    where: { doctorId: doctorDbId },
-  });
-  if (!settings) return apiNotFound("إعدادات الوصفة غير موجودة");
+  const settings = await ensureRecipeSettings(ctx.doctorId);
 
   try {
     const dbField = FIELD_MAP[kind];

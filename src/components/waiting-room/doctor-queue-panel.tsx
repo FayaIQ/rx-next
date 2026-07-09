@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { rxApi, type AppointmentDto } from "@/lib/api/rx-client";
+import { patientRecordHref } from "@/lib/patient-record-navigation";
 import { fetchAppointmentsOfflineFirst } from "@/lib/data/offline-api";
 import {
   callNextOffline,
@@ -176,7 +177,7 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
               onSelect={onSelectPatient}
             />
             <Link
-              href={`/patients/${current.patient?.id}/record`}
+              href={patientRecordHref(current.patient?.id ?? 0, "/queue")}
               className="shrink-0 rounded-full bg-white/80 p-1 text-violet-800 hover:bg-white"
               title="ملف المريض"
             >
@@ -315,7 +316,7 @@ function WaitingCapsuleChip({
       </button>
       {patientId ? (
         <Link
-          href={`/patients/${patientId}/record`}
+          href={patientRecordHref(patientId, "/queue")}
           className="rounded-full p-0.5 text-amber-800 hover:bg-amber-100"
           title="ملف المريض"
         >

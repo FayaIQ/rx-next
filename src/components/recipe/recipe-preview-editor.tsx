@@ -148,7 +148,7 @@ export function RecipePreviewEditor({
                 onMove={(x, y) => move("items", x, y)}
                 onResize={onItemsSizeChange}
               >
-                <div className="text-sm">
+                <div className="text-left text-sm" dir="ltr">
                   <PrescriptionItemsContent data={data} settings={s} />
                 </div>
               </DraggableBlock>

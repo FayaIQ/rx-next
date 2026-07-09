@@ -19,23 +19,20 @@ import type { PrescriptionDocumentData } from "@/components/prescription/prescri
 import { RecipePreviewEditor } from "@/components/recipe/recipe-preview-editor";
 import type { PositionKey } from "@/components/recipe/draggable-block";
 import {
-  DEFAULT_ITEMS_BOX_HEIGHT,
-  DEFAULT_ITEMS_BOX_WIDTH,
-} from "@/components/recipe/prescription-items-box";
-import {
   AppearanceSection,
   DesignTemplateSection,
   DoctorInfoSection,
   PatientFieldsSection,
 } from "@/components/recipe/recipe-settings-sections";
 import { rxApi, type RecipeSettingsDto } from "@/lib/api/rx-client";
-import { normalizeRecipeSettingsDto } from "@/lib/recipe-settings";
+import { normalizeRecipeSettingsDto, defaultRecipeSettingsForDoctor } from "@/lib/recipe-settings";
 import { normalizePatientFieldsArray } from "@/lib/patient-field-display";
 import { queryKeys } from "@/lib/query-keys";
 import { sampleFieldValue } from "@/lib/patient-field-layout";
 import { applyRecipeTemplate } from "@/lib/recipe-templates";
-import { RecipeDesignerPageLoading } from "@/components/ui/page-loading";
 import { cn } from "@/lib/utils";
+
+const DEFAULT_FORM = defaultRecipeSettingsForDoctor(0);
 
 const DEFAULT_PREVIEW: PrescriptionDocumentData = {
   prescriptionNumber: 1,
@@ -55,46 +52,7 @@ const DEFAULT_PREVIEW: PrescriptionDocumentData = {
       timeOfUse: "بعد الأكل",
     },
   ],
-  settings: {
-    id: 0,
-    doctorId: 0,
-    doctorName: "د. محمد",
-    doctorSpecialty: "طب عام",
-    additionalText1: null,
-    phoneNumber: null,
-    email: null,
-    address: null,
-    fontFamily: "cairo",
-    fontSize: "14",
-    opacity: 0.2,
-    paperSize: "A4",
-    color: "#117e65",
-    logoPath: null,
-    designImagePath: null,
-    designMode: "design",
-    designTemplate: "classic",
-    designImageScale: 1,
-    designPatientX: 8,
-    designPatientY: 6,
-    designAgeX: 38,
-    designAgeY: 1,
-    designDateX: 46,
-    designDateY: 1,
-    designItemsX: 8,
-    designItemsY: 15,
-    designItemsWidth: DEFAULT_ITEMS_BOX_WIDTH,
-    designItemsHeight: DEFAULT_ITEMS_BOX_HEIGHT,
-    showGender: true,
-    showAge: true,
-    showPhone: true,
-    printName: true,
-    printAge: true,
-    printGender: true,
-    printPhone: false,
-    printDiagnosis: true,
-    designPhoneX: 88,
-    designPhoneY: 42,
-  },
+  settings: DEFAULT_FORM,
 };
 
 type SettingsTab = "preview" | "doctor" | "style" | "template" | "fields";
@@ -132,18 +90,22 @@ function positionPatch(
 
 export function RecipeSettingsForm() {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<RecipeSettingsDto | null>(null);
+  const [form, setForm] = useState<RecipeSettingsDto>(() => DEFAULT_FORM);
   const [activeTab, setActiveTab] = useState<SettingsTab>("template");
   const hydratedRef = useRef(false);
 
-  const { data, isLoading } = useQuery({
+  const { data } = useQuery({
     queryKey: queryKeys.recipeSettings.all,
     queryFn: () => rxApi.recipeSettings.get(),
+    staleTime: 5 * 60_000,
+    retry: 1,
   });
 
   const { data: fieldsData } = useQuery({
     queryKey: queryKeys.fieldsRecipe.all,
     queryFn: () => rxApi.fields.list(),
+    staleTime: 5 * 60_000,
+    retry: 1,
   });
 
   const [fieldPositions, setFieldPositions] = useState<
@@ -158,10 +120,8 @@ export function RecipeSettingsForm() {
   }, [data]);
 
   const saveMutation = useMutation({
-    mutationFn: () => {
-      if (!form) throw new Error("لا توجد بيانات");
-      return rxApi.recipeSettings.update(normalizeRecipeSettingsDto(form));
-    },
+    mutationFn: () =>
+      rxApi.recipeSettings.update(normalizeRecipeSettingsDto(form)),
     onSuccess: (res) => {
       const next = normalizeRecipeSettingsDto(res.settings);
       setForm(next);
@@ -187,19 +147,19 @@ export function RecipeSettingsForm() {
     key: K,
     value: RecipeSettingsDto[K]
   ) {
-    setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   function handlePositionChange(key: PositionKey, x: number, y: number) {
-    setForm((prev) => (prev ? { ...prev, ...positionPatch(key, x, y) } : prev));
+    setForm((prev) => ({ ...prev, ...positionPatch(key, x, y) }));
   }
 
   function handleItemsSizeChange(width: number, height: number) {
-    setForm((prev) =>
-      prev
-        ? { ...prev, designItemsWidth: width, designItemsHeight: height }
-        : prev
-    );
+    setForm((prev) => ({
+      ...prev,
+      designItemsWidth: width,
+      designItemsHeight: height,
+    }));
   }
 
   function handleFieldPositionChange(fieldId: number, x: number, y: number) {
@@ -223,10 +183,6 @@ export function RecipeSettingsForm() {
         });
         toast.error(e.message || "تعذّر حفظ موضع الحقل");
       });
-  }
-
-  if (isLoading || !form) {
-    return <RecipeDesignerPageLoading />;
   }
 
   const printableRecipeFields = normalizePatientFieldsArray(fieldsData).filter(

@@ -1,9 +1,22 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { NextRequest } from "next/server";
+import { resolveUploadFilePath } from "@/lib/upload-path";
 
-const UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads");
-const LARAVEL_STORAGE = process.env.LARAVEL_STORAGE_PATH;
+function contentTypeFor(ext: string): string {
+  switch (ext) {
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    case ".svg":
+      return "image/svg+xml";
+    default:
+      return "image/jpeg";
+  }
+}
 
 export async function GET(
   _req: NextRequest,
@@ -11,38 +24,22 @@ export async function GET(
 ) {
   const { path: segments } = await params;
   const relative = segments.join("/");
+  const absPath = resolveUploadFilePath(relative);
 
-  const candidates = [
-    path.join(UPLOAD_ROOT, relative),
-    LARAVEL_STORAGE ? path.join(LARAVEL_STORAGE, relative) : null,
-  ].filter(Boolean) as string[];
-
-  for (const abs of candidates) {
-    if (!abs.startsWith(UPLOAD_ROOT) && !LARAVEL_STORAGE) continue;
-    if (LARAVEL_STORAGE && !abs.startsWith(LARAVEL_STORAGE) && !abs.startsWith(UPLOAD_ROOT)) {
-      continue;
-    }
-    try {
-      const data = await readFile(abs);
-      const ext = path.extname(abs).toLowerCase();
-      const type =
-        ext === ".png"
-          ? "image/png"
-          : ext === ".webp"
-            ? "image/webp"
-            : ext === ".gif"
-              ? "image/gif"
-              : "image/jpeg";
-      return new Response(data, {
-        headers: {
-          "Content-Type": type,
-          "Cache-Control": "public, max-age=86400",
-        },
-      });
-    } catch {
-      // try next
-    }
+  if (!absPath) {
+    return new Response("Not found", { status: 404 });
   }
 
-  return new Response("Not found", { status: 404 });
+  try {
+    const data = await readFile(absPath);
+    const ext = path.extname(absPath).toLowerCase();
+    return new Response(data, {
+      headers: {
+        "Content-Type": contentTypeFor(ext),
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+      },
+    });
+  } catch {
+    return new Response("Not found", { status: 404 });
+  }
 }

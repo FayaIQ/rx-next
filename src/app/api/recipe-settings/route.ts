@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
-import { apiOk, apiError, apiNotFound } from "@/lib/api/response";
-import { toDbId } from "@/lib/bigint";
+import { apiOk, apiError } from "@/lib/api/response";
 import {
   normalizeRecipeSettingsDto,
   serializeRecipeSettings,
+  ensureRecipeSettings,
 } from "@/lib/recipe-settings";
 import { recipeSettingsSchema } from "@/lib/validations/settings";
 
@@ -12,11 +12,7 @@ export async function GET() {
   const ctx = await requireDoctorApi();
   if (isApiError(ctx)) return ctx;
 
-  const settings = await prisma.recipeSettings.findFirst({
-    where: { doctorId: toDbId(ctx.doctorId) },
-  });
-
-  if (!settings) return apiNotFound("إعدادات الوصفة غير موجودة");
+  const settings = await ensureRecipeSettings(ctx.doctorId);
 
   return apiOk({ settings: serializeRecipeSettings(settings) });
 }
@@ -26,13 +22,8 @@ export async function PUT(req: Request) {
   if (isApiError(ctx)) return ctx;
 
   const body = await req.json();
-  const doctorDbId = toDbId(ctx.doctorId);
 
-  const existing = await prisma.recipeSettings.findFirst({
-    where: { doctorId: doctorDbId },
-  });
-
-  if (!existing) return apiNotFound("إعدادات الوصفة غير موجودة");
+  const existing = await ensureRecipeSettings(ctx.doctorId);
 
   const merged = normalizeRecipeSettingsDto({
     ...serializeRecipeSettings(existing),

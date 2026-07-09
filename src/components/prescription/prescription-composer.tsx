@@ -16,6 +16,12 @@ import {
 import { toast } from "sonner";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContent } from "@/components/ui/page-shell";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,7 +64,7 @@ import {
 } from "@/lib/patient-field-display";
 import { useMedicineGroups } from "@/lib/medicine-utils";
 import { resolveImageUrl } from "@/lib/image-url";
-import { mergePresetsFromItems } from "@/lib/medicine-preset-utils";
+import { patientRecordHref } from "@/lib/patient-record-navigation";
 import { upsertLocalMedicinePresets, upsertLocalMedicinesFromPrescription, syncLocalPrescriptionFromDto } from "@/lib/sync/offline-store";
 import { queryKeys } from "@/lib/query-keys";
 import { useFieldsOnlyTab } from "@/lib/fields-only-tab";
@@ -81,6 +87,23 @@ function emptyRow(key = "medicine-row-0"): MedicineRowData {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="rx-label">{children}</label>;
+}
+
+function ComposerPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="rx-composer-card rounded-xl shadow-sm">
+      <CardHeader className="border-b border-rx-border/60 px-4 py-3 pb-3 pt-4 sm:px-5">
+        <CardTitle className="text-base sm:text-lg">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 px-4 py-4 sm:px-5">{children}</CardContent>
+    </Card>
+  );
 }
 
 function PersonalFieldInputs({
@@ -108,7 +131,7 @@ function PersonalFieldInputs({
         <div key={field.id} className={dense ? "space-y-0.5" : "space-y-1"}>
           <FieldLabel>{field.name}</FieldLabel>
           <Input
-            fieldSize="compact"
+            fieldSize={dense ? "compact" : "default"}
             value={values[field.id] ?? ""}
             onChange={(e) => onChange(field.id, e.target.value)}
           />
@@ -577,7 +600,7 @@ export function PrescriptionComposer() {
   ]);
 
   const attachmentsSection = (
-    <section className="rx-section space-y-2 text-sm">
+    <section className="space-y-3">
       <FieldLabel>مرفقات (أشعة / تحليل)</FieldLabel>
       <div className="grid gap-2 sm:grid-cols-2">
         {(
@@ -645,8 +668,8 @@ export function PrescriptionComposer() {
             <Input
               type="file"
               accept="image/*"
-              fieldSize="compact"
-              className="py-1 text-xs file:mr-2 file:rounded file:border-0 file:bg-rx-bg-subtle file:px-2 file:text-xs"
+              fieldSize="default"
+              className="py-2 text-sm file:mr-2 file:rounded file:border-0 file:bg-rx-bg-subtle file:px-3 file:text-sm"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
@@ -744,255 +767,271 @@ export function PrescriptionComposer() {
         }
       />
       <PageContent wide className="px-3 py-2 pb-3 lg:px-4">
-        <div className="grid gap-3 xl:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] xl:items-start">
-        <div className="rx-prescription-sheet min-w-0 space-y-0 xl:col-start-2">
-        <TodayTreatmentSessionsPanel
-          onSelectPatient={async (patientId) => {
-            try {
-              const { patient } = await rxApi.patients.get(patientId);
-              selectPatient(patient, { focusDiagnosis: true });
-            } catch {
-              toast.error("تعذّر تحميل بيانات المريض");
-            }
-          }}
-        />
-        <DoctorQueuePanel
-          onSelectPatient={async (patientId) => {
-            try {
-              const { patient } = await rxApi.patients.get(patientId);
-              selectPatient(patient, { focusDiagnosis: true });
-            } catch {
-              toast.error("تعذّر تحميل بيانات المريض");
-            }
-          }}
-        />
-        {/* Patient */}
-        <section className="rx-section space-y-2">
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-[12rem] flex-1">
-              <FieldLabel>المريض — Enter</FieldLabel>
-              <SearchInput
-                placeholder="ابحث بالاسم..."
-                value={patientSearch}
-                onChange={(v) => {
-                  setPatientSearch(v);
-                  setSelectedPatient(null);
-                  if (showNewPatient) {
-                    setShowNewPatient(false);
-                    setNewPatientInitialName("");
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handlePatientSearchEnter();
-                  }
-                }}
-              />
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              tabIndex={-1}
-              className="h-8"
-              onClick={() => {
-                setNewPatientInitialName(patientSearch.trim());
-                setShowNewPatient(true);
+        <div className="grid gap-4 xl:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] xl:items-start">
+          <div className="min-w-0 space-y-4 xl:col-start-2">
+            <TodayTreatmentSessionsPanel
+              onSelectPatient={async (patientId) => {
+                try {
+                  const { patient } = await rxApi.patients.get(patientId);
+                  selectPatient(patient, { focusDiagnosis: true });
+                } catch {
+                  toast.error("تعذّر تحميل بيانات المريض");
+                }
               }}
-            >
-              <Plus size={14} />
-              جديد
-            </Button>
-          </div>
+            />
+            <DoctorQueuePanel
+              onSelectPatient={async (patientId) => {
+                try {
+                  const { patient } = await rxApi.patients.get(patientId);
+                  selectPatient(patient, { focusDiagnosis: true });
+                } catch {
+                  toast.error("تعذّر تحميل بيانات المريض");
+                }
+              }}
+            />
 
-          {patientSearch.trim() && !selectedPatient && !showNewPatient && (
-            <p className="text-xs text-rx-muted-foreground">
-              {findPatientByExactName(patientSearch) || patients.length > 0
-                ? "Enter — اختيار"
-                : "Enter — مريض جديد"}
-            </p>
-          )}
-
-          {patientSearch && !selectedPatient && !showNewPatient && patients.length > 0 && (
-            <ul className="max-h-32 overflow-y-auto rounded-md border border-rx-form-border bg-rx-surface">
-              {patients.slice(0, 6).map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
+            <ComposerPanel title="بيانات المريض">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-[14rem] flex-1">
+                    <FieldLabel>المريض — Enter للاختيار</FieldLabel>
+                    <SearchInput
+                      fieldSize="default"
+                      placeholder="ابحث بالاسم أو رقم الهاتف..."
+                      value={patientSearch}
+                      onChange={(v) => {
+                        setPatientSearch(v);
+                        setSelectedPatient(null);
+                        if (showNewPatient) {
+                          setShowNewPatient(false);
+                          setNewPatientInitialName("");
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handlePatientSearchEnter();
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="default"
                     tabIndex={-1}
-                    className="rx-list-item"
-                    onClick={() => selectPatient(p)}
+                    onClick={() => {
+                      setNewPatientInitialName(patientSearch.trim());
+                      setShowNewPatient(true);
+                    }}
                   >
-                    <span className="font-medium text-rx-text">{p.name}</span>
-                    <span className="mr-2 text-xs text-rx-muted">
-                      {genderLabel(p.gender)} · {p.age} · {visitCountLabel(p.visitCount)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {showNewPatient && (
-            <div className="border-t border-rx-form-border pt-2">
-              <PatientForm
-                key={newPatientInitialName || "new-patient"}
-                compact
-                initialName={newPatientInitialName}
-                autoFocusField={newPatientAutoFocus}
-                fieldVisibility={patientFieldVisibility}
-                onSuccess={(p) => {
-                  selectPatient(p, { focusDiagnosis: true });
-                }}
-                onSyncStart={(promise) => {
-                  pendingPatientSyncRef.current = promise;
-                }}
-                onPatientSynced={(real) => {
-                  pendingPatientSyncRef.current = null;
-                  setSelectedPatient(real);
-                  setPatientSearch(real.name);
-                }}
-                onCancel={() => {
-                  pendingPatientSyncRef.current = null;
-                  setShowNewPatient(false);
-                  setNewPatientInitialName("");
-                }}
-              />
-            </div>
-          )}
-
-          {selectedPatient && !showNewPatient && (
-            <>
-              {selectedPatient.allergies?.trim() ? (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                  <strong>تنبيه حساسية:</strong> {selectedPatient.allergies}
-                </div>
-              ) : null}
-              {selectedPatient.currentMedications?.trim() ? (
-                <p className="text-xs text-slate-600">
-                  <strong>أدوية حالية:</strong> {selectedPatient.currentMedications}
-                </p>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="rx-patient-chip">
-                  <strong>{selectedPatient.name}</strong>
-                  {patientFieldVisibility.showGender && (
-                    <span className="text-rx-muted">
-                      {" "}
-                      · {genderLabel(selectedPatient.gender)}
-                    </span>
-                  )}
-                  {patientFieldVisibility.showAge && (
-                    <span className="text-rx-muted"> · {selectedPatient.age}</span>
-                  )}
-                  {patientFieldVisibility.showPhone && selectedPatient.phone && (
-                    <span className="text-rx-muted" dir="ltr">
-                      {" "}
-                      · {selectedPatient.phone}
-                    </span>
-                  )}
-                  <span className="text-rx-muted">
-                    {" "}
-                    · {visitCountLabel(selectedPatient.visitCount)}
-                  </span>
-                </p>
-                {selectedPatient.id > 0 && (
-                  <Button variant="outline" size="sm" asChild className="h-7 text-xs">
-                    <Link href={`/patients/${selectedPatient.id}/record`}>
-                      <FileText size={13} />
-                      السجل
-                    </Link>
+                    <Plus size={16} />
+                    مريض جديد
                   </Button>
+                </div>
+
+                {patientSearch.trim() && !selectedPatient && !showNewPatient && (
+                  <p className="text-sm text-rx-muted-foreground">
+                    {findPatientByExactName(patientSearch) || patients.length > 0
+                      ? "اضغط Enter لاختيار المريض"
+                      : "اضغط Enter لإضافة مريض جديد"}
+                  </p>
+                )}
+
+                {patientSearch &&
+                  !selectedPatient &&
+                  !showNewPatient &&
+                  patients.length > 0 && (
+                    <ul className="max-h-40 overflow-y-auto rounded-lg border border-rx-form-border bg-rx-surface">
+                      {patients.slice(0, 6).map((p) => (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            tabIndex={-1}
+                            className="rx-list-item"
+                            onClick={() => selectPatient(p)}
+                          >
+                            <span className="font-medium text-rx-text">{p.name}</span>
+                            <span className="mr-2 text-sm text-rx-muted">
+                              {genderLabel(p.gender)} · {p.age} ·{" "}
+                              {visitCountLabel(p.visitCount)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                {showNewPatient && (
+                  <div className="rounded-lg border border-rx-border/60 bg-rx-bg-subtle/40 p-3">
+                    <PatientForm
+                      key={newPatientInitialName || "new-patient"}
+                      compact={false}
+                      initialName={newPatientInitialName}
+                      autoFocusField={newPatientAutoFocus}
+                      fieldVisibility={patientFieldVisibility}
+                      onSuccess={(p) => {
+                        selectPatient(p, { focusDiagnosis: true });
+                      }}
+                      onSyncStart={(promise) => {
+                        pendingPatientSyncRef.current = promise;
+                      }}
+                      onPatientSynced={(real) => {
+                        pendingPatientSyncRef.current = null;
+                        setSelectedPatient(real);
+                        setPatientSearch(real.name);
+                      }}
+                      onCancel={() => {
+                        pendingPatientSyncRef.current = null;
+                        setShowNewPatient(false);
+                        setNewPatientInitialName("");
+                      }}
+                    />
+                  </div>
+                )}
+
+                {selectedPatient && !showNewPatient && (
+                  <div className="space-y-3 rounded-lg border border-rx-border/60 bg-rx-bg-subtle/30 p-3">
+                    {selectedPatient.allergies?.trim() ? (
+                      <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
+                        <strong>تنبيه حساسية:</strong> {selectedPatient.allergies}
+                      </div>
+                    ) : null}
+                    {selectedPatient.currentMedications?.trim() ? (
+                      <p className="text-sm text-slate-700">
+                        <strong>أدوية حالية:</strong>{" "}
+                        {selectedPatient.currentMedications}
+                      </p>
+                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="rx-patient-chip">
+                        <strong>{selectedPatient.name}</strong>
+                        {patientFieldVisibility.showGender && (
+                          <span className="text-rx-muted">
+                            {" "}
+                            · {genderLabel(selectedPatient.gender)}
+                          </span>
+                        )}
+                        {patientFieldVisibility.showAge && (
+                          <span className="text-rx-muted">
+                            {" "}
+                            · {selectedPatient.age}
+                          </span>
+                        )}
+                        {patientFieldVisibility.showPhone &&
+                          selectedPatient.phone && (
+                            <span className="text-rx-muted" dir="ltr">
+                              {" "}
+                              · {selectedPatient.phone}
+                            </span>
+                          )}
+                        <span className="text-rx-muted">
+                          {" "}
+                          · {visitCountLabel(selectedPatient.visitCount)}
+                        </span>
+                      </p>
+                      {selectedPatient.id > 0 && (
+                        <Button variant="outline" size="sm" asChild>
+                          <Link
+                            href={patientRecordHref(
+                              selectedPatient.id,
+                              `/home?patientId=${selectedPatient.id}`
+                            )}
+                          >
+                            <FileText size={14} />
+                            السجل
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
+                    {(selectedPatient.fieldValues ?? []).some((fv) =>
+                      fv.value.trim()
+                    ) && (
+                      <p className="text-sm text-rx-muted">
+                        {(selectedPatient.fieldValues ?? [])
+                          .filter((fv) => fv.value.trim())
+                          .map((fv) => {
+                            const label = personalFieldLabels.get(
+                              fv.patientFieldId
+                            );
+                            return label ? `${label}: ${fv.value}` : fv.value;
+                          })
+                          .join(" · ")}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
-              {(selectedPatient.fieldValues ?? []).some((fv) => fv.value.trim()) && (
-                <p className="text-xs text-rx-muted">
-                  {(selectedPatient.fieldValues ?? [])
-                    .filter((fv) => fv.value.trim())
-                    .map((fv) => {
-                      const label = personalFieldLabels.get(fv.patientFieldId);
-                      return label ? `${label}: ${fv.value}` : fv.value;
-                    })
-                    .join(" · ")}
-                </p>
+            </ComposerPanel>
+
+            <ComposerPanel title="الوصفة الطبية">
+              {recipeFields.length > 0 && (
+                <section className="space-y-3">
+                  <FieldLabel>حقول الوصفة</FieldLabel>
+                  <PersonalFieldInputs
+                    fields={recipeFields}
+                    values={fieldValues}
+                    onChange={(fieldId, value) =>
+                      setFieldValues((fv) => ({ ...fv, [fieldId]: value }))
+                    }
+                  />
+                </section>
               )}
-            </>
-          )}
-        </section>
 
-        {recipeFields.length > 0 && (
-          <section className="rx-section space-y-2">
-            <FieldLabel>حقول الوصفة</FieldLabel>
-            <PersonalFieldInputs
-              dense
-              fields={recipeFields}
-              values={fieldValues}
-              onChange={(fieldId, value) =>
-                setFieldValues((fv) => ({ ...fv, [fieldId]: value }))
-              }
-            />
-          </section>
-        )}
+              <section className="space-y-3">
+                <FieldLabel>التشخيص</FieldLabel>
+                <Textarea
+                  ref={diagnosisRef}
+                  fieldSize="default"
+                  rows={3}
+                  placeholder="اكتب التشخيص هنا..."
+                  value={diagnosis}
+                  onChange={(e) => setDiagnosis(e.target.value)}
+                />
+              </section>
 
-        {/* Diagnosis */}
-        <section className="rx-section space-y-2">
-          <FieldLabel>التشخيص</FieldLabel>
-          <Textarea
-            ref={diagnosisRef}
-            fieldSize="compact"
-            rows={2}
-            placeholder="التشخيص..."
-            value={diagnosis}
-            onChange={(e) => setDiagnosis(e.target.value)}
-          />
-        </section>
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <FieldLabel>الأدوية</FieldLabel>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    tabIndex={-1}
+                    onClick={() => setItems((rows) => [...rows, newEmptyRow()])}
+                  >
+                    <Plus size={14} />
+                    إضافة دواء
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {items.map((row, index) => (
+                    <MedicineRowEditor
+                      key={row.key}
+                      row={row}
+                      rowKey={row.key}
+                      groups={medicineGroups}
+                      presets={medicinePresets}
+                      isOpen={activeMedicineRowKey === row.key}
+                      onOpen={() => setActiveMedicineRowKey(row.key)}
+                      onClose={() => setActiveMedicineRowKey(null)}
+                      onChange={(updated) =>
+                        setItems((rows) =>
+                          rows.map((r) => (r.key === row.key ? updated : r))
+                        )
+                      }
+                      onRemove={() =>
+                        setItems((rows) => rows.filter((r) => r.key !== row.key))
+                      }
+                      canRemove={items.length > 1}
+                      isLastRow={index === items.length - 1}
+                      onAddRow={addMedicineRowAndFocus}
+                    />
+                  ))}
+                </div>
+              </section>
 
-        {/* Medicines */}
-        <section className="rx-section space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <FieldLabel>الأدوية</FieldLabel>
-            <Button
-              variant="ghost"
-              size="sm"
-              tabIndex={-1}
-              className="h-7 px-2 text-xs"
-              onClick={() => setItems((rows) => [...rows, newEmptyRow()])}
-            >
-              <Plus size={12} />
-              صف
-            </Button>
+              {attachmentsSection}
+            </ComposerPanel>
           </div>
-          <div className="space-y-1">
-            {items.map((row, index) => (
-              <MedicineRowEditor
-                key={row.key}
-                compact
-                row={row}
-                rowKey={row.key}
-                groups={medicineGroups}
-                presets={medicinePresets}
-                isOpen={activeMedicineRowKey === row.key}
-                onOpen={() => setActiveMedicineRowKey(row.key)}
-                onClose={() => setActiveMedicineRowKey(null)}
-                onChange={(updated) =>
-                  setItems((rows) =>
-                    rows.map((r) => (r.key === row.key ? updated : r))
-                  )
-                }
-                onRemove={() =>
-                  setItems((rows) => rows.filter((r) => r.key !== row.key))
-                }
-                canRemove={items.length > 1}
-                isLastRow={index === items.length - 1}
-                onAddRow={addMedicineRowAndFocus}
-              />
-            ))}
-          </div>
-        </section>
-
-        {/* Attachments — collapsed by default */}
-        {attachmentsSection}
-        </div>
 
           {livePreviewData ? (
             <aside className="min-h-0 xl:sticky xl:col-start-1 xl:row-start-1 xl:self-start xl:top-[calc(var(--rx-header-height)+0.5rem)]">

@@ -47,6 +47,7 @@ export default auth((req) => {
     pathname.startsWith("/icons/") ||
     pathname.startsWith("/fonts/") ||
     pathname.startsWith("/uploads/") ||
+    pathname.startsWith("/api/storage/") ||
     pathname.startsWith("/models/")
   ) {
     return NextResponse.next();

@@ -324,6 +324,48 @@ body {
   color: var(--rx-text);
 }
 
+/* Prescription composer — readable fields in patient / Rx panels */
+.rx-composer-card label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rx-text);
+}
+
+.rx-composer-card .rx-label {
+  margin-bottom: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rx-text);
+}
+
+.rx-composer-card input:not([type="file"]),
+.rx-composer-card textarea,
+.rx-composer-card select {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.rx-composer-card .rx-input {
+  height: 2.75rem;
+  padding-inline: 0.75rem;
+}
+
+.rx-composer-card .rx-textarea {
+  min-height: 5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.rx-composer-card .rx-list-item {
+  padding: 0.625rem 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.rx-composer-card .rx-patient-chip {
+  font-size: 0.9375rem;
+}
+
 [data-recipe-canvas] * {
   font-family: inherit !important;
 }

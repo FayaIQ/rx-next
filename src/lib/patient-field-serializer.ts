@@ -32,6 +32,17 @@ export function serializePatientField(f: {
 /** Assign default positions to printable recipe fields missing coordinates */
 export async function backfillFieldPositions(doctorId: number) {
   const doctorDbId = toDbId(doctorId);
+  const missingCount = await prisma.patientField.count({
+    where: {
+      doctorId: doctorDbId,
+      isActive: true,
+      isPersonal: false,
+      isPrintable: true,
+      OR: [{ designX: null }, { designY: null }],
+    },
+  });
+  if (missingCount === 0) return;
+
   const fields = await prisma.patientField.findMany({
     where: {
       doctorId: doctorDbId,

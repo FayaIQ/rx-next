@@ -1,5 +1,6 @@
-import { fromDbId } from "@/lib/bigint";
+import { fromDbId, toDbId } from "@/lib/bigint";
 import type { RecipeSettings } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { migrateRecipeFontId } from "@/lib/recipe-fonts";
@@ -198,3 +199,109 @@ export const PAPER_OPTIONS = [
   { value: "A4", label: "A4" },
   { value: "A5", label: "A5" },
 ] as const;
+
+export function defaultRecipeSettingsForDoctor(
+  doctorId: number,
+  profile?: {
+    name?: string | null;
+    phoneNumber?: string | null;
+  }
+): RecipeSettingsDto {
+  return normalizeRecipeSettingsDto({
+    id: 0,
+    doctorId,
+    doctorName: profile?.name?.trim() || "د.",
+    doctorSpecialty: "طب عام",
+    additionalText1: null,
+    phoneNumber: profile?.phoneNumber ?? null,
+    email: null,
+    address: null,
+    fontFamily: "cairo",
+    fontSize: "14",
+    opacity: 0.2,
+    paperSize: "A4",
+    color: "#117e65",
+    logoPath: null,
+    designImagePath: null,
+    designMode: "design",
+    designTemplate: "classic",
+    designImageScale: 1,
+    designPatientX: 8,
+    designPatientY: 6,
+    designAgeX: 38,
+    designAgeY: 1,
+    designDateX: 46,
+    designDateY: 1,
+    designItemsX: 8,
+    designItemsY: 15,
+    designItemsWidth: 84,
+    designItemsHeight: 45,
+    showGender: true,
+    showAge: true,
+    showPhone: true,
+    printName: true,
+    printAge: true,
+    printGender: true,
+    printPhone: false,
+    printDiagnosis: true,
+    designPhoneX: 88,
+    designPhoneY: 42,
+  });
+}
+
+export async function ensureRecipeSettings(doctorId: number) {
+  const doctorDbId = toDbId(doctorId);
+  const existing = await prisma.recipeSettings.findFirst({
+    where: { doctorId: doctorDbId },
+  });
+  if (existing) return existing;
+
+  const user = await prisma.user.findUnique({
+    where: { id: doctorDbId },
+    select: { name: true, phoneNumber: true },
+  });
+
+  const defaults = defaultRecipeSettingsForDoctor(doctorId, user ?? undefined);
+
+  return prisma.recipeSettings.create({
+    data: {
+      doctorId: doctorDbId,
+      doctorName: defaults.doctorName,
+      doctorSpecialty: defaults.doctorSpecialty,
+      additionalText1: defaults.additionalText1,
+      phoneNumber: defaults.phoneNumber,
+      email: defaults.email,
+      address: defaults.address,
+      fontFamily: defaults.fontFamily,
+      fontSize: defaults.fontSize,
+      opacity: defaults.opacity,
+      paperSize: defaults.paperSize,
+      color: defaults.color,
+      logoPath: defaults.logoPath,
+      designImagePath: defaults.designImagePath,
+      designMode: defaults.designMode,
+      designTemplate: defaults.designTemplate,
+      designImageScale: defaults.designImageScale,
+      designPatientX: defaults.designPatientX,
+      designPatientY: defaults.designPatientY,
+      designAgeX: defaults.designAgeX,
+      designAgeY: defaults.designAgeY,
+      designDateX: defaults.designDateX,
+      designDateY: defaults.designDateY,
+      designItemsX: defaults.designItemsX,
+      designItemsY: defaults.designItemsY,
+      designItemsWidth: defaults.designItemsWidth,
+      designItemsHeight: defaults.designItemsHeight,
+      showGender: defaults.showGender,
+      showAge: defaults.showAge,
+      showPhone: defaults.showPhone,
+      printName: defaults.printName,
+      printAge: defaults.printAge,
+      printGender: defaults.printGender,
+      printPhone: defaults.printPhone,
+      printDiagnosis: defaults.printDiagnosis,
+      designPhoneX: defaults.designPhoneX,
+      designPhoneY: defaults.designPhoneY,
+    },
+  });
+}

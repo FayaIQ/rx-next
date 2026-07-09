@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
 import { rxApi, type RecipeSettingsDto } from "@/lib/api/rx-client";
-import { normalizeRecipeSettingsDto } from "@/lib/recipe-settings";
+import { normalizeRecipeSettingsDto, defaultRecipeSettingsForDoctor } from "@/lib/recipe-settings";
 
 type CoreFieldKeys =
   | "showGender"
@@ -128,11 +127,15 @@ export function CorePatientFieldsTable({
 
 export function CorePatientFieldsSettings() {
   const queryClient = useQueryClient();
-  const [settings, setSettings] = useState<RecipeSettingsDto | null>(null);
+  const [settings, setSettings] = useState<RecipeSettingsDto>(() =>
+    defaultRecipeSettingsForDoctor(0)
+  );
 
-  const { data, isLoading } = useQuery({
+  const { data } = useQuery({
     queryKey: ["recipe-settings"],
     queryFn: () => rxApi.recipeSettings.get(),
+    staleTime: 5 * 60_000,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -152,15 +155,10 @@ export function CorePatientFieldsSettings() {
 
   function patch<K extends CoreFieldKeys>(key: K, value: RecipeSettingsDto[K]) {
     setSettings((prev) => {
-      if (!prev) return prev;
       const next = normalizeRecipeSettingsDto({ ...prev, [key]: value });
       saveMutation.mutate(next);
       return next;
     });
-  }
-
-  if (isLoading || !settings) {
-    return <Skeleton className="h-48 w-full rounded-xl" />;
   }
 
   return <CorePatientFieldsTable settings={settings} onPatch={patch} />;

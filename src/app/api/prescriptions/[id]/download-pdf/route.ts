@@ -47,8 +47,8 @@ export async function GET(req: Request, { params }: Params) {
   const fontCss = fontFamilyCss(s.fontFamily);
   const itemsSize = itemsBoxSize(s);
   const dims = paperDimensions(s.paperSize);
-  const designUrl = resolveImageUrl(s.designImagePath);
-  const logoUrl = resolveImageUrl(s.logoPath);
+  const designUrl = resolveImageUrl(s.designImagePath, { origin });
+  const logoUrl = resolveImageUrl(s.logoPath, { origin });
   const isImageMode = s.designMode === "image" && !!designUrl;
   const templateId = s.designTemplate ?? "classic";
 
@@ -86,8 +86,8 @@ export async function GET(req: Request, { params }: Params) {
   const classicExtras =
     !isImageMode
       ? `
-      ${data.xrayImage ? `<div style="position:relative;z-index:2;margin-top:16px;padding:0 24px"><p><strong>أشعة</strong></p><img class="attach" src="${resolveImageUrl(data.xrayImage)}" alt=""/></div>` : ""}
-      ${data.analysisImage ? `<div style="position:relative;z-index:2;margin-top:16px;padding:0 24px"><p><strong>تحليل</strong></p><img class="attach" src="${resolveImageUrl(data.analysisImage)}" alt=""/></div>` : ""}`
+      ${data.xrayImage ? `<div style="position:relative;z-index:2;margin-top:16px;padding:0 24px"><p><strong>أشعة</strong></p><img class="attach" src="${resolveImageUrl(data.xrayImage, { origin })}" alt=""/></div>` : ""}
+      ${data.analysisImage ? `<div style="position:relative;z-index:2;margin-top:16px;padding:0 24px"><p><strong>تحليل</strong></p><img class="attach" src="${resolveImageUrl(data.analysisImage, { origin })}" alt=""/></div>` : ""}`
       : "";
 
   const templateShell = !isImageMode

@@ -1,4 +1,5 @@
 import { fromDbId } from "@/lib/bigint";
+import { resolveImageUrl } from "@/lib/image-url";
 
 export function serializeToothImage(image: {
   id: bigint;
@@ -15,7 +16,7 @@ export function serializeToothImage(image: {
     doctorId: fromDbId(image.doctorId),
     patientId: fromDbId(image.patientId),
     toothFdi: image.toothFdi,
-    imageUrl: image.imageUrl,
+    imageUrl: resolveImageUrl(image.imageUrl) ?? image.imageUrl,
     imageType: image.imageType,
     caption: image.caption,
     createdAt: image.createdAt?.toISOString() ?? null,
