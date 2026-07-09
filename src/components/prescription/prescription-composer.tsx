@@ -63,6 +63,7 @@ import {
   normalizePatientFieldsArray,
 } from "@/lib/patient-field-display";
 import { useMedicineGroups } from "@/lib/medicine-utils";
+import { mergePresetsFromItems } from "@/lib/medicine-preset-utils";
 import { resolveImageUrl } from "@/lib/image-url";
 import { patientRecordHref } from "@/lib/patient-record-navigation";
 import { upsertLocalMedicinePresets, upsertLocalMedicinesFromPrescription, syncLocalPrescriptionFromDto } from "@/lib/sync/offline-store";
