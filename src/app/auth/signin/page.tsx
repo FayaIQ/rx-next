@@ -1,5 +1,4 @@
-import { AuthPageLayout, AuthSignInPage } from "@/components/auth/auth-page-layout";
-import { AuthForm } from "@/components/auth/auth-form";
+import { AuthSignInPage } from "@/components/auth/auth-page-layout";
 
 export default function DoctorSignInPage() {
   return (

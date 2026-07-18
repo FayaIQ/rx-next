@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   hydrateFromServer,
@@ -21,13 +22,27 @@ import { SyncQueryListener } from "@/components/sync/sync-query-listener";
 
 const CLINIC_ROLES = new Set(["doctor", "secretary"]);
 
+function isAuthPath(pathname: string | null) {
+  return !!pathname && pathname.startsWith("/auth/");
+}
+
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
   const setOnline = useSyncStore((s) => s.setOnline);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const role = session?.user?.type;
+  const canSync =
+    status === "authenticated" &&
+    !!role &&
+    CLINIC_ROLES.has(role) &&
+    !isAuthPath(pathname);
+
   useEffect(() => {
     setOnline(navigator.onLine);
+    if (!canSync) return;
+
     const cleanup = registerSyncListeners();
 
     void (async () => {
@@ -65,12 +80,13 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       void backgroundRefresh();
     }, 30_000);
 
+    const onSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "RX_SYNC") {
+        void reconnectAndSync();
+      }
+    };
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.addEventListener("message", (event) => {
-        if (event.data?.type === "RX_SYNC") {
-          void reconnectAndSync();
-        }
-      });
+      navigator.serviceWorker.addEventListener("message", onSwMessage);
     }
 
     return () => {
@@ -80,12 +96,14 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(refreshInterval);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("message", onSwMessage);
+      }
     };
-  }, [setOnline]);
+  }, [canSync, setOnline]);
 
   useEffect(() => {
-    const role = session?.user?.type;
-    if (!role || !CLINIC_ROLES.has(role)) return;
+    if (!canSync) return;
 
     const timer = setTimeout(() => {
       void (async () => {
@@ -103,7 +121,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [session?.user?.type, session?.user?.id]);
+  }, [canSync, session?.user?.id]);
 
   return (
     <>

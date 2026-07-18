@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { clearSessionCookies } from "@/lib/auth-cookies";
 import { isSecretaryApiAllowed } from "@/lib/api/secretary-api-access";
 
 function nextWithPathname(req: NextRequest) {
@@ -75,6 +76,11 @@ export default auth((req) => {
       }
       return nextWithPathname(req);
     }
+    // Never redirect API callers to the HTML sign-in page — that breaks
+    // fetch/json clients and pollutes callbackUrl with /api/... paths.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
     const signInUrl = new URL("/auth/signin", req.url);
     signInUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(signInUrl);
@@ -82,15 +88,22 @@ export default auth((req) => {
 
   const { type, isConfirmed } = session.user;
 
-  // بوابة المريض ومسارات عامة — متاحة حتى للمستخدم المسجّل
-  if (isPublicPath(pathname)) {
-    return nextWithPathname(req);
-  }
-
+  // Auth pages: if session is marked expired, clear JWT and stay on sign-in.
+  // Otherwise send already-logged-in users to their home.
   if (isAuthPath(pathname)) {
+    if (req.nextUrl.searchParams.get("error") === "session_expired") {
+      const res = nextWithPathname(req);
+      clearSessionCookies(res);
+      return res;
+    }
     return NextResponse.redirect(
       new URL(getDefaultRoute(type, isConfirmed), req.url)
     );
+  }
+
+  // بوابة المريض ومسارات عامة — متاحة حتى للمستخدم المسجّل
+  if (isPublicPath(pathname)) {
+    return nextWithPathname(req);
   }
 
   if (pathname === "/") {

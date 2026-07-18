@@ -1,32 +1,44 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
 import {
-  ArrowDownCircle,
-  ArrowUpCircle,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  CalendarRange,
+  Download,
   Pencil,
   Plus,
   Save,
+  Search,
   Settings2,
   Trash2,
+  TrendingUp,
   Wallet,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { PageContent } from "@/components/ui/page-shell";
+import { EmptyState } from "@/components/ui/empty-state";
 import { usePaginationState } from "@/hooks/use-pagination-state";
 import {
   rxApi,
   type FinanceTransactionDto,
   type FinanceSettingsDto,
+  type FinanceSummaryDto,
 } from "@/lib/api/rx-client";
 import {
   FINANCE_EXPENSE_CATEGORIES,
@@ -40,6 +52,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type FilterType = "all" | "income" | "expense";
+type PeriodPreset = "today" | "week" | "month" | "last_month" | "year" | "custom";
 
 type TransactionFormState = {
   type: "income" | "expense";
@@ -51,19 +64,52 @@ type TransactionFormState = {
   patientId: string;
 };
 
-function todayKey() {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function dateKey(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function monthRange() {
+function todayKey() {
+  return dateKey(new Date());
+}
+
+function rangeForPreset(preset: PeriodPreset): { from: string; to: string } {
   const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1);
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const key = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  return { from: key(from), to: key(to) };
+  const to = dateKey(now);
+
+  if (preset === "today") return { from: to, to };
+
+  if (preset === "week") {
+    const from = new Date(now);
+    from.setDate(now.getDate() - 6);
+    return { from: dateKey(from), to };
+  }
+
+  if (preset === "month") {
+    return {
+      from: dateKey(new Date(now.getFullYear(), now.getMonth(), 1)),
+      to: dateKey(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    };
+  }
+
+  if (preset === "last_month") {
+    const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { from: dateKey(from), to: dateKey(end) };
+  }
+
+  if (preset === "year") {
+    return {
+      from: `${now.getFullYear()}-01-01`,
+      to: `${now.getFullYear()}-12-31`,
+    };
+  }
+
+  const month = rangeForPreset("month");
+  return month;
 }
 
 function emptyForm(type: "income" | "expense"): TransactionFormState {
@@ -78,20 +124,43 @@ function emptyForm(type: "income" | "expense"): TransactionFormState {
   };
 }
 
+function formatShortDate(iso: string) {
+  try {
+    return new Date(iso + "T12:00:00").toLocaleDateString("ar-SY", {
+      day: "numeric",
+      month: "short",
+      numberingSystem: "latn",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+const PRESETS: Array<{ id: PeriodPreset; label: string }> = [
+  { id: "today", label: "اليوم" },
+  { id: "week", label: "آخر 7 أيام" },
+  { id: "month", label: "هذا الشهر" },
+  { id: "last_month", label: "الشهر الماضي" },
+  { id: "year", label: "هذه السنة" },
+  { id: "custom", label: "مخصص" },
+];
+
 type Props = {
   title?: string;
   subtitle?: string;
 };
 
 export function FinancesPage({
-  title = "المالية والمصاريف",
-  subtitle = "إدارة إيرادات الكشفية والمصاريف اليومية للعيادة",
+  title = "المالية",
+  subtitle = "لوحة تحكم مالية للعيادة — إيرادات، مصاريف، وتحليل الفترة",
 }: Props) {
   const queryClient = useQueryClient();
-  const month = monthRange();
-  const [periodFrom, setPeriodFrom] = useState(month.from);
-  const [periodTo, setPeriodTo] = useState(month.to);
+  const initial = rangeForPreset("month");
+  const [preset, setPreset] = useState<PeriodPreset>("month");
+  const [periodFrom, setPeriodFrom] = useState(initial.from);
+  const [periodTo, setPeriodTo] = useState(initial.to);
   const [filterType, setFilterType] = useState<FilterType>("all");
+  const [search, setSearch] = useState("");
   const { page, pageSize, onPageChange, onPageSizeChange } = usePaginationState(
     `${filterType}-${periodFrom}-${periodTo}`
   );
@@ -104,12 +173,14 @@ export function FinancesPage({
     followUpFee: "",
     procedureFee: "",
   });
+  const [breakdownTab, setBreakdownTab] = useState<"income" | "expense">(
+    "income"
+  );
 
   const { data: settingsData } = useQuery({
     queryKey: ["finance-settings"],
     queryFn: () => rxApi.finances.getSettings(),
   });
-
   const settings = settingsData?.settings;
 
   const { data: summaryData, isLoading: summaryLoading } = useQuery({
@@ -147,6 +218,22 @@ export function FinancesPage({
   const transactions = txData?.transactions ?? [];
   const pagination = txData?.pagination;
   const summary = summaryData?.summary;
+
+  const filteredTransactions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return transactions;
+    return transactions.filter((tx) => {
+      const hay = [
+        financeCategoryLabel(tx.type, tx.category),
+        tx.description ?? "",
+        tx.patient?.name ?? "",
+        paymentMethodLabel(tx.paymentMethod),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [transactions, search]);
 
   const saveSettingsMutation = useMutation({
     mutationFn: (body: Partial<FinanceSettingsDto>) =>
@@ -202,6 +289,21 @@ export function FinancesPage({
     [form.type]
   );
 
+  const categoryBreakdown = useMemo(() => {
+    if (!summary?.byCategory) return [];
+    return summary.byCategory.filter((c) => c.type === breakdownTab);
+  }, [summary, breakdownTab]);
+
+  const categoryMax = Math.max(1, ...categoryBreakdown.map((c) => c.amount));
+
+  function applyPreset(next: PeriodPreset) {
+    setPreset(next);
+    if (next === "custom") return;
+    const range = rangeForPreset(next);
+    setPeriodFrom(range.from);
+    setPeriodTo(range.to);
+  }
+
   function openCreate(type: "income" | "expense") {
     const next = emptyForm(type);
     if (settings && type === "income") {
@@ -238,426 +340,797 @@ export function FinancesPage({
     });
   }
 
+  function exportCsv() {
+    const rows = filteredTransactions;
+    if (rows.length === 0) {
+      toast.error("لا توجد حركات للتصدير في هذه الصفحة");
+      return;
+    }
+    const header = [
+      "التاريخ",
+      "النوع",
+      "التصنيف",
+      "المبلغ",
+      "طريقة الدفع",
+      "المريض",
+      "ملاحظات",
+    ];
+    const lines = rows.map((tx) =>
+      [
+        tx.transactionDate,
+        tx.type === "income" ? "إيراد" : "مصروف",
+        financeCategoryLabel(tx.type, tx.category),
+        tx.amount,
+        paymentMethodLabel(tx.paymentMethod),
+        tx.patient?.name ?? "",
+        (tx.description ?? "").replace(/"/g, '""'),
+      ]
+        .map((v) => `"${v}"`)
+        .join(",")
+    );
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + [header.join(","), ...lines].join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `finances-${periodFrom}-${periodTo}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("تم تصدير الحركات");
+  }
+
+  const currency = settings?.currency ?? "SYP";
+  const balance = summary?.balance ?? 0;
+
   return (
     <>
       <AppHeader title={title} subtitle={subtitle} />
-      <PageContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => openCreate("income")}>
-            <Plus size={14} />
-            تسجيل إيراد
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => openCreate("expense")}>
-            <Plus size={14} />
-            تسجيل مصروف
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="mr-auto"
-            onClick={() => {
-              loadSettingsToForm();
-              setShowSettings((v) => !v);
-            }}
-          >
-            <Settings2 size={14} />
-            أسعار الكشفية
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-rx-border bg-white p-3">
-          <div className="space-y-1">
-            <Label className="text-xs">من تاريخ</Label>
-            <Input
-              type="date"
-              value={periodFrom}
-              onChange={(e) => setPeriodFrom(e.target.value)}
-              className="h-9 w-40"
-            />
+      <PageContent className="space-y-5 pb-10">
+        {/* Toolbar */}
+        <div className="flex flex-col gap-3 rounded-2xl border border-rx-border/80 bg-gradient-to-l from-slate-50 via-white to-teal-50/40 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => openCreate("income")}>
+              <Plus size={14} />
+              إيراد جديد
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-rose-200 text-rose-700 hover:bg-rose-50"
+              onClick={() => openCreate("expense")}
+            >
+              <Plus size={14} />
+              مصروف جديد
+            </Button>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">إلى تاريخ</Label>
-            <Input
-              type="date"
-              value={periodTo}
-              onChange={(e) => setPeriodTo(e.target.value)}
-              className="h-9 w-40"
-            />
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={exportCsv}>
+              <Download size={14} />
+              تصدير CSV
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                loadSettingsToForm();
+                setShowSettings((v) => !v);
+              }}
+            >
+              <Settings2 size={14} />
+              أسعار الكشفية
+            </Button>
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryCard
+        {/* Period */}
+        <section className="rounded-2xl border border-rx-border/80 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-rx-text">
+            <CalendarRange size={16} className="text-rx-primary" />
+            فترة التقرير
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p.id)}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-medium transition",
+                  preset === p.id
+                    ? "bg-rx-primary text-white shadow-sm"
+                    : "bg-rx-bg-subtle text-rx-muted hover:text-rx-text"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {preset === "custom" ? (
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">من</Label>
+                <Input
+                  type="date"
+                  value={periodFrom}
+                  onChange={(e) => setPeriodFrom(e.target.value)}
+                  className="h-9 w-40"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">إلى</Label>
+                <Input
+                  type="date"
+                  value={periodTo}
+                  onChange={(e) => setPeriodTo(e.target.value)}
+                  className="h-9 w-40"
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-rx-muted">
+              {formatShortDate(periodFrom)} — {formatShortDate(periodTo)}
+            </p>
+          )}
+        </section>
+
+        {/* KPIs */}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCard
             label="إجمالي الإيرادات"
             value={summary?.totalIncome ?? 0}
-            currency={settings?.currency}
+            currency={currency}
             loading={summaryLoading}
+            hint={`${summary?.incomeCount ?? 0} حركة · متوسط ${formatMoney(summary?.avgIncome ?? 0, currency)}`}
             tone="income"
+            icon={<ArrowUpRight size={20} />}
           />
-          <SummaryCard
+          <KpiCard
             label="إجمالي المصاريف"
             value={summary?.totalExpenses ?? 0}
-            currency={settings?.currency}
+            currency={currency}
             loading={summaryLoading}
+            hint={`${summary?.expenseCount ?? 0} حركة · متوسط ${formatMoney(summary?.avgExpense ?? 0, currency)}`}
             tone="expense"
+            icon={<ArrowDownRight size={20} />}
           />
-          <SummaryCard
-            label="الرصيد"
-            value={summary?.balance ?? 0}
-            currency={settings?.currency}
+          <KpiCard
+            label="صافي الرصيد"
+            value={balance}
+            currency={currency}
             loading={summaryLoading}
+            hint={
+              balance >= 0 ? "الفترة رابحة" : "المصروف أعلى من الإيراد"
+            }
             tone="balance"
+            icon={<Wallet size={20} />}
+          />
+          <KpiCard
+            label="عدد الحركات"
+            value={summary?.transactionCount ?? 0}
+            currency={currency}
+            loading={summaryLoading}
+            hint="إيرادات + مصاريف"
+            tone="count"
+            icon={<TrendingUp size={20} />}
+            raw
           />
         </div>
 
-        {showSettings && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Wallet size={18} className="text-rx-primary" />
-                أسعار الخدمات الافتراضية
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label>سعر الكشفية / الاستشارة (ل.س)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={feeForm.consultationFee}
-                  onChange={(e) =>
-                    setFeeForm((f) => ({
-                      ...f,
-                      consultationFee: e.target.value,
-                    }))
-                  }
-                />
+        {/* Analytics row */}
+        <div className="grid gap-4 lg:grid-cols-5">
+          <div className="rounded-2xl border border-rx-border/80 bg-white p-4 shadow-sm lg:col-span-3">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">اتجاه يومي</h3>
+              <div className="flex items-center gap-3 text-[11px] text-rx-muted">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" /> إيراد
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-rose-400" /> مصروف
+                </span>
               </div>
-              <div className="space-y-1.5">
-                <Label>سعر المتابعة (ل.س)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={feeForm.followUpFee}
-                  onChange={(e) =>
-                    setFeeForm((f) => ({ ...f, followUpFee: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>سعر الإجراء الطبي (ل.س)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={feeForm.procedureFee}
-                  onChange={(e) =>
-                    setFeeForm((f) => ({ ...f, procedureFee: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="sm:col-span-3">
-                <Button
-                  size="sm"
-                  disabled={saveSettingsMutation.isPending}
-                  onClick={() =>
-                    saveSettingsMutation.mutate({
-                      consultationFee: Number(feeForm.consultationFee) || 0,
-                      followUpFee: Number(feeForm.followUpFee) || 0,
-                      procedureFee: Number(feeForm.procedureFee) || 0,
-                      currency: settings?.currency ?? "SYP",
-                    })
-                  }
-                >
-                  <Save size={14} />
-                  {saveSettingsMutation.isPending ? "جاري الحفظ..." : "حفظ الأسعار"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-base">سجل الحركات المالية</CardTitle>
-            <div className="flex gap-1">
-              {(
-                [
-                  { key: "all", label: "الكل" },
-                  { key: "income", label: "إيرادات" },
-                  { key: "expense", label: "مصاريف" },
-                ] as const
-              ).map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  onClick={() => setFilterType(f.key)}
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs transition",
-                    filterType === f.key
-                      ? "bg-rx-primary text-white"
-                      : "bg-rx-bg-subtle text-rx-muted hover:text-rx-text"
-                  )}
-                >
-                  {f.label}
-                </button>
-              ))}
             </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {txLoading ? (
+            <DailyChart
+              daily={summary?.daily ?? []}
+              loading={summaryLoading}
+            />
+          </div>
+
+          <div className="rounded-2xl border border-rx-border/80 bg-white p-4 shadow-sm lg:col-span-2">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">حسب التصنيف</h3>
+              <div className="flex gap-1 rounded-lg bg-rx-bg-subtle p-0.5">
+                {(
+                  [
+                    { id: "income", label: "إيراد" },
+                    { id: "expense", label: "مصروف" },
+                  ] as const
+                ).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setBreakdownTab(t.id)}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[11px] font-medium transition",
+                      breakdownTab === t.id
+                        ? "bg-white text-rx-text shadow-sm"
+                        : "text-rx-muted"
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {summaryLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}
-                    className="h-14 animate-pulse rounded-lg bg-rx-bg-subtle"
+                    className="h-8 animate-pulse rounded-lg bg-rx-bg-subtle"
                   />
                 ))}
               </div>
-            ) : transactions.length === 0 ? (
-              <p className="py-8 text-center text-sm text-rx-muted">
-                لا توجد حركات مالية في هذه الفترة.
+            ) : categoryBreakdown.length === 0 ? (
+              <p className="py-8 text-center text-xs text-rx-muted">
+                لا بيانات لهذا التصنيف في الفترة
               </p>
             ) : (
-              transactions.map((tx) => (
-                <TransactionRow
-                  key={tx.id}
-                  tx={tx}
-                  currency={settings?.currency}
-                  onEdit={() => openEdit(tx)}
-                  onDelete={() => deleteMutation.mutate(tx.id)}
-                />
-              ))
+              <ul className="space-y-3">
+                {categoryBreakdown.slice(0, 6).map((c) => (
+                  <li key={`${c.type}-${c.category}`}>
+                    <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                      <span className="font-medium text-rx-text">
+                        {financeCategoryLabel(
+                          c.type as "income" | "expense",
+                          c.category
+                        )}
+                      </span>
+                      <span className="text-rx-muted">
+                        {formatMoney(c.amount, currency)} · {c.count}
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-rx-bg-subtle">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          breakdownTab === "income"
+                            ? "bg-emerald-500"
+                            : "bg-rose-400"
+                        )}
+                        style={{
+                          width: `${Math.max(4, (c.amount / categoryMax) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
-            {pagination && pagination.totalPages > 1 ? (
-              <Pagination
-                pagination={pagination}
-                onPageChange={onPageChange}
-                onPageSizeChange={onPageSizeChange}
-              />
-            ) : null}
-          </CardContent>
-        </Card>
-      </PageContent>
 
-      {dialogOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="mb-4 text-lg font-bold">
-              {editing
-                ? "تعديل حركة مالية"
-                : form.type === "income"
-                  ? "تسجيل إيراد"
-                  : "تسجيل مصروف"}
-            </h3>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>التصنيف</Label>
-                <select
-                  className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
-                  value={form.category}
-                  onChange={(e) => {
-                    const category = e.target.value;
-                    setForm((f) => {
-                      const next = { ...f, category };
-                      if (!editing && f.type === "income" && settings) {
-                        const suggested = defaultAmountForCategory(
-                          category,
-                          settings
-                        );
-                        if (suggested != null && suggested > 0) {
-                          next.amount = String(suggested);
-                        }
-                      }
-                      return next;
-                    });
-                  }}
-                >
-                  {categoryOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
+            {summary?.byPaymentMethod && summary.byPaymentMethod.length > 0 ? (
+              <div className="mt-5 border-t border-rx-border/70 pt-4">
+                <p className="mb-2 text-xs font-semibold text-rx-muted">
+                  طرق الدفع
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {summary.byPaymentMethod.map((m) => (
+                    <span
+                      key={m.method}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-rx-border bg-rx-bg-subtle/60 px-2.5 py-1 text-[11px]"
+                    >
+                      <span className="font-medium">
+                        {paymentMethodLabel(m.method)}
+                      </span>
+                      <span className="text-rx-muted">
+                        {formatMoney(m.amount, currency)}
+                      </span>
+                    </span>
                   ))}
-                </select>
+                </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>المبلغ (ل.س)</Label>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Settings */}
+        {showSettings && (
+          <section className="rounded-2xl border border-rx-border/80 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <Wallet size={16} className="text-rx-primary" />
+                  أسعار الخدمات الافتراضية
+                </h3>
+                <p className="mt-1 text-xs text-rx-muted">
+                  تُقترح تلقائياً عند تسجيل إيراد جديد
+                </p>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setShowSettings(false)}
+              >
+                <X size={16} />
+              </Button>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {(
+                [
+                  {
+                    key: "consultationFee",
+                    label: "كشفية / استشارة",
+                  },
+                  { key: "followUpFee", label: "متابعة" },
+                  { key: "procedureFee", label: "إجراء طبي" },
+                ] as const
+              ).map((field) => (
+                <div key={field.key} className="space-y-1.5">
+                  <Label>{field.label} (ل.س)</Label>
                   <Input
                     type="number"
-                    min={1}
-                    required
-                    value={form.amount}
+                    min={0}
+                    value={feeForm[field.key]}
                     onChange={(e) =>
-                      setForm((f) => ({ ...f, amount: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>التاريخ</Label>
-                  <Input
-                    type="date"
-                    value={form.transactionDate}
-                    onChange={(e) =>
-                      setForm((f) => ({
+                      setFeeForm((f) => ({
                         ...f,
-                        transactionDate: e.target.value,
+                        [field.key]: e.target.value,
                       }))
                     }
                   />
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>طريقة الدفع</Label>
-                <select
-                  className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
-                  value={form.paymentMethod}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, paymentMethod: e.target.value }))
-                  }
-                >
-                  {PAYMENT_METHODS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {form.type === "income" ? (
-                <div className="space-y-1.5">
-                  <Label>المريض (اختياري)</Label>
-                  <select
-                    className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
-                    value={form.patientId}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, patientId: e.target.value }))
-                    }
-                  >
-                    <option value="">— بدون مريض —</option>
-                    {patients.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-              <div className="space-y-1.5">
-                <Label>ملاحظات</Label>
-                <Textarea
-                  rows={2}
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, description: e.target.value }))
-                  }
-                  placeholder="تفاصيل إضافية..."
+              ))}
+            </div>
+            <div className="mt-4">
+              <Button
+                size="sm"
+                disabled={saveSettingsMutation.isPending}
+                onClick={() =>
+                  saveSettingsMutation.mutate({
+                    consultationFee: Number(feeForm.consultationFee) || 0,
+                    followUpFee: Number(feeForm.followUpFee) || 0,
+                    procedureFee: Number(feeForm.procedureFee) || 0,
+                    currency: settings?.currency ?? "SYP",
+                  })
+                }
+              >
+                <Save size={14} />
+                {saveSettingsMutation.isPending ? "جاري الحفظ..." : "حفظ الأسعار"}
+              </Button>
+            </div>
+          </section>
+        )}
+
+        {/* Ledger */}
+        <section className="overflow-hidden rounded-2xl border border-rx-border/80 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-rx-border/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">سجل الحركات</h3>
+              <p className="text-xs text-rx-muted">
+                {pagination?.total ?? filteredTransactions.length} حركة في الفترة
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[180px] flex-1 sm:flex-none">
+                <Search
+                  size={14}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-rx-muted"
+                />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="بحث في الحركات..."
+                  className="h-9 pr-9"
                 />
               </div>
-              <div className="flex gap-2 pt-2">
-                <Button
-                  className="flex-1"
-                  disabled={saveTxMutation.isPending || !form.amount}
-                  onClick={() => saveTxMutation.mutate()}
-                >
-                  {saveTxMutation.isPending ? "جاري الحفظ..." : "حفظ"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setDialogOpen(false);
-                    setEditing(null);
-                  }}
-                >
-                  إلغاء
-                </Button>
+              <div className="flex gap-1 rounded-lg bg-rx-bg-subtle p-0.5">
+                {(
+                  [
+                    { key: "all", label: "الكل" },
+                    { key: "income", label: "إيرادات" },
+                    { key: "expense", label: "مصاريف" },
+                  ] as const
+                ).map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setFilterType(f.key)}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-medium transition",
+                      filterType === f.key
+                        ? "bg-white text-rx-text shadow-sm"
+                        : "text-rx-muted hover:text-rx-text"
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
-        </div>
+
+          <div className="p-2 sm:p-3">
+            {txLoading ? (
+              <div className="space-y-2 p-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-14 animate-pulse rounded-xl bg-rx-bg-subtle"
+                  />
+                ))}
+              </div>
+            ) : filteredTransactions.length === 0 ? (
+              <EmptyState
+                icon={Wallet}
+                title="لا توجد حركات مالية"
+                description="سجّل أول إيراد أو مصروف لهذه الفترة لبدء التحليل."
+                action={
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => openCreate("income")}>
+                      <Plus size={14} /> إيراد
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openCreate("expense")}
+                    >
+                      <Plus size={14} /> مصروف
+                    </Button>
+                  </div>
+                }
+              />
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead>
+                      <tr className="border-b border-rx-border/70 text-xs text-rx-muted">
+                        <th className="px-3 py-2 text-right font-medium">
+                          التاريخ
+                        </th>
+                        <th className="px-3 py-2 text-right font-medium">
+                          النوع
+                        </th>
+                        <th className="px-3 py-2 text-right font-medium">
+                          التصنيف
+                        </th>
+                        <th className="px-3 py-2 text-right font-medium">
+                          التفاصيل
+                        </th>
+                        <th className="px-3 py-2 text-right font-medium">
+                          الدفع
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          المبلغ
+                        </th>
+                        <th className="px-3 py-2 text-left font-medium">
+                          إجراءات
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTransactions.map((tx) => (
+                        <tr
+                          key={tx.id}
+                          className="border-b border-rx-border/40 last:border-0 hover:bg-rx-bg-subtle/40"
+                        >
+                          <td className="whitespace-nowrap px-3 py-3 text-rx-muted">
+                            {formatShortDate(tx.transactionDate)}
+                          </td>
+                          <td className="px-3 py-3">
+                            <Badge
+                              variant={
+                                tx.type === "income" ? "default" : "secondary"
+                              }
+                            >
+                              {tx.type === "income" ? "إيراد" : "مصروف"}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-3 font-medium">
+                            {financeCategoryLabel(tx.type, tx.category)}
+                          </td>
+                          <td className="max-w-[220px] truncate px-3 py-3 text-rx-muted">
+                            {tx.patient?.name
+                              ? tx.patient.name
+                              : tx.description || "—"}
+                            {tx.patient?.name && tx.description
+                              ? ` · ${tx.description}`
+                              : ""}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-rx-muted">
+                            {paymentMethodLabel(tx.paymentMethod)}
+                          </td>
+                          <td
+                            className={cn(
+                              "whitespace-nowrap px-3 py-3 text-left font-bold tabular-nums",
+                              tx.type === "income"
+                                ? "text-emerald-600"
+                                : "text-rose-600"
+                            )}
+                          >
+                            {tx.type === "income" ? "+" : "−"}
+                            {formatMoney(tx.amount, currency)}
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => openEdit(tx)}
+                              >
+                                <Pencil size={14} />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="text-rose-600"
+                                onClick={() => {
+                                  if (
+                                    confirm(
+                                      "حذف هذه الحركة المالية؟ لا يمكن التراجع."
+                                    )
+                                  ) {
+                                    deleteMutation.mutate(tx.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="space-y-2 md:hidden">
+                  {filteredTransactions.map((tx) => (
+                    <TransactionCard
+                      key={tx.id}
+                      tx={tx}
+                      currency={currency}
+                      onEdit={() => openEdit(tx)}
+                      onDelete={() => {
+                        if (
+                          confirm("حذف هذه الحركة المالية؟ لا يمكن التراجع.")
+                        ) {
+                          deleteMutation.mutate(tx.id);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {pagination && pagination.totalPages > 1 ? (
+              <div className="mt-3 border-t border-rx-border/60 pt-3">
+                <Pagination
+                  pagination={pagination}
+                  onPageChange={onPageChange}
+                  onPageSizeChange={onPageSizeChange}
+                />
+              </div>
+            ) : null}
+          </div>
+        </section>
+      </PageContent>
+
+      {dialogOpen ? (
+        <TransactionDialog
+          editing={editing}
+          form={form}
+          setForm={setForm}
+          categoryOptions={categoryOptions}
+          patients={patients}
+          settings={settings}
+          saving={saveTxMutation.isPending}
+          onSave={() => saveTxMutation.mutate()}
+          onClose={() => {
+            setDialogOpen(false);
+            setEditing(null);
+          }}
+        />
       ) : null}
     </>
   );
 }
 
-function SummaryCard({
+function KpiCard({
   label,
   value,
   currency,
   loading,
+  hint,
   tone,
+  icon,
+  raw,
 }: {
   label: string;
   value: number;
-  currency?: string;
+  currency: string;
   loading?: boolean;
-  tone: "income" | "expense" | "balance";
+  hint?: string;
+  tone: "income" | "expense" | "balance" | "count";
+  icon: ReactNode;
+  raw?: boolean;
 }) {
-  const Icon =
-    tone === "income"
-      ? ArrowUpCircle
-      : tone === "expense"
-        ? ArrowDownCircle
-        : Wallet;
-  const color =
-    tone === "income"
-      ? "text-emerald-600"
-      : tone === "expense"
-        ? "text-rose-600"
-        : value >= 0
-          ? "text-cyan-700"
-          : "text-rose-600";
+  const tones = {
+    income: {
+      value: "text-emerald-700",
+      icon: "bg-emerald-50 text-emerald-600",
+      ring: "from-emerald-50/80",
+    },
+    expense: {
+      value: "text-rose-700",
+      icon: "bg-rose-50 text-rose-600",
+      ring: "from-rose-50/80",
+    },
+    balance: {
+      value: value >= 0 ? "text-cyan-800" : "text-rose-700",
+      icon:
+        value >= 0
+          ? "bg-cyan-50 text-cyan-700"
+          : "bg-rose-50 text-rose-600",
+      ring: value >= 0 ? "from-cyan-50/80" : "from-rose-50/80",
+    },
+    count: {
+      value: "text-slate-800",
+      icon: "bg-slate-100 text-slate-600",
+      ring: "from-slate-50/80",
+    },
+  }[tone];
 
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between p-4">
-        <div>
-          <p className="text-xs text-rx-muted">{label}</p>
-          <p className={cn("mt-1 text-xl font-bold", color)}>
-            {loading ? "..." : formatMoney(value, currency)}
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-2xl border border-rx-border/80 bg-gradient-to-br to-white p-4 shadow-sm",
+        tones.ring
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-rx-muted">{label}</p>
+          <p
+            className={cn(
+              "mt-2 text-2xl font-bold tracking-tight tabular-nums",
+              tones.value
+            )}
+          >
+            {loading
+              ? "…"
+              : raw
+                ? value.toLocaleString("ar-SY", { numberingSystem: "latn" })
+                : formatMoney(value, currency)}
           </p>
+          {hint ? (
+            <p className="mt-1.5 truncate text-[11px] text-rx-muted">{hint}</p>
+          ) : null}
         </div>
-        <Icon size={28} className={cn("opacity-80", color)} />
-      </CardContent>
-    </Card>
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            tones.icon
+          )}
+        >
+          {icon}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function TransactionRow({
+function DailyChart({
+  daily,
+  loading,
+}: {
+  daily: FinanceSummaryDto["daily"];
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex h-40 items-end gap-1">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex-1 animate-pulse rounded-t bg-rx-bg-subtle"
+            style={{ height: `${30 + ((i * 17) % 60)}%` }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (!daily.length) {
+    return (
+      <div className="flex h-40 items-center justify-center text-xs text-rx-muted">
+        لا يوجد نشاط يومي في هذه الفترة
+      </div>
+    );
+  }
+
+  const max = Math.max(
+    1,
+    ...daily.map((d) => Math.max(d.income, d.expense))
+  );
+  const shown =
+    daily.length > 21
+      ? daily.slice(daily.length - 21)
+      : daily;
+
+  return (
+    <div className="flex h-40 items-end gap-1 sm:gap-1.5">
+      {shown.map((d) => (
+        <div
+          key={d.date}
+          className="group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5"
+          title={`${d.date}\nإيراد: ${d.income}\nمصروف: ${d.expense}`}
+        >
+          <div className="flex w-full items-end justify-center gap-0.5" style={{ height: "100%" }}>
+            <div
+              className="w-[42%] rounded-t bg-emerald-500/85 transition group-hover:bg-emerald-500"
+              style={{ height: `${Math.max(2, (d.income / max) * 100)}%` }}
+            />
+            <div
+              className="w-[42%] rounded-t bg-rose-400/85 transition group-hover:bg-rose-500"
+              style={{ height: `${Math.max(2, (d.expense / max) * 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TransactionCard({
   tx,
   currency,
   onEdit,
   onDelete,
 }: {
   tx: FinanceTransactionDto;
-  currency?: string;
+  currency: string;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const isIncome = tx.type === "income";
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rx-border/80 px-3 py-2.5">
-      <Badge variant={isIncome ? "default" : "secondary"}>
-        {isIncome ? "إيراد" : "مصروف"}
-      </Badge>
-      <div className="min-w-0 flex-1 text-right">
-        <p className="text-sm font-semibold">
-          {financeCategoryLabel(tx.type, tx.category)}
-          {tx.patient ? ` — ${tx.patient.name}` : ""}
-        </p>
-        <p className="text-xs text-rx-muted">
-          {tx.transactionDate} · {paymentMethodLabel(tx.paymentMethod)}
-          {tx.description ? ` · ${tx.description}` : ""}
+    <div className="rounded-xl border border-rx-border/70 px-3 py-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant={isIncome ? "default" : "secondary"}>
+              {isIncome ? "إيراد" : "مصروف"}
+            </Badge>
+            <span className="text-xs text-rx-muted">
+              {formatShortDate(tx.transactionDate)}
+            </span>
+          </div>
+          <p className="mt-1.5 text-sm font-semibold">
+            {financeCategoryLabel(tx.type, tx.category)}
+            {tx.patient ? ` — ${tx.patient.name}` : ""}
+          </p>
+          <p className="mt-0.5 text-xs text-rx-muted">
+            {paymentMethodLabel(tx.paymentMethod)}
+            {tx.description ? ` · ${tx.description}` : ""}
+          </p>
+        </div>
+        <p
+          className={cn(
+            "shrink-0 text-sm font-bold tabular-nums",
+            isIncome ? "text-emerald-600" : "text-rose-600"
+          )}
+        >
+          {isIncome ? "+" : "−"}
+          {formatMoney(tx.amount, currency)}
         </p>
       </div>
-      <p
-        className={cn(
-          "text-sm font-bold",
-          isIncome ? "text-emerald-600" : "text-rose-600"
-        )}
-      >
-        {isIncome ? "+" : "-"}
-        {formatMoney(tx.amount, currency)}
-      </p>
-      <div className="flex gap-1">
+      <div className="mt-2 flex justify-end gap-1">
         <Button size="icon" variant="ghost" onClick={onEdit}>
           <Pencil size={14} />
         </Button>
@@ -669,6 +1142,222 @@ function TransactionRow({
         >
           <Trash2 size={14} />
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function TransactionDialog({
+  editing,
+  form,
+  setForm,
+  categoryOptions,
+  patients,
+  settings,
+  saving,
+  onSave,
+  onClose,
+}: {
+  editing: FinanceTransactionDto | null;
+  form: TransactionFormState;
+  setForm: Dispatch<SetStateAction<TransactionFormState>>;
+  categoryOptions: Array<{ id: string; label: string }>;
+  patients: Array<{ id: number; name: string }>;
+  settings?: FinanceSettingsDto;
+  saving: boolean;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-4">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-bold">
+              {editing
+                ? "تعديل حركة مالية"
+                : form.type === "income"
+                  ? "تسجيل إيراد"
+                  : "تسجيل مصروف"}
+            </h3>
+            <p className="mt-1 text-xs text-rx-muted">
+              أدخل التفاصيل بدقة لمتابعة التقرير المالي
+            </p>
+          </div>
+          <Button size="icon" variant="ghost" onClick={onClose}>
+            <X size={16} />
+          </Button>
+        </div>
+
+        {!editing ? (
+          <div className="mb-4 flex gap-1 rounded-xl bg-rx-bg-subtle p-1">
+            {(
+              [
+                { id: "income", label: "إيراد" },
+                { id: "expense", label: "مصروف" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() =>
+                  setForm((f) => {
+                    const next = emptyForm(t.id);
+                    next.transactionDate = f.transactionDate;
+                    if (settings && t.id === "income") {
+                      const suggested = defaultAmountForCategory(
+                        next.category,
+                        settings
+                      );
+                      if (suggested != null && suggested > 0) {
+                        next.amount = String(suggested);
+                      }
+                    }
+                    return next;
+                  })
+                }
+                className={cn(
+                  "flex-1 rounded-lg py-2 text-sm font-medium transition",
+                  form.type === t.id
+                    ? t.id === "income"
+                      ? "bg-emerald-600 text-white shadow"
+                      : "bg-rose-600 text-white shadow"
+                    : "text-rx-muted hover:text-rx-text"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>التصنيف</Label>
+            <select
+              className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
+              value={form.category}
+              onChange={(e) => {
+                const category = e.target.value;
+                setForm((f) => {
+                  const next = { ...f, category };
+                  if (!editing && f.type === "income" && settings) {
+                    const suggested = defaultAmountForCategory(
+                      category,
+                      settings
+                    );
+                    if (suggested != null && suggested > 0) {
+                      next.amount = String(suggested);
+                    }
+                  }
+                  return next;
+                });
+              }}
+            >
+              {categoryOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>المبلغ (ل.س)</Label>
+              <Input
+                type="number"
+                min={1}
+                required
+                value={form.amount}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, amount: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>التاريخ</Label>
+              <Input
+                type="date"
+                value={form.transactionDate}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    transactionDate: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>طريقة الدفع</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {PAYMENT_METHODS.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({ ...f, paymentMethod: m.id }))
+                  }
+                  className={cn(
+                    "rounded-lg border px-2 py-2 text-xs font-medium transition",
+                    form.paymentMethod === m.id
+                      ? "border-rx-primary bg-rx-primary/5 text-rx-primary"
+                      : "border-rx-border text-rx-muted hover:border-rx-primary/40"
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {form.type === "income" ? (
+            <div className="space-y-1.5">
+              <Label>المريض (اختياري)</Label>
+              <select
+                className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
+                value={form.patientId}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, patientId: e.target.value }))
+                }
+              >
+                <option value="">— بدون مريض —</option>
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          <div className="space-y-1.5">
+            <Label>ملاحظات</Label>
+            <Textarea
+              rows={2}
+              value={form.description}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, description: e.target.value }))
+              }
+              placeholder="تفاصيل إضافية..."
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              className="flex-1"
+              disabled={saving || !form.amount}
+              onClick={onSave}
+            >
+              {saving ? "جاري الحفظ..." : "حفظ الحركة"}
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              إلغاء
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

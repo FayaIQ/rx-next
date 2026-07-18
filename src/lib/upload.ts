@@ -3,6 +3,12 @@ import path from "path";
 import sharp from "sharp";
 import { randomUUID } from "crypto";
 import { getUploadRoot } from "@/lib/upload-path";
+import {
+  deleteFromS3,
+  isS3Configured,
+  toS3Key,
+  uploadToS3,
+} from "@/lib/s3";
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -44,18 +50,33 @@ export async function saveUploadedImage(
     .jpeg({ quality: 85 })
     .toBuffer();
 
+  const filename = `${randomUUID()}.jpg`;
+  const storedPath = `/uploads/${doctorId}/${kind}/${filename}`;
+
+  if (isS3Configured()) {
+    const key = toS3Key(storedPath);
+    if (!key) throw new Error("مسار رفع غير صالح");
+    await uploadToS3({
+      key,
+      body: processed,
+      contentType: "image/jpeg",
+    });
+    return storedPath;
+  }
+
   const dir = uploadDir(doctorId, kind);
   await mkdir(dir, { recursive: true });
-
-  const filename = `${randomUUID()}.jpg`;
-  const absPath = path.join(dir, filename);
-  await writeFile(absPath, processed);
-
-  return `/uploads/${doctorId}/${kind}/${filename}`;
+  await writeFile(path.join(dir, filename), processed);
+  return storedPath;
 }
 
 export async function deleteUploadedFile(storedPath: string | null | undefined) {
   if (!storedPath) return;
+
+  if (isS3Configured()) {
+    await deleteFromS3(storedPath);
+  }
+
   const relative = storedPath
     .replace(/^\/+/, "")
     .replace(/^uploads\//, "");

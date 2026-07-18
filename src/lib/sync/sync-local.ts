@@ -37,8 +37,12 @@ export function classifySyncResponse(
     if (typeof window !== "undefined") {
       const path = window.location.pathname;
       if (!path.startsWith("/auth/")) {
-        const callback = encodeURIComponent(path);
-        window.location.href = `/auth/signin?callbackUrl=${callback}&error=session_expired`;
+        void (async () => {
+          const { signOut } = await import("next-auth/react");
+          await signOut({ redirect: false });
+          const callback = encodeURIComponent(path);
+          window.location.href = `/auth/signin?callbackUrl=${callback}&error=session_expired`;
+        })();
       }
     }
     return "unauthorized";

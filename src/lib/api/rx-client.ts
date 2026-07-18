@@ -164,6 +164,22 @@ export type FinanceSummaryDto = {
   totalExpenses: number;
   balance: number;
   transactionCount: number;
+  incomeCount: number;
+  expenseCount: number;
+  avgIncome: number;
+  avgExpense: number;
+  byCategory: Array<{
+    type: string;
+    category: string;
+    amount: number;
+    count: number;
+  }>;
+  byPaymentMethod: Array<{
+    method: string;
+    amount: number;
+    count: number;
+  }>;
+  daily: Array<{ date: string; income: number; expense: number }>;
 };
 export type RecipeSettingsDto = {
   id: number;
@@ -213,6 +229,8 @@ async function handleResponse<T>(res: Response | Promise<Response>): Promise<T> 
     if (response.status === 401 && typeof window !== "undefined") {
       const path = window.location.pathname;
       if (!path.startsWith("/auth/")) {
+        const { signOut } = await import("next-auth/react");
+        await signOut({ redirect: false });
         const callback = encodeURIComponent(path);
         window.location.href = `/auth/signin?callbackUrl=${callback}&error=session_expired`;
       }

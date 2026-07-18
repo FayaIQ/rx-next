@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { validateSession } from "@/lib/auth-credentials";
@@ -15,7 +15,11 @@ export async function requireAuth() {
       toUserId(session.user.id),
       session.user.sessionId
     );
-    if (!valid) redirect("/auth/signin?error=session_expired");
+    if (!valid) {
+      // Drop the stale JWT so middleware doesn't bounce sign-in ↔ home forever.
+      await signOut({ redirect: false });
+      redirect("/auth/signin?error=session_expired");
+    }
   } catch {
     // DB unreachable (e.g. offline refresh) — trust JWT until back online.
   }

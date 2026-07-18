@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { AuthForm } from "@/components/auth/auth-form";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { Calendar, FileText, Shield, Wifi } from "lucide-react";
@@ -108,14 +109,16 @@ export function AuthSignInPage({
 }) {
   return (
     <AuthPageLayout role={role}>
-      <AuthForm
-        mode="signin"
-        role={role}
-        title={title}
-        subtitle={subtitle}
-        alternateHref={alternateHref}
-        alternateLabel={alternateLabel}
-      />
+      <Suspense fallback={null}>
+        <AuthForm
+          mode="signin"
+          role={role}
+          title={title}
+          subtitle={subtitle}
+          alternateHref={alternateHref}
+          alternateLabel={alternateLabel}
+        />
+      </Suspense>
       {footerLinks && footerLinks.length > 0 && (
         <div className="mt-8 flex flex-wrap justify-center gap-4 border-t border-rx-border pt-6 text-sm text-rx-muted">
           {footerLinks.map((link) => (

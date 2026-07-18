@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { useState } from "react";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { DevServiceWorkerCleanup } from "@/components/pwa/dev-sw-cleanup";
 import { LocaleProvider } from "@/i18n/locale-provider";
 import { SyncProvider } from "@/components/sync/sync-provider";
 
@@ -25,6 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <LocaleProvider>
         <QueryClientProvider client={queryClient}>
+          <DevServiceWorkerCleanup />
           <SyncProvider>
             {children}
           </SyncProvider>

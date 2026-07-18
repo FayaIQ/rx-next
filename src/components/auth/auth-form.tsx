@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { signIn, getSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { signIn, signOut, getSession } from "next-auth/react";
 import { toast } from "sonner";
 import { Loader2, Phone, Lock, User, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,18 @@ interface AuthFormProps {
   alternateLabel?: string;
 }
 
+function safeCallbackUrl(raw: string | null | undefined, fallback: string) {
+  if (!raw) return fallback;
+  try {
+    const path = raw.startsWith("http") ? new URL(raw).pathname : raw;
+    if (!path.startsWith("/") || path.startsWith("//")) return fallback;
+    if (path.startsWith("/api/") || path.startsWith("/_next/")) return fallback;
+    if (path.startsWith("/auth/")) return fallback;
+    return path;
+  } catch {
+    return fallback;
+  }
+}
 
 export function AuthForm({
   mode,
@@ -27,6 +40,7 @@ export function AuthForm({
   alternateHref,
   alternateLabel,
 }: AuthFormProps) {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -39,22 +53,38 @@ export function AuthForm({
         ? "/secretary"
         : "/home";
 
+  useEffect(() => {
+    if (mode !== "signin") return;
+    const error = searchParams.get("error");
+    if (error === "session_expired") {
+      toast.info("انتهت الجلسة — سجّل الدخول مجدداً");
+      // Ensure stale JWT is gone before the next login attempt.
+      void signOut({ redirect: false });
+    }
+  }, [mode, searchParams]);
+
   async function resolveCallbackUrl(): Promise<string> {
+    const fromQuery = safeCallbackUrl(
+      searchParams.get("callbackUrl"),
+      defaultCallbackUrl
+    );
+
     if (role === "secretary") {
       const session = await getSession();
       if (session?.user?.isConfirmed) return "/secretary/desk";
       return "/secretary";
     }
-    if (role !== "doctor") return defaultCallbackUrl;
+    if (role === "admin") return "/dashboard";
 
     const session = await getSession();
     if (session?.user?.type === "admin") return "/dashboard";
     if (session?.user?.type === "secretary") return "/secretary";
-    return "/home";
+    return fromQuery === "/dashboard" ? "/home" : fromQuery;
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
 
     try {
@@ -76,6 +106,9 @@ export function AuthForm({
         }
         toast.success("تم إنشاء الحساب بنجاح");
       }
+
+      // Clear any previous JWT so a new login doesn't fight an old sessionId.
+      await signOut({ redirect: false });
 
       const result = await signIn("credentials", {
         phone,

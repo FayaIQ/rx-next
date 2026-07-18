@@ -19,24 +19,52 @@ export interface AuthUser {
   sessionId: string;
 }
 
-async function findUserByPhone(phone: string) {
+async function findUsersByPhone(phone: string) {
   const variants = getPhoneLookupVariants(phone);
-  if (variants.length === 0) return null;
+  if (variants.length === 0) return [];
 
-  return prisma.user.findFirst({
+  return prisma.user.findMany({
     where: { phoneNumber: { in: variants } },
   });
+}
+
+async function findUserByPhone(phone: string) {
+  const users = await findUsersByPhone(phone);
+  if (users.length === 0) return null;
+
+  const trimmed = phone.trim();
+  const exact = users.find((u) => u.phoneNumber === trimmed);
+  if (exact) return exact;
+
+  // Prefer newest account when duplicates exist under different formats.
+  return [...users].sort((a, b) => Number(b.id) - Number(a.id))[0];
 }
 
 export async function authenticateUser(
   phone: string,
   password: string
 ): Promise<AuthUser | null> {
-  const user = await findUserByPhone(phone);
-  if (!user) return null;
+  const users = await findUsersByPhone(phone);
+  if (users.length === 0) return null;
 
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return null;
+  // Same number may exist in multiple formats (077… / +964… / 964…).
+  // Prefer the exact typed format, then newest accounts.
+  const trimmed = phone.trim();
+  const ordered = [...users].sort((a, b) => {
+    if (a.phoneNumber === trimmed && b.phoneNumber !== trimmed) return -1;
+    if (b.phoneNumber === trimmed && a.phoneNumber !== trimmed) return 1;
+    return Number(b.id) - Number(a.id);
+  });
+
+  let user = null as (typeof users)[number] | null;
+  for (const candidate of ordered) {
+    const valid = await bcrypt.compare(password, candidate.password);
+    if (valid) {
+      user = candidate;
+      break;
+    }
+  }
+  if (!user) return null;
 
   const sessionId = uuidv4();
   await prisma.user.update({

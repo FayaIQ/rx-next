@@ -5,6 +5,7 @@ import {
   getLegacyStorageRoot,
   getUploadRoot,
 } from "@/lib/upload-path";
+import { getS3ObjectBuffer, isS3Configured, toS3PublicUrl } from "@/lib/s3";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,6 @@ function notFound() {
   return new Response("Not found", {
     status: 404,
     headers: {
-      // Prevent Cloudflare/CDN from caching missing uploads for hours.
       "Cache-Control": "no-store, max-age=0",
       "CDN-Cache-Control": "no-store",
     },
@@ -72,18 +72,40 @@ export async function GET(
   const relative = segments.join("/");
   const absPath = await findUploadFile(relative);
 
-  if (!absPath) return notFound();
+  if (absPath) {
+    try {
+      const data = await readFile(absPath);
+      const ext = path.extname(absPath).toLowerCase();
+      return new Response(data, {
+        headers: {
+          "Content-Type": contentTypeFor(ext),
+          "Cache-Control":
+            "public, max-age=86400, stale-while-revalidate=604800",
+        },
+      });
+    } catch {
+      return notFound();
+    }
+  }
 
-  try {
-    const data = await readFile(absPath);
-    const ext = path.extname(absPath).toLowerCase();
-    return new Response(data, {
+  // Prefer CDN redirect when S3 holds the object (legacy /api/storage links).
+  if (isS3Configured()) {
+    const cdn = toS3PublicUrl(`/uploads/${relative}`);
+    if (cdn) {
+      return Response.redirect(cdn, 302);
+    }
+  }
+
+  const fromS3 = await getS3ObjectBuffer(`/uploads/${relative}`);
+  if (fromS3) {
+    return new Response(fromS3.body, {
       headers: {
-        "Content-Type": contentTypeFor(ext),
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        "Content-Type": fromS3.contentType,
+        "Cache-Control":
+          "public, max-age=86400, stale-while-revalidate=604800",
       },
     });
-  } catch {
-    return notFound();
   }
+
+  return notFound();
 }
