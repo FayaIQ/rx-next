@@ -1,7 +1,12 @@
-import { readFile } from "fs/promises";
+import { access, readFile } from "fs/promises";
 import path from "path";
 import { NextRequest } from "next/server";
-import { resolveUploadFilePath } from "@/lib/upload-path";
+import {
+  getLegacyStorageRoot,
+  getUploadRoot,
+} from "@/lib/upload-path";
+
+export const dynamic = "force-dynamic";
 
 function contentTypeFor(ext: string): string {
   switch (ext) {
@@ -18,17 +23,56 @@ function contentTypeFor(ext: string): string {
   }
 }
 
+function safeJoin(root: string, relative: string): string | null {
+  const abs = path.resolve(root, relative);
+  if (abs.startsWith(root + path.sep) || abs === root) return abs;
+  return null;
+}
+
+async function findUploadFile(relative: string): Promise<string | null> {
+  const cleaned = relative
+    .replace(/^\/+/, "")
+    .replace(/^uploads\//, "");
+  if (!cleaned || cleaned.includes("..")) return null;
+
+  const roots = [getUploadRoot(), getLegacyStorageRoot()].filter(
+    Boolean
+  ) as string[];
+
+  for (const root of roots) {
+    const abs = safeJoin(root, cleaned);
+    if (!abs) continue;
+    try {
+      await access(abs);
+      return abs;
+    } catch {
+      // try next root
+    }
+  }
+
+  return null;
+}
+
+function notFound() {
+  return new Response("Not found", {
+    status: 404,
+    headers: {
+      // Prevent Cloudflare/CDN from caching missing uploads for hours.
+      "Cache-Control": "no-store, max-age=0",
+      "CDN-Cache-Control": "no-store",
+    },
+  });
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path: segments } = await params;
   const relative = segments.join("/");
-  const absPath = resolveUploadFilePath(relative);
+  const absPath = await findUploadFile(relative);
 
-  if (!absPath) {
-    return new Response("Not found", { status: 404 });
-  }
+  if (!absPath) return notFound();
 
   try {
     const data = await readFile(absPath);
@@ -40,6 +84,6 @@ export async function GET(
       },
     });
   } catch {
-    return new Response("Not found", { status: 404 });
+    return notFound();
   }
 }
