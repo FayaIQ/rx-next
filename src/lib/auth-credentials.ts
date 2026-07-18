@@ -121,11 +121,24 @@ export async function registerSecretary(data: {
 
 export async function validateSession(
   userId: number,
-  sessionId: string
+  sessionId: string | null | undefined
 ): Promise<boolean> {
+  if (!sessionId) return false;
+
   const user = await prisma.user.findUnique({
     where: { id: toDbId(userId) },
     select: { activeSessionId: true },
   });
-  return user?.activeSessionId === sessionId;
+  if (!user) return false;
+
+  // Heal sessions that lost activeSessionId (deploy/restart) while JWT is still valid.
+  if (!user.activeSessionId) {
+    await prisma.user.update({
+      where: { id: toDbId(userId) },
+      data: { activeSessionId: sessionId },
+    });
+    return true;
+  }
+
+  return user.activeSessionId === sessionId;
 }

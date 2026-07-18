@@ -19,6 +19,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useClinicFeatures } from "@/components/clinic/clinic-features-provider";
+import { filterNavHref } from "@/lib/clinic-features";
 
 type NavItem = {
   href: string;
@@ -54,6 +56,11 @@ function getInitials(name?: string | null) {
 export function DoctorNavPill() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { enabledMap } = useClinicFeatures();
+
+  const visibleItems = navItems.filter((item) =>
+    filterNavHref(item.href, enabledMap)
+  );
 
   function isActive(item: NavItem) {
     if (item.exact) return pathname === item.href;
@@ -67,7 +74,7 @@ export function DoctorNavPill() {
     >
       <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-full border border-white/60 bg-white/90 p-1.5 shadow-[0_8px_32px_rgb(8_51_68/0.18)] backdrop-blur-xl ring-1 ring-slate-900/5">
         <div className="flex max-w-[min(100vw-5rem,42rem)] items-center gap-0.5 overflow-x-auto rounded-full [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item);
             return (

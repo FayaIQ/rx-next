@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { isSecretaryApiAllowed } from "@/lib/api/secretary-api-access";
+
+function nextWithPathname(req: NextRequest) {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", req.nextUrl.pathname);
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+}
 
 const PUBLIC_PATHS = [
   "/auth/signin",
@@ -50,13 +59,13 @@ export default auth((req) => {
     pathname.startsWith("/api/storage/") ||
     pathname.startsWith("/models/")
   ) {
-    return NextResponse.next();
+    return nextWithPathname(req);
   }
 
   const session = req.auth;
 
   if (pathname.startsWith("/api/auth")) {
-    return NextResponse.next();
+    return nextWithPathname(req);
   }
 
   if (!session?.user) {
@@ -64,7 +73,7 @@ export default auth((req) => {
       if (pathname === "/") {
         return NextResponse.redirect(new URL("/auth/signin", req.url));
       }
-      return NextResponse.next();
+      return nextWithPathname(req);
     }
     const signInUrl = new URL("/auth/signin", req.url);
     signInUrl.searchParams.set("callbackUrl", pathname);
@@ -75,7 +84,7 @@ export default auth((req) => {
 
   // بوابة المريض ومسارات عامة — متاحة حتى للمستخدم المسجّل
   if (isPublicPath(pathname)) {
-    return NextResponse.next();
+    return nextWithPathname(req);
   }
 
   if (isAuthPath(pathname)) {
@@ -148,7 +157,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  return NextResponse.next();
+  return nextWithPathname(req);
 });
 
 export const config = {

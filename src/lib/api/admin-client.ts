@@ -43,6 +43,14 @@ export type AdminPackageDto = {
   isActive: boolean;
 };
 
+export type AdminFeatureDto = {
+  key: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+  navHref: string | null;
+};
+
 export const adminApi = {
   stats: () =>
     handleResponse<{
@@ -167,5 +175,23 @@ export const adminApi = {
   subscriptionHistory: (userId: number) =>
     handleResponse<{ history: Array<Record<string, unknown>> }>(
       fetch(`/api/dashboard/subscriptions/${userId}`)
+    ),
+
+  features: (doctorId?: number) => {
+    const q = doctorId ? `?doctorId=${doctorId}` : "";
+    return handleResponse<{
+      doctors?: Array<{ id: number; name: string; phoneNumber: string }>;
+      doctor?: { id: number; name: string; phoneNumber: string };
+      features?: AdminFeatureDto[];
+    }>(fetch(`/api/dashboard/features${q}`));
+  },
+
+  setFeature: (doctorId: number, key: string, enabled: boolean) =>
+    handleResponse<{ features: AdminFeatureDto[] }>(
+      fetch("/api/dashboard/features", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doctorId, key, enabled }),
+      })
     ),
 };

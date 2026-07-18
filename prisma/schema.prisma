@@ -35,6 +35,7 @@ model User {
   clinicFinanceSettings ClinicFinanceSettings?
   financeTransactions   FinanceTransaction[] @relation("DoctorFinanceTransactions")
   financeRecordsCreated FinanceTransaction[] @relation("FinanceCreatedBy")
+  featureToggles        ClinicFeatureToggle[]
 
   @@index([activeSessionId], map: "users_active_session_id_index")
   @@map("users")
@@ -538,6 +539,19 @@ model password_reset_tokens {
   phone_number String    @id @db.VarChar(255)
   token        String    @db.VarChar(255)
   created_at   DateTime? @db.Timestamp(0)
+}
+
+model ClinicFeatureToggle {
+  id        BigInt   @id @default(autoincrement())
+  doctorId  BigInt   @map("doctor_id")
+  key       String   @db.VarChar(64)
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
+  doctor    User     @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "clinic_feature_toggles_doctor_id_foreign")
+
+  @@unique([doctorId, key], map: "clinic_feature_toggles_doctor_key_unique")
+  @@index([doctorId], map: "clinic_feature_toggles_doctor_id_index")
+  @@map("clinic_feature_toggles")
 }
 
 model sessions {

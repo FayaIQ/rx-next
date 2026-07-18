@@ -12,6 +12,8 @@ import {
 
 export async function assertValidSession(session: Session): Promise<Response | null> {
   try {
+    if (!session.user?.sessionId) return apiUnauthorized();
+
     const valid = await validateSession(
       toUserId(session.user.id),
       session.user.sessionId

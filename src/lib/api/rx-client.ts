@@ -208,8 +208,15 @@ export type RecipeSettingsDto = {
 
 async function handleResponse<T>(res: Response | Promise<Response>): Promise<T> {
   const response = await res;
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      const path = window.location.pathname;
+      if (!path.startsWith("/auth/")) {
+        const callback = encodeURIComponent(path);
+        window.location.href = `/auth/signin?callbackUrl=${callback}&error=session_expired`;
+      }
+    }
     if (response.status === 402 && typeof window !== "undefined") {
       const { markSubscriptionExpired, activateLocalCacheMode } = await import(
         "@/lib/sync/sync-local"
@@ -217,7 +224,9 @@ async function handleResponse<T>(res: Response | Promise<Response>): Promise<T> 
       markSubscriptionExpired();
       void activateLocalCacheMode();
     }
-    throw new Error(data.error ?? "فشل الطلب");
+    throw new Error(
+      (data as { error?: string }).error ?? "فشل الطلب"
+    );
   }
   return data as T;
 }

@@ -23,7 +23,7 @@ export async function activateLocalCacheMode() {
   useSyncStore.getState().setPendingCount(count);
 }
 
-export type SyncApiIssue = "subscription_expired" | "error" | null;
+export type SyncApiIssue = "subscription_expired" | "unauthorized" | "error" | null;
 
 export function classifySyncResponse(
   res: Response,
@@ -32,6 +32,16 @@ export function classifySyncResponse(
   if (res.status === 402) {
     markSubscriptionExpired();
     return "subscription_expired";
+  }
+  if (res.status === 401) {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      if (!path.startsWith("/auth/")) {
+        const callback = encodeURIComponent(path);
+        window.location.href = `/auth/signin?callbackUrl=${callback}&error=session_expired`;
+      }
+    }
+    return "unauthorized";
   }
   if (!res.ok) return "error";
   return null;

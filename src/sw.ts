@@ -11,13 +11,23 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
-/** Dynamic clinic APIs — never cache (queue, finances, live fields). */
+/** Dynamic clinic APIs — never cache. */
 const LIVE_API_PREFIXES = [
+  "/api/auth",
   "/api/appointments",
   "/api/finances",
   "/api/fields",
   "/api/recipe-settings",
-  "/api/prescriptions/next-number",
+  "/api/prescriptions",
+  "/api/patients",
+  "/api/medicines",
+  "/api/alerts",
+  "/api/treatment-sessions",
+  "/api/treatment-plans",
+  "/api/sync",
+  "/api/search",
+  "/api/reports",
+  "/api/features",
 ];
 
 const LIVE_ASSET_PREFIXES = ["/api/storage/", "/uploads/"];
@@ -30,7 +40,6 @@ const liveApiRules = LIVE_API_PREFIXES.map((prefix) => ({
     sameOrigin: boolean;
     url: URL;
   }) => sameOrigin && pathname.startsWith(prefix),
-  method: "GET" as const,
   handler: new NetworkOnly(),
 }));
 
@@ -45,12 +54,23 @@ const liveAssetRules = LIVE_ASSET_PREFIXES.map((prefix) => ({
   handler: new NetworkOnly(),
 }));
 
+/** Never serve HTML pages from SW cache — prevents stale "logged-in" shells with dead sessions. */
+const navigationRule = {
+  matcher: ({ request }: { request: Request }) => request.mode === "navigate",
+  handler: new NetworkOnly(),
+};
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: [...liveApiRules, ...liveAssetRules, ...defaultCache],
+  runtimeCaching: [
+    navigationRule,
+    ...liveApiRules,
+    ...liveAssetRules,
+    ...defaultCache,
+  ],
 });
 
 serwist.addEventListeners();

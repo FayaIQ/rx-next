@@ -1,9 +1,11 @@
 import { auth } from "@/auth";
+import { headers } from "next/headers";
 import { toUserId } from "@/lib/user-id";
 import {
   assertActiveSubscription,
   assertValidSession,
 } from "@/lib/api/api-guard";
+import { assertClinicFeatureForPath } from "@/lib/clinic-features";
 import { apiForbidden, apiUnauthorized } from "./response";
 
 export type DoctorContext = {
@@ -24,9 +26,17 @@ export async function requireDoctorApi(): Promise<DoctorContext | Response> {
   const subscriptionError = await assertActiveSubscription(session);
   if (subscriptionError) return subscriptionError;
 
+  const doctorId = toUserId(session.user.id);
+
+  const pathname = (await headers()).get("x-pathname");
+  if (pathname?.startsWith("/api/")) {
+    const featureError = await assertClinicFeatureForPath(doctorId, pathname);
+    if (featureError) return featureError;
+  }
+
   return {
-    doctorId: toUserId(session.user.id),
-    userId: toUserId(session.user.id),
+    doctorId,
+    userId: doctorId,
     userName: session.user.name ?? "",
   };
 }
