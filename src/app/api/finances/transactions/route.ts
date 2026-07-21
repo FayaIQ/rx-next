@@ -19,10 +19,16 @@ export async function GET(request: Request) {
   const type = searchParams.get("type");
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const category = searchParams.get("category");
+  const patientIdParam = Number(searchParams.get("patientId"));
 
   const where = {
     doctorId: toDbId(ctx.doctorId),
     ...(type === "income" || type === "expense" ? { type } : {}),
+    ...(category ? { category } : {}),
+    ...(Number.isInteger(patientIdParam) && patientIdParam > 0
+      ? { patientId: toDbId(patientIdParam) }
+      : {}),
     ...(from || to
       ? {
           transactionDate: {
@@ -48,7 +54,7 @@ export async function GET(request: Request) {
 
   return apiOk({
     transactions: rows.map(serializeFinanceTransaction),
-    pagination: buildPaginationMeta(total, page, pageSize),
+    pagination: buildPaginationMeta(page, pageSize, total),
   });
 }
 
@@ -103,6 +109,6 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return apiError(error.issues[0]?.message ?? "بيانات غير صالحة");
     }
-    return apiServerError();
+    return apiServerError(undefined, error);
   }
 }

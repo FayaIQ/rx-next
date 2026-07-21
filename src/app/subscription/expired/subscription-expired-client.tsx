@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,11 @@ import { useLocale } from "@/i18n/locale-provider";
 
 export function SubscriptionExpiredClient() {
   const { t } = useLocale();
+  const { data: session } = useSession();
+  const signInUrl =
+    session?.user?.type === "secretary"
+      ? "/auth/login/secretary"
+      : "/auth/signin";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-rx-bg-subtle p-6">
@@ -38,7 +43,7 @@ export function SubscriptionExpiredClient() {
             className="w-full"
             onClick={() =>
               void signOut({ redirect: false }).then(() => {
-                window.location.href = "/auth/signin";
+                window.location.href = signInUrl;
               })
             }
           >

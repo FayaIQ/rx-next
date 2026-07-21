@@ -408,6 +408,9 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
     const patientLocalId =
       patientServerId > 0 ? undefined : String(body.patientLocalId ?? "");
 
+    // Local display only — the server snapshots the authoritative fee at sync.
+    const cachedSettings = await fetchFinanceSettingsOfflineFirst();
+
     await getRxDb().prescriptions.put({
       id: localId,
       patientId: patientServerId > 0 ? `srv-${patientServerId}` : patientLocalId!,
@@ -415,7 +418,9 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
       doctorId: 0,
       prescriptionDate: String(body.prescriptionDate),
       diagnosis: (body.diagnosis as string) ?? undefined,
-      consultationFee: Number(body.consultationFee ?? 0),
+      consultationFee: Number(
+        body.consultationFee ?? cachedSettings.consultationFee ?? 0
+      ),
       consultationFeeWaived: Boolean(body.consultationFeeWaived),
       items: ((body.items as Array<Record<string, unknown>>) ?? []).map((item) => ({
         id: uuidv4(),

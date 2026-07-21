@@ -2,7 +2,8 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 export type PhoneRegion = "SY" | "IQ";
 
-export const PHONE_REGIONS: PhoneRegion[] = ["IQ", "SY"];
+// New input is Iraqi-only; SY parsing helpers remain for matching legacy records.
+export const PHONE_REGIONS: PhoneRegion[] = ["IQ"];
 
 /** Infer E.164 candidate for regional parsing. */
 export function phoneCandidate(raw: string, region: PhoneRegion): string {

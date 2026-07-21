@@ -5,6 +5,14 @@ ALTER TABLE "prescriptions"
   ADD COLUMN IF NOT EXISTS "consultation_fee" DECIMAL(12, 2) NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS "consultation_fee_waived" BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Idempotency key so replayed offline-sync requests never create duplicates.
+ALTER TABLE "prescriptions"
+  ADD COLUMN IF NOT EXISTS "client_request_id" VARCHAR(64);
+
+CREATE UNIQUE INDEX IF NOT EXISTS
+  "prescriptions_client_request_id_key"
+  ON "prescriptions" ("client_request_id");
+
 ALTER TABLE "finance_transactions"
   ADD COLUMN IF NOT EXISTS "prescription_id" BIGINT;
 

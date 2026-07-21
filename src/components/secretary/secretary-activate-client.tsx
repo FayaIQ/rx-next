@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { KeyRound } from "lucide-react";
 import { AuthPageLayout } from "@/components/auth/auth-page-layout";
@@ -22,6 +23,7 @@ import { useLocale } from "@/i18n/locale-provider";
 
 export function SecretaryActivateClient() {
   const { t } = useLocale();
+  const { update } = useSession();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -44,6 +46,9 @@ export function SecretaryActivateClient() {
           ? t("secretary.alreadyActivated")
           : t("secretary.linkedSuccess")
       );
+      // Refresh the JWT so the new doctorId claim is present before navigating,
+      // otherwise middleware bounces back to the activation page.
+      await update();
       window.location.assign("/secretary/desk");
     } catch {
       toast.error(t("secretary.genericError"));

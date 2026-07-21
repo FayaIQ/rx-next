@@ -419,6 +419,8 @@ export const ar = {
     genericError: "حدث خطأ",
     submitConsultation: "تسجيل الكشفية",
     consultationSaved: "تم تسجيل الكشفية",
+    duplicateConsultationConfirm:
+      "توجد كشفية مسجلة لهذا المريض اليوم (قد تكون من وصفة الطبيب). هل تريد تسجيل كشفية إضافية؟",
     needsOnline:
       "تسجيل الكشفية يحتاج اتصالاً — الطابور والمواعيد تعمل أوفلاين",
     selectPatient: "اختر المريض من نتائج البحث",
@@ -1186,6 +1188,7 @@ export const ar = {
     noDailyActivity: "لا يوجد نشاط يومي في هذه الفترة",
     chartTooltip: "{date}\nإيراد: {income}\nمصروف: {expense}",
     settingsSaved: "تم حفظ أسعار الكشفية",
+    invalidFeeValue: "أدخل قيماً صحيحة (صفر أو أكثر) لجميع الأسعار قبل الحفظ",
     txUpdated: "تم تحديث الحركة",
     txCreated: "تم تسجيل الحركة",
     txDeleted: "تم حذف الحركة",

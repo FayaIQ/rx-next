@@ -149,6 +149,7 @@ export type FinanceTransactionDto = {
   doctorId: number;
   patientId: number | null;
   appointmentId: number | null;
+  prescriptionId: number | null;
   type: "income" | "expense";
   category: string;
   amount: number;
@@ -774,6 +775,8 @@ export const rxApi = {
     },
     listTransactions: (params?: {
       type?: "income" | "expense";
+      category?: string;
+      patientId?: number;
       from?: string;
       to?: string;
       page?: number;
@@ -781,6 +784,8 @@ export const rxApi = {
     }) => {
       const sp = new URLSearchParams();
       if (params?.type) sp.set("type", params.type);
+      if (params?.category) sp.set("category", params.category);
+      if (params?.patientId) sp.set("patientId", String(params.patientId));
       if (params?.from) sp.set("from", params.from);
       if (params?.to) sp.set("to", params.to);
       if (params?.page) sp.set("page", String(params.page));

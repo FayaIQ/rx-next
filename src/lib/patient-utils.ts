@@ -213,7 +213,7 @@ export function formatPrescriptionDate(value: string | Date): string {
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-/** Validate and normalize Syrian / Iraqi patient phone. Empty input is allowed. */
+/** Validate and normalize Iraqi patient phone. Empty input is allowed. */
 export function parsePatientPhoneInput(raw: string): {
   normalized: string | null;
   error: string | null;
@@ -233,11 +233,6 @@ export function parsePatientPhoneInput(raw: string): {
   const iraqiLocal = digits.replace(/^964/, "").replace(/^0+/, "");
   if (/^7\d{9}$/.test(iraqiLocal)) {
     return { normalized: `+964${iraqiLocal}`, error: null };
-  }
-
-  const syrianLocal = digits.replace(/^963/, "").replace(/^0+/, "");
-  if (/^9\d{8}$/.test(syrianLocal)) {
-    return { normalized: `+963${syrianLocal}`, error: null };
   }
 
   return {

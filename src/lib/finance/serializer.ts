@@ -31,6 +31,7 @@ export function serializeFinanceTransaction(row: TransactionRow) {
     doctorId: fromDbId(row.doctorId),
     patientId: row.patientId ? fromDbId(row.patientId) : null,
     appointmentId: row.appointmentId ? fromDbId(row.appointmentId) : null,
+    prescriptionId: row.prescriptionId ? fromDbId(row.prescriptionId) : null,
     type: row.type as "income" | "expense",
     category: row.category,
     amount: decimalToNumber(row.amount),

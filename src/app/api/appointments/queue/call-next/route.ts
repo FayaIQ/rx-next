@@ -27,7 +27,7 @@ export async function POST(request: Request) {
         ? null
         : "لا يوجد مرضى في الانتظار",
     });
-  } catch {
-    return apiServerError();
+  } catch (error) {
+    return apiServerError(undefined, error);
   }
 }

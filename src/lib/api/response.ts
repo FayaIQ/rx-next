@@ -25,6 +25,9 @@ export function apiNotFound(message = "غير موجود") {
   return apiError(message, 404);
 }
 
-export function apiServerError(message = "خطأ في الخادم") {
+export function apiServerError(message = "خطأ في الخادم", error?: unknown) {
+  if (error !== undefined) {
+    console.error("[api] server error:", error);
+  }
   return apiError(message, 500);
 }

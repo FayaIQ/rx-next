@@ -131,6 +131,31 @@ export function ConsultationRecordForm({
     }
   }
 
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+
+  // A prescription written by the doctor already books its own consultation
+  // income; warn before recording a second one for the same patient today.
+  async function confirmNoDuplicateConsultation(): Promise<boolean> {
+    if (category !== "consultation" || !selectedPatient) return true;
+    try {
+      const today = todayKey();
+      const res = await rxApi.finances.listTransactions({
+        type: "income",
+        category: "consultation",
+        patientId: selectedPatient.id,
+        from: today,
+        to: today,
+        pageSize: 1,
+      });
+      if (res.transactions.length > 0) {
+        return window.confirm(t("secretary.duplicateConsultationConfirm"));
+      }
+    } catch {
+      // If the check fails, don't block recording.
+    }
+    return true;
+  }
+
   const saveMutation = useMutation({
     mutationFn: () =>
       rxApi.finances.createTransaction({
@@ -172,7 +197,12 @@ export function ConsultationRecordForm({
           toast.error(t("secretary.enterAmount"));
           return;
         }
-        saveMutation.mutate();
+        setCheckingDuplicate(true);
+        void confirmNoDuplicateConsultation()
+          .then((ok) => {
+            if (ok) saveMutation.mutate();
+          })
+          .finally(() => setCheckingDuplicate(false));
       }}
     >
       <div className="space-y-2">
@@ -310,9 +340,9 @@ export function ConsultationRecordForm({
       <Button
         type="submit"
         className="w-full"
-        disabled={saveMutation.isPending}
+        disabled={saveMutation.isPending || checkingDuplicate}
       >
-        {saveMutation.isPending ? (
+        {saveMutation.isPending || checkingDuplicate ? (
           t("secretary.recording")
         ) : (
           <>

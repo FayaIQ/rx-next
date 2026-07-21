@@ -225,6 +225,7 @@ model Prescription {
   diagnosis             String?
   consultationFee       Decimal                  @default(0) @map("consultation_fee") @db.Decimal(12, 2)
   consultationFeeWaived Boolean                  @default(false) @map("consultation_fee_waived")
+  clientRequestId       String?                  @unique(map: "prescriptions_client_request_id_key") @map("client_request_id") @db.VarChar(64)
   xrayImage             String?                  @map("xray_image") @db.VarChar(255)
   analysisImage         String?                  @map("analysis_image") @db.VarChar(255)
   additionalInfo        Json?                    @map("additional_info")

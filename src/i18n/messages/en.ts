@@ -432,6 +432,8 @@ export const en: MessageCatalog = {
     genericError: "Something went wrong",
     submitConsultation: "Record consultation",
     consultationSaved: "Consultation recorded",
+    duplicateConsultationConfirm:
+      "A consultation is already recorded for this patient today (possibly from the doctor's prescription). Record another one?",
     needsOnline:
       "Recording a consultation requires a connection — queue and appointments work offline",
     selectPatient: "Select a patient from the search results",
@@ -1207,6 +1209,7 @@ export const en: MessageCatalog = {
     noDailyActivity: "No daily activity in this period",
     chartTooltip: "{date}\nIncome: {income}\nExpense: {expense}",
     settingsSaved: "Consultation fees saved",
+    invalidFeeValue: "Enter valid values (zero or more) for all fees before saving",
     txUpdated: "Transaction updated",
     txCreated: "Transaction recorded",
     txDeleted: "Transaction deleted",

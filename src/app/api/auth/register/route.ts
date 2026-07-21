@@ -42,6 +42,6 @@ export async function POST(request: Request) {
     if (error instanceof Error) {
       return apiError(error.message);
     }
-    return apiServerError();
+    return apiServerError(undefined, error);
   }
 }

@@ -45,6 +45,6 @@ export async function PUT(request: Request) {
     if (error instanceof z.ZodError) {
       return apiError(error.issues[0]?.message ?? "بيانات غير صالحة");
     }
-    return apiServerError();
+    return apiServerError(undefined, error);
   }
 }

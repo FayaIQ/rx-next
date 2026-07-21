@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return apiError(error.issues[0]?.message ?? "بيانات غير صالحة");
     }
-    return apiServerError();
+    return apiServerError(undefined, error);
   }
 }
 
@@ -227,7 +227,9 @@ async function processSyncItem(
   if (item.entity === "prescription") {
     if (item.action === "create") {
       const data = prescriptionSchema.parse(item.payload);
-      const rx = await createPrescription(doctorId, data);
+      const rx = await createPrescription(doctorId, data, {
+        clientRequestId: item.localId,
+      });
       await Promise.all([
         upsertMedicinePresets(doctorId, data.items),
         upsertMedicinesFromPrescription(doctorId, data.items),

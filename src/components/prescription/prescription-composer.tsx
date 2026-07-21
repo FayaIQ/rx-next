@@ -394,7 +394,8 @@ export function PrescriptionComposer() {
         patientId,
         prescriptionDate: new Date(prescriptionDate).toISOString(),
         diagnosis: diagnosis || null,
-        consultationFee,
+        // The fee itself is snapshotted server-side from clinic settings at
+        // creation time; the client only controls the waived flag.
         consultationFeeWaived,
         items: savedItems,
         fieldValues: Object.entries(fieldValues)

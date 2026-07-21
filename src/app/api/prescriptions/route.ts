@@ -89,6 +89,6 @@ export async function POST(request: Request) {
       return apiError(error.issues[0]?.message ?? "بيانات غير صالحة");
     }
     if (error instanceof Error) return apiError(error.message);
-    return apiServerError();
+    return apiServerError(undefined, error);
   }
 }

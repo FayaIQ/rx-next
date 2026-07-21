@@ -73,7 +73,7 @@ export async function PUT(request: Request, { params }: Params) {
       return apiError(error.issues[0]?.message ?? "بيانات غير صالحة");
     }
     if (error instanceof Error) return apiError(error.message);
-    return apiServerError();
+    return apiServerError(undefined, error);
   }
 }
 

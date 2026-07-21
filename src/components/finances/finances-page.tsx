@@ -187,6 +187,7 @@ export function FinancesPage({ title, subtitle }: Props) {
   const [breakdownTab, setBreakdownTab] = useState<"income" | "expense">(
     "income"
   );
+  const [exporting, setExporting] = useState(false);
 
   const presets = useMemo(
     () =>
@@ -365,8 +366,45 @@ export function FinancesPage({ title, subtitle }: Props) {
     });
   }
 
-  function exportCsv() {
-    const rows = filteredTransactions;
+  async function exportCsv() {
+    setExporting(true);
+    let rows: FinanceTransactionDto[] = [];
+    try {
+      // Fetch the whole period, not just the currently visible page.
+      let fetchPage = 1;
+      for (;;) {
+        const res = await rxApi.finances.listTransactions({
+          type: filterType === "all" ? undefined : filterType,
+          from: periodFrom,
+          to: periodTo,
+          page: fetchPage,
+          pageSize: 100,
+        });
+        rows.push(...res.transactions);
+        if (fetchPage >= (res.pagination?.totalPages ?? 1)) break;
+        fetchPage += 1;
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+      setExporting(false);
+      return;
+    }
+    setExporting(false);
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((tx) => {
+        const hay = [
+          categoryLabel(t, tx.category),
+          tx.description ?? "",
+          tx.patient?.name ?? "",
+          methodLabel(t, tx.paymentMethod),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      });
+    }
     if (rows.length === 0) {
       toast.error(t("finances.exportEmpty"));
       return;
@@ -430,7 +468,12 @@ export function FinancesPage({ title, subtitle }: Props) {
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={exportCsv}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={exporting}
+              onClick={() => void exportCsv()}
+            >
               <Download size={14} />
               {t("finances.exportCsv")}
             </Button>
@@ -728,14 +771,28 @@ export function FinancesPage({ title, subtitle }: Props) {
               <Button
                 size="sm"
                 disabled={saveSettingsMutation.isPending}
-                onClick={() =>
+                onClick={() => {
+                  const fees = {
+                    consultationFee: Number(feeForm.consultationFee),
+                    followUpFee: Number(feeForm.followUpFee),
+                    procedureFee: Number(feeForm.procedureFee),
+                  };
+                  // Empty or invalid input must not silently save as 0.
+                  const invalid = Object.values(fees).some(
+                    (v) => !Number.isFinite(v) || v < 0
+                  );
+                  if (
+                    invalid ||
+                    Object.values(feeForm).some((v) => v.trim() === "")
+                  ) {
+                    toast.error(t("finances.invalidFeeValue"));
+                    return;
+                  }
                   saveSettingsMutation.mutate({
-                    consultationFee: Number(feeForm.consultationFee) || 0,
-                    followUpFee: Number(feeForm.followUpFee) || 0,
-                    procedureFee: Number(feeForm.procedureFee) || 0,
+                    ...fees,
                     currency: settings?.currency ?? "IQD",
-                  })
-                }
+                  });
+                }}
               >
                 <Save size={14} />
                 {saveSettingsMutation.isPending

@@ -19,7 +19,7 @@ export async function POST(_request: Request, { params }: Params) {
 
     if (!appointment) return apiNotFound("الموعد غير موجود أو لا يمكن التقدّم");
     return apiOk({ appointment: serializeAppointment(appointment) });
-  } catch {
-    return apiServerError();
+  } catch (error) {
+    return apiServerError(undefined, error);
   }
 }

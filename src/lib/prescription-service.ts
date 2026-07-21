@@ -26,9 +26,20 @@ const emptyMed = {
 
 export async function createPrescription(
   doctorId: number,
-  data: PrescriptionInput
+  data: PrescriptionInput,
+  options?: { clientRequestId?: string }
 ) {
   const doctorDbId = toDbId(doctorId);
+
+  // Idempotency: replayed offline-sync requests must not create duplicates.
+  if (options?.clientRequestId) {
+    const replayed = await prisma.prescription.findFirst({
+      where: { clientRequestId: options.clientRequestId, doctorId: doctorDbId },
+      include: { items: true, fieldValues: true, patient: true },
+    });
+    if (replayed) return replayed;
+  }
+
   const [patient, prescriptionNumber] = await Promise.all([
     prisma.patient.findFirst({
       where: { id: toDbId(data.patientId), doctorId: doctorDbId },
@@ -52,9 +63,14 @@ export async function createPrescription(
       create: { doctorId: doctorDbId },
       select: { consultationFee: true },
     });
-    const consultationFee = consultationFeeWaived
-      ? 0
-      : (data.consultationFee ?? Number(financeSettings.consultationFee));
+    // Snapshot the fee at creation time. Clinic settings are authoritative;
+    // a client-sent zero (e.g. settings not loaded yet) must not undercharge,
+    // and waiving keeps the snapshot so un-waiving can restore the amount.
+    const clientFee = Number(data.consultationFee);
+    const consultationFee =
+      Number.isFinite(clientFee) && clientFee > 0
+        ? clientFee
+        : Number(financeSettings.consultationFee);
 
     const created = await tx.prescription.create({
       data: {
@@ -64,6 +80,7 @@ export async function createPrescription(
         diagnosis: data.diagnosis ?? null,
         consultationFee,
         consultationFeeWaived,
+        clientRequestId: options?.clientRequestId ?? null,
         additionalInfo: (data.additionalInfo ?? undefined) as
           | Prisma.InputJsonValue
           | undefined,
@@ -99,7 +116,7 @@ export async function createPrescription(
         prescriptionId: created.id,
         type: "income",
         category: "consultation",
-        amount: consultationFee,
+        amount: consultationFeeWaived ? 0 : consultationFee,
         paymentMethod: "cash",
         description: `وصفة #${prescriptionNumber}`,
         transactionDate: prescriptionDate,
@@ -147,9 +164,11 @@ export async function updatePrescription(
   const result = await prisma.$transaction(async (tx) => {
     const consultationFeeWaived =
       data.consultationFeeWaived ?? existing.consultationFeeWaived;
-    const consultationFee = consultationFeeWaived
-      ? 0
-      : (data.consultationFee ?? Number(existing.consultationFee));
+    const waivedChanged =
+      consultationFeeWaived !== existing.consultationFeeWaived;
+    // The fee snapshot never changes after creation — waiving only zeroes
+    // the ledger amount, so un-waiving can restore the original fee.
+    const feeSnapshot = Number(existing.consultationFee);
 
     await tx.prescription.update({
       where: { id: rxDbId },
@@ -157,7 +176,6 @@ export async function updatePrescription(
         patientId: toDbId(data.patientId),
         prescriptionDate: new Date(data.prescriptionDate),
         diagnosis: data.diagnosis ?? null,
-        consultationFee,
         consultationFeeWaived,
         additionalInfo: (data.additionalInfo ?? undefined) as
           | Prisma.InputJsonValue
@@ -165,26 +183,25 @@ export async function updatePrescription(
       },
     });
 
-    await tx.financeTransaction.upsert({
+    // Only touch the linked ledger row if it still exists (staff may have
+    // deleted it intentionally; old prescriptions never had one). Manual
+    // amount edits are preserved unless the waived flag was toggled.
+    const linkedTx = await tx.financeTransaction.findUnique({
       where: { prescriptionId: rxDbId },
-      update: {
-        patientId: toDbId(data.patientId),
-        amount: consultationFee,
-        transactionDate: new Date(data.prescriptionDate),
-      },
-      create: {
-        doctorId: doctorDbId,
-        patientId: toDbId(data.patientId),
-        prescriptionId: rxDbId,
-        type: "income",
-        category: "consultation",
-        amount: consultationFee,
-        paymentMethod: "cash",
-        description: `وصفة #${existing.prescriptionNumber ?? prescriptionId}`,
-        transactionDate: new Date(data.prescriptionDate),
-        createdById: doctorDbId,
-      },
+      select: { id: true },
     });
+    if (linkedTx) {
+      await tx.financeTransaction.update({
+        where: { prescriptionId: rxDbId },
+        data: {
+          patientId: toDbId(data.patientId),
+          transactionDate: new Date(data.prescriptionDate),
+          ...(waivedChanged
+            ? { amount: consultationFeeWaived ? 0 : feeSnapshot }
+            : {}),
+        },
+      });
+    }
 
     for (const item of toDelete) {
       await tx.prescriptionItem.delete({ where: { id: item.id } });
