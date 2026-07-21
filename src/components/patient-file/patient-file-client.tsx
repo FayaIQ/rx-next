@@ -27,6 +27,8 @@ import {
   buildWhatsAppShareUrl,
 } from "@/lib/portal/whatsapp-share";
 import { cn } from "@/lib/utils";
+import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
+import { tToothStatus, tTreatmentType } from "@/lib/i18n-labels";
 
 type TabId =
   | "overview"
@@ -38,15 +40,15 @@ type TabId =
   | "images"
   | "finance";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "overview", label: "نظرة عامة" },
-  { id: "prescriptions", label: "الوصفات" },
-  { id: "appointments", label: "المواعيد" },
-  { id: "dental", label: "الطبلة" },
-  { id: "treatment", label: "خطط العلاج" },
-  { id: "visits", label: "سجل الزيارات" },
-  { id: "images", label: "صور الأسنان" },
-  { id: "finance", label: "المالية" },
+const TAB_DEFS: { id: TabId; labelKey: string }[] = [
+  { id: "overview", labelKey: "patientFile.tabOverview" },
+  { id: "prescriptions", labelKey: "patientFile.tabPrescriptions" },
+  { id: "appointments", labelKey: "patientFile.tabAppointments" },
+  { id: "dental", labelKey: "patientFile.tabDental" },
+  { id: "treatment", labelKey: "patientFile.tabTreatment" },
+  { id: "visits", labelKey: "patientFile.tabVisits" },
+  { id: "images", labelKey: "patientFile.tabImages" },
+  { id: "finance", labelKey: "patientFile.tabFinance" },
 ];
 
 type PatientFile = {
@@ -116,6 +118,8 @@ type PatientFile = {
 };
 
 export function PatientFileClient({ patientId }: { patientId: number }) {
+  const { t, locale } = useLocale();
+  const dateLocale = locale === "ar" ? "ar-IQ" : "en-GB";
   const [tab, setTab] = useState<TabId>("overview");
   const queryClient = useQueryClient();
 
@@ -124,7 +128,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
     queryFn: async () => {
       const res = await fetch(`/api/patients/${patientId}/file`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "فشل تحميل ملف المريض");
+      if (!res.ok) throw new Error(json.error ?? t("patientFile.loadFailed"));
       return json as PatientFile;
     },
     retry: 1,
@@ -143,7 +147,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["patient-file", patientId] });
-      toast.success("تمت إضافة الزيارة");
+      toast.success(t("patientFile.visitAdded"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -155,19 +159,19 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
   if (isError || !data) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-        <p className="font-semibold">تعذّر تحميل ملف المريض</p>
+        <p className="font-semibold">{t("patientFile.loadErrorTitle")}</p>
         <p className="mt-1 text-red-800">
-          {error instanceof Error ? error.message : "حدث خطأ غير متوقع"}
+          {error instanceof Error ? error.message : t("patientFile.unexpectedError")}
         </p>
         <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>
-          إعادة المحاولة
+          {t("patientFile.retry")}
         </Button>
       </div>
     );
   }
 
   const recordedTeeth =
-    data.dentalChart?.teeth.filter((t) => t.status !== "healthy" || t.notes) ?? [];
+    data.dentalChart?.teeth.filter((tooth) => tooth.status !== "healthy" || tooth.notes) ?? [];
 
   return (
     <div className="space-y-4">
@@ -175,37 +179,37 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
         <Button size="sm" asChild>
           <Link href={`/home?patientId=${patientId}`}>
             <FileText size={14} />
-            وصفة جديدة
+            {t("patientFile.newPrescription")}
           </Link>
         </Button>
         <Button size="sm" variant="outline" asChild>
           <Link href={`/dental/${patientId}`}>
             <Smile size={14} />
-            طبلة الأسنان
+            {t("patientFile.dentalChart")}
           </Link>
         </Button>
         <Button size="sm" variant="outline" asChild>
           <Link href={`/print/patients/${patientId}/summary`} target="_blank">
             <Printer size={14} />
-            طباعة الملخص
+            {t("patientFile.printSummary")}
           </Link>
         </Button>
       </div>
 
       <div className="flex gap-1 overflow-x-auto border-b border-rx-border pb-1 [scrollbar-width:none]">
-        {TABS.map((t) => (
+        {TAB_DEFS.map((item) => (
           <button
-            key={t.id}
+            key={item.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => setTab(item.id)}
             className={cn(
               "shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-              tab === t.id
+              tab === item.id
                 ? "bg-slate-900 text-white"
                 : "text-slate-600 hover:bg-slate-100"
             )}
           >
-            {t.label}
+            {t(item.labelKey)}
           </button>
         ))}
       </div>
@@ -214,11 +218,11 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">التايم لاين</CardTitle>
+              <CardTitle className="text-base">{t("patientFile.timeline")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {data.timeline.length === 0 ? (
-                <p className="text-sm text-rx-muted">لا يوجد نشاط مسجّل بعد.</p>
+                <p className="text-sm text-rx-muted">{t("patientFile.noActivity")}</p>
               ) : (
                 data.timeline.slice(0, 15).map((item) => (
                   <div
@@ -237,42 +241,42 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">ملخص سريع</CardTitle>
+              <CardTitle className="text-base">{t("patientFile.quickSummary")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p>
-                <span className="text-rx-muted">الهاتف: </span>
+                <span className="text-rx-muted">{t("patientFile.phone")} </span>
                 {data.patient.phone ?? "—"}
               </p>
               <p>
-                <span className="text-rx-muted">التشخيص: </span>
+                <span className="text-rx-muted">{t("patientFile.diagnosis")} </span>
                 {data.patient.diagnosis ?? "—"}
               </p>
               {data.patient.allergies?.trim() ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-amber-950">
-                  <span className="font-semibold">حساسية: </span>
+                  <span className="font-semibold">{t("patientFile.allergies")} </span>
                   {data.patient.allergies}
                 </p>
               ) : null}
               {data.patient.currentMedications?.trim() ? (
                 <p>
-                  <span className="text-rx-muted">أدوية حالية: </span>
+                  <span className="text-rx-muted">{t("patientFile.currentMeds")} </span>
                   {data.patient.currentMedications}
                 </p>
               ) : null}
               <p>
-                <span className="text-rx-muted">وصفات: </span>
+                <span className="text-rx-muted">{t("patientFile.prescriptionsCount")} </span>
                 {data.prescriptions.length}
               </p>
               <p>
-                <span className="text-rx-muted">خطط علاج: </span>
+                <span className="text-rx-muted">{t("patientFile.treatmentPlansCount")} </span>
                 {data.treatmentPlans.length}
               </p>
               <p>
-                <span className="text-rx-muted">أسنان مسجّلة: </span>
+                <span className="text-rx-muted">{t("patientFile.recordedTeeth")} </span>
                 {recordedTeeth.length}
               </p>
-              <PatientPortalSection patientId={patientId} data={data} />
+              <PatientPortalSection patientId={patientId} data={data} t={t} />
             </CardContent>
           </Card>
         </div>
@@ -281,23 +285,25 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
       {tab === "prescriptions" ? (
         <div className="space-y-3">
           {data.prescriptions.length === 0 ? (
-            <EmptyState icon={FileText} title="لا توجد وصفات" />
+            <EmptyState icon={FileText} title={t("patientFile.noPrescriptions")} />
           ) : (
             data.prescriptions.map((rx) => (
               <Card key={rx.id}>
                 <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4">
                   <div>
                     <p className="font-semibold">
-                      وصفة #{rx.prescriptionNumber} —{" "}
-                      {rx.prescriptionDate
-                        ? new Date(rx.prescriptionDate).toLocaleDateString("ar-SY")
-                        : ""}
+                      {t("patientFile.prescriptionNum", {
+                        number: rx.prescriptionNumber ?? "",
+                        date: rx.prescriptionDate
+                          ? new Date(rx.prescriptionDate).toLocaleDateString(dateLocale)
+                          : "",
+                      })}
                     </p>
                     <p className="text-sm text-rx-muted">{rx.diagnosis}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" asChild>
-                      <Link href={`/home?id=${rx.id}`}>فتح</Link>
+                      <Link href={`/home?id=${rx.id}`}>{t("patientFile.open")}</Link>
                     </Button>
                   </div>
                 </CardContent>
@@ -316,7 +322,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
             >
               <div>
                 <p className="font-medium">
-                  {new Date(a.appointmentDatetime).toLocaleString("ar-SY")}
+                  {new Date(a.appointmentDatetime).toLocaleString(dateLocale)}
                 </p>
                 <p className="text-xs text-rx-muted">{a.notes}</p>
               </div>
@@ -326,7 +332,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
           <Button size="sm" variant="outline" asChild>
             <Link href="/dates">
               <Calendar size={14} />
-              فتح المواعيد
+              {t("patientFile.openAppointments")}
             </Link>
           </Button>
         </div>
@@ -335,21 +341,26 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
       {tab === "dental" ? (
         <div className="space-y-3">
           <Button size="sm" asChild>
-            <Link href={`/dental/${patientId}`}>فتح الطبلة التفاعلية</Link>
+            <Link href={`/dental/${patientId}`}>
+              {t("patientFile.openInteractiveChart")}
+            </Link>
           </Button>
           <Button size="sm" variant="outline" asChild>
             <Link href={`/print/patients/${patientId}/dental`} target="_blank">
-              طباعة الطبلة
+              {t("patientFile.printChart")}
             </Link>
           </Button>
           {recordedTeeth.length === 0 ? (
-            <p className="text-sm text-rx-muted">لا توجد حالات مسجّلة على الأسنان.</p>
+            <p className="text-sm text-rx-muted">{t("patientFile.noToothCases")}</p>
           ) : (
             <ul className="space-y-1 text-sm">
-              {recordedTeeth.map((t) => (
-                <li key={t.toothFdi} className="rounded border px-2 py-1">
-                  <strong>السن {t.toothFdi}</strong> — {t.statusLabel}
-                  {t.notes ? ` · ${t.notes}` : ""}
+              {recordedTeeth.map((tooth) => (
+                <li key={tooth.toothFdi} className="rounded border px-2 py-1">
+                  <strong>
+                    {t("patientFile.toothLine", { fdi: tooth.toothFdi })}
+                  </strong>{" "}
+                  — {tToothStatus(t, tooth.status)}
+                  {tooth.notes ? ` · ${tooth.notes}` : ""}
                 </li>
               ))}
             </ul>
@@ -360,25 +371,32 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
       {tab === "treatment" ? (
         <div className="space-y-3">
           {data.treatmentPlans.length === 0 ? (
-            <p className="text-sm text-rx-muted">لا توجد خطط علاج.</p>
+            <p className="text-sm text-rx-muted">{t("patientFile.noTreatmentPlans")}</p>
           ) : (
             data.treatmentPlans.map((plan) => (
               <Card key={plan.id}>
                 <CardContent className="p-4 text-sm">
                   <p className="font-semibold">
-                    سن {plan.toothFdi} — {plan.treatmentType} ({plan.status})
+                    {t("patientFile.planLine", {
+                      fdi: plan.toothFdi,
+                      type: tTreatmentType(t, plan.treatmentType),
+                      status: plan.status,
+                    })}
                   </p>
                   <ul className="mt-2 space-y-1 text-xs text-slate-600">
                     {(plan.sessions ?? []).map((s) => (
                       <li key={s.sessionNumber}>
-                        جلسة {s.sessionNumber}: {s.status}
+                        {t("patientFile.sessionLine", {
+                          number: s.sessionNumber,
+                          status: s.status,
+                        })}
                         {s.scheduledDate ? ` · ${s.scheduledDate}` : ""}
                       </li>
                     ))}
                   </ul>
                   <Button size="sm" variant="ghost" className="mt-2 h-auto p-0" asChild>
                     <Link href={`/dental/${patientId}?tooth=${plan.toothFdi}`}>
-                      فتح في الطبلة
+                      {t("patientFile.openInChart")}
                     </Link>
                   </Button>
                 </CardContent>
@@ -393,20 +411,21 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
           visits={data.visits}
           onAdd={(body) => addVisitMutation.mutate(body)}
           isPending={addVisitMutation.isPending}
+          t={t}
         />
       ) : null}
 
       {tab === "images" ? (
         <div className="space-y-4">
           <ToothImageCompare images={data.toothImages} />
-          <ToothImagesSection patientId={patientId} images={data.toothImages} />
+          <ToothImagesSection patientId={patientId} images={data.toothImages} t={t} />
         </div>
       ) : null}
 
       {tab === "finance" ? (
         <div className="space-y-2">
           {data.finance.length === 0 ? (
-            <p className="text-sm text-rx-muted">لا توجد حركات مالية.</p>
+            <p className="text-sm text-rx-muted">{t("patientFile.noFinance")}</p>
           ) : (
             data.finance.map((f) => (
               <div
@@ -425,7 +444,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
           <Button size="sm" variant="outline" asChild>
             <Link href="/finances">
               <Wallet size={14} />
-              المالية
+              {t("patientFile.finances")}
             </Link>
           </Button>
         </div>
@@ -437,9 +456,11 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
 function PatientPortalSection({
   patientId,
   data,
+  t,
 }: {
   patientId: number;
   data: PatientFile;
+  t: TranslateFn;
 }) {
   const queryClient = useQueryClient();
   const [instructions, setInstructions] = useState(
@@ -458,7 +479,7 @@ function PatientPortalSection({
     },
     onSuccess: (url) => {
       setPortalUrl(`${window.location.origin}${url}`);
-      toast.success("تم إنشاء رابط البوابة");
+      toast.success(t("patientFile.portalCreated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -485,7 +506,7 @@ function PatientPortalSection({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["patient-file", patientId] });
-      toast.success("تم حفظ تعليمات البوابة");
+      toast.success(t("patientFile.portalInstructionsSaved"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -510,25 +531,27 @@ function PatientPortalSection({
       );
       const waUrl = buildWhatsAppShareUrl(data.patient.phone, message);
       if (!waUrl) {
-        throw new Error("أضف رقم هاتف صالحاً للمريض أولاً");
+        throw new Error(t("patientFile.needValidPhone"));
       }
       return waUrl;
     },
     onSuccess: (waUrl) => {
       window.open(waUrl, "_blank", "noopener,noreferrer");
-      toast.success("تم فتح واتساب");
+      toast.success(t("patientFile.whatsappOpened"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   return (
     <div className="mt-3 space-y-2 border-t border-rx-border pt-3">
-      <p className="text-xs font-semibold text-slate-700">بوابة المريض</p>
+      <p className="text-xs font-semibold text-slate-700">
+        {t("patientFile.patientPortal")}
+      </p>
       <Textarea
         rows={2}
         value={instructions}
         onChange={(e) => setInstructions(e.target.value)}
-        placeholder="تعليمات ما بعد العلاج تظهر للمريض في الرابط"
+        placeholder={t("patientFile.portalInstructionsPh")}
         className="text-xs"
       />
       <div className="flex flex-wrap gap-2">
@@ -538,7 +561,7 @@ function PatientPortalSection({
           disabled={saveInstructionsMutation.isPending}
           onClick={() => saveInstructionsMutation.mutate()}
         >
-          حفظ التعليمات
+          {t("patientFile.saveInstructions")}
         </Button>
         <Button
           size="sm"
@@ -546,7 +569,7 @@ function PatientPortalSection({
           disabled={tokenMutation.isPending}
           onClick={() => tokenMutation.mutate()}
         >
-          إنشاء رابط البوابة
+          {t("patientFile.createPortalLink")}
         </Button>
         <Button
           size="sm"
@@ -555,7 +578,7 @@ function PatientPortalSection({
           onClick={() => shareMutation.mutate()}
         >
           <Share2 size={14} />
-          مشاركة مع المريض
+          {t("patientFile.shareWithPatient")}
         </Button>
         {portalUrl ? (
           <div className="w-full flex flex-wrap items-start gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -563,9 +586,7 @@ function PatientPortalSection({
               <QRCode value={portalUrl} size={120} />
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <p className="text-xs text-slate-600">
-                امسح الرمز لفتح بوابة المريض على الجوال
-              </p>
+              <p className="text-xs text-slate-600">{t("patientFile.scanQr")}</p>
               <p className="break-all text-xs text-slate-500" dir="ltr">
                 {portalUrl}
               </p>
@@ -576,10 +597,10 @@ function PatientPortalSection({
                   className="w-fit"
                   onClick={() => {
                     void navigator.clipboard.writeText(portalUrl);
-                    toast.success("تم نسخ الرابط");
+                    toast.success(t("patientFile.linkCopied"));
                   }}
                 >
-                  نسخ الرابط
+                  {t("patientFile.copyLink")}
                 </Button>
                 <Button
                   size="sm"
@@ -589,7 +610,7 @@ function PatientPortalSection({
                   onClick={() => shareMutation.mutate()}
                 >
                   <Share2 size={14} />
-                  واتساب
+                  {t("patientFile.whatsapp")}
                 </Button>
               </div>
             </div>
@@ -604,10 +625,12 @@ function VisitLogSection({
   visits,
   onAdd,
   isPending,
+  t,
 }: {
   visits: PatientFile["visits"];
   onAdd: (body: { visitDate: string; summary: string; notes: string }) => void;
   isPending: boolean;
+  t: TranslateFn;
 }) {
   const [visitDate, setVisitDate] = useState(
     new Date().toISOString().slice(0, 10)
@@ -618,32 +641,41 @@ function VisitLogSection({
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-rx-border p-3 space-y-2">
-        <p className="text-sm font-semibold">إضافة زيارة يدوية</p>
+        <p className="text-sm font-semibold">{t("patientFile.addManualVisit")}</p>
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
-            <Label className="text-xs">التاريخ</Label>
+            <Label className="text-xs">{t("patientFile.date")}</Label>
             <Input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
           </div>
           <div>
-            <Label className="text-xs">الملخص</Label>
-            <Input value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="مثال: مراجعة" />
+            <Label className="text-xs">{t("patientFile.summary")}</Label>
+            <Input
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              placeholder={t("patientFile.summaryPh")}
+            />
           </div>
         </div>
-        <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات الزيارة" />
+        <Textarea
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder={t("patientFile.visitNotesPh")}
+        />
         <Button
           size="sm"
           disabled={isPending}
           onClick={() => onAdd({ visitDate, summary, notes })}
         >
           <Stethoscope size={14} />
-          حفظ الزيارة
+          {t("patientFile.saveVisit")}
         </Button>
       </div>
       <div className="space-y-2">
         {visits.map((v) => (
           <div key={v.id} className="rounded-lg border px-3 py-2 text-sm">
             <p className="font-semibold">
-              {v.visitDate} — {v.summary ?? "زيارة"}
+              {v.visitDate} — {v.summary ?? t("patientFile.visitFallback")}
             </p>
             {v.notes ? <p className="text-xs text-slate-600">{v.notes}</p> : null}
           </div>
@@ -656,9 +688,11 @@ function VisitLogSection({
 function ToothImagesSection({
   patientId,
   images,
+  t,
 }: {
   patientId: number;
   images: PatientFile["toothImages"];
+  t: TranslateFn;
 }) {
   const queryClient = useQueryClient();
   const [toothFdi, setToothFdi] = useState("11");
@@ -680,7 +714,7 @@ function ToothImagesSection({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["patient-file", patientId] });
-      toast.success("تم رفع الصورة");
+      toast.success(t("patientFile.imageUploaded"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -689,18 +723,18 @@ function ToothImagesSection({
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
         <div>
-          <Label className="text-xs">السن (FDI)</Label>
+          <Label className="text-xs">{t("patientFile.toothFdi")}</Label>
           <Input className="w-20" value={toothFdi} onChange={(e) => setToothFdi(e.target.value)} />
         </div>
         <div>
-          <Label className="text-xs">النوع</Label>
+          <Label className="text-xs">{t("patientFile.type")}</Label>
           <select
             className="h-10 rounded-md border px-2 text-sm"
             value={imageType}
             onChange={(e) => setImageType(e.target.value as "photo" | "xray")}
           >
-            <option value="photo">صورة</option>
-            <option value="xray">أشعة</option>
+            <option value="photo">{t("patientFile.photo")}</option>
+            <option value="xray">{t("patientFile.xray")}</option>
           </select>
         </div>
         <label className="cursor-pointer">
@@ -715,16 +749,23 @@ function ToothImagesSection({
           />
           <span className="inline-flex h-10 items-center gap-1 rounded-md bg-slate-900 px-3 text-sm text-white">
             <ImagePlus size={14} />
-            رفع
+            {t("patientFile.upload")}
           </span>
         </label>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {images.map((img) => (
           <div key={img.id} className="overflow-hidden rounded-lg border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={img.imageUrl} alt="" className="aspect-square w-full object-cover" />
             <p className="p-2 text-xs">
-              سن {img.toothFdi} · {img.imageType === "xray" ? "أشعة" : "صورة"}
+              {t("patientFile.toothImageMeta", {
+                fdi: img.toothFdi,
+                type:
+                  img.imageType === "xray"
+                    ? t("patientFile.xray")
+                    : t("patientFile.photo"),
+              })}
             </p>
           </div>
         ))}

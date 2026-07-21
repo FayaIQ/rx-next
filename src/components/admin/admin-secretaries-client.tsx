@@ -17,8 +17,10 @@ import { PageContent, PageHeader } from "@/components/ui/page-shell";
 import { Pagination } from "@/components/ui/pagination";
 import { usePaginationState } from "@/hooks/use-pagination-state";
 import { adminApi } from "@/lib/api/admin-client";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function AdminSecretariesClient() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -51,7 +53,7 @@ export function AdminSecretariesClient() {
       queryClient.invalidateQueries({ queryKey: ["admin-secretaries"] });
       setShowForm(false);
       setForm({ name: "", phone: "", password: "", doctorId: "" });
-      toast.success("تم إضافة السكرتير");
+      toast.success(t("admin.secretaryAdded"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -59,6 +61,7 @@ export function AdminSecretariesClient() {
   const secretaries = data?.secretaries ?? [];
   const pagination = data?.pagination;
   const doctors = doctorsData?.doctors ?? [];
+  const total = pagination?.total ?? secretaries.length;
 
   if (isLoading && !data) {
     return <CardsPageLoading />;
@@ -67,17 +70,17 @@ export function AdminSecretariesClient() {
   return (
     <>
       <AppHeader
-        title="السكرتارية"
-        subtitle={`${pagination?.total ?? secretaries.length} سكرتير`}
+        title={t("admin.secretariesTitle")}
+        subtitle={t("admin.secretaryCount", { count: total })}
       />
       <PageContent className="space-y-6">
         <PageHeader
-          title="إدارة السكرتارية"
-          description="ربط السكرتير بالطبيب وتتبع حالة التفعيل"
+          title={t("admin.manageSecretaries")}
+          description={t("admin.manageSecretariesDesc")}
           actions={
             <Button onClick={() => setShowForm(!showForm)}>
               <Plus size={16} />
-              سكرتير جديد
+              {t("admin.newSecretary")}
             </Button>
           }
         />
@@ -85,25 +88,25 @@ export function AdminSecretariesClient() {
         {showForm && (
           <Card>
             <CardHeader>
-              <CardTitle>إضافة سكرتير</CardTitle>
+              <CardTitle>{t("admin.addSecretary")}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <Label>الاسم</Label>
+                <Label>{t("admin.name")}</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 />
               </div>
               <div className="space-y-1">
-                <Label>الهاتف</Label>
+                <Label>{t("admin.phone")}</Label>
                 <Input
                   value={form.phone}
                   onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 />
               </div>
               <div className="space-y-1">
-                <Label>كلمة المرور</Label>
+                <Label>{t("admin.password")}</Label>
                 <Input
                   type="password"
                   value={form.password}
@@ -113,7 +116,7 @@ export function AdminSecretariesClient() {
                 />
               </div>
               <div className="space-y-1">
-                <Label>الطبيب</Label>
+                <Label>{t("admin.doctor")}</Label>
                 <select
                   className="h-11 w-full rounded-xl border border-rx-border bg-rx-surface px-3 text-sm focus:border-rx-primary focus:outline-none focus:ring-2 focus:ring-rx-primary/20"
                   value={form.doctorId}
@@ -121,7 +124,7 @@ export function AdminSecretariesClient() {
                     setForm((f) => ({ ...f, doctorId: e.target.value }))
                   }
                 >
-                  <option value="">— اختر طبيب —</option>
+                  <option value="">{t("admin.chooseDoctor")}</option>
                   {doctors.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.name}
@@ -134,10 +137,10 @@ export function AdminSecretariesClient() {
                   onClick={() => createMutation.mutate()}
                   disabled={createMutation.isPending || !form.doctorId}
                 >
-                  حفظ
+                  {t("common.save")}
                 </Button>
                 <Button variant="outline" onClick={() => setShowForm(false)}>
-                  إلغاء
+                  {t("common.cancel")}
                 </Button>
               </div>
             </CardContent>
@@ -155,8 +158,8 @@ export function AdminSecretariesClient() {
             ) : secretaries.length === 0 ? (
               <EmptyState
                 icon={UserCog}
-                title="لا يوجد سكرتارية"
-                description="أضف سكرتيراً واربطه بطبيب"
+                title={t("admin.noSecretaries")}
+                description={t("admin.noSecretariesDesc")}
               />
             ) : (
               secretaries.map((s) => (
@@ -169,13 +172,15 @@ export function AdminSecretariesClient() {
                     {s.phoneNumber}
                   </p>
                   <p className="text-sm text-rx-text-secondary">
-                    طبيب: {s.doctorName ?? "—"}
+                    {t("admin.doctorLabel", { name: s.doctorName ?? "—" })}
                   </p>
                   <Badge
                     variant={s.isConfirmed ? "success" : "warning"}
                     className="mt-2"
                   >
-                    {s.isConfirmed ? "مفعّل" : "بانتظار التفعيل"}
+                    {s.isConfirmed
+                      ? t("admin.confirmed")
+                      : t("admin.pendingActivation")}
                   </Badge>
                 </div>
               ))

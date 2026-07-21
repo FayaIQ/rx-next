@@ -4,10 +4,12 @@ import { Wifi, WifiOff, RefreshCw, CloudOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useSyncStore } from "@/stores/sync-store";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function ConnectionStatus() {
   const { online, syncing, hydrating, pendingCount, hydrated, subscriptionBlocked } =
     useSyncStore();
+  const { t } = useLocale();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -26,26 +28,26 @@ export function ConnectionStatus() {
   const busy = syncing || hydrating;
   const offlineReady = !online && hydrated;
 
-  let label = "متصل";
+  let label = t("sync.online");
   let icon = <Wifi size={13} />;
   let className = "bg-cyan-50 text-cyan-700";
 
   if (subscriptionBlocked) {
-    label = "انتهى الاشتراك";
+    label = t("sync.subscriptionEnded");
     icon = <CloudOff size={13} />;
     className = "bg-orange-50 text-orange-800";
   } else if (busy) {
-    label = hydrating ? "تحميل" : "مزامنة";
+    label = hydrating ? t("sync.loading") : t("sync.syncing");
     icon = <RefreshCw size={13} className="animate-spin" />;
     className = "bg-sky-50 text-sky-700";
   } else if (!online) {
-    label = offlineReady ? "أوفلاين" : "بدون نت";
+    label = offlineReady ? t("sync.offline") : t("sync.noNet");
     icon = offlineReady ? <CloudOff size={13} /> : <WifiOff size={13} />;
     className = offlineReady
       ? "bg-amber-50 text-amber-800"
       : "bg-red-50 text-red-700";
   } else if (pendingCount > 0) {
-    label = `${pendingCount} معلّق`;
+    label = t("common.pending", { count: pendingCount });
     className = "bg-amber-50 text-amber-800";
   }
 
@@ -55,22 +57,10 @@ export function ConnectionStatus() {
         "flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium",
         className
       )}
-      title={
-        subscriptionBlocked
-          ? "انتهى الاشتراك — البيانات المحلية متاحة بدون مزامنة"
-          : !online
-          ? offlineReady
-            ? "وضع أوفلاين — البيانات المحلية جاهزة"
-            : "لا يوجد اتصال"
-          : busy
-            ? "جاري مزامنة البيانات"
-            : pendingCount > 0
-              ? "تغييرات بانتظار الرفع للسيرفر"
-              : "متصل ومزامَن"
-      }
+      title={subscriptionBlocked ? t("sync.subscriptionHint") : label}
     >
       {icon}
-      <span className="hidden sm:inline">{label}</span>
+      <span>{label}</span>
     </div>
   );
 }

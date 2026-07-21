@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { Smile, Search } from "lucide-react";
+import { Smile } from "lucide-react";
 import { useState } from "react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,10 @@ import { PageContent, PageHeader } from "@/components/ui/page-shell";
 import { fetchPatientsPaginated } from "@/lib/data/offline-api";
 import { usePaginationState } from "@/hooks/use-pagination-state";
 import { Pagination } from "@/components/ui/pagination";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function DentalHubPage() {
+  const { t } = useLocale();
   const [q, setQ] = useState("");
   const { page, pageSize, onPageChange, onPageSizeChange } =
     usePaginationState(q);
@@ -30,19 +32,19 @@ export function DentalHubPage() {
   return (
     <>
       <AppHeader
-        title="طبلة مريض الأسنان"
-        subtitle="فحص وتسجيل حالة كل سن على نموذج ثلاثي الأبعاد"
+        title={t("dental.hubTitle")}
+        subtitle={t("dental.hubSubtitle")}
       />
       <PageContent>
         <PageHeader
-          title="اختر مريضاً"
-          description="افتح طبلة الأسنان لتسجيل حالات الأسنان العلوية والسفلية (نظام FDI)"
+          title={t("dental.selectPatient")}
+          description={t("dental.selectPatientDesc")}
         />
 
         <SearchInput
           value={q}
           onChange={setQ}
-          placeholder="بحث بالاسم أو الهاتف..."
+          placeholder={t("dental.searchPlaceholder")}
           className="mb-6 max-w-md"
         />
 
@@ -55,11 +57,11 @@ export function DentalHubPage() {
         ) : patients.length === 0 ? (
           <EmptyState
             icon={Smile}
-            title="لا يوجد مرضى"
-            description="أضف مريضاً من صفحة المرضى أولاً"
+            title={t("dental.noPatients")}
+            description={t("dental.noPatientsDesc")}
             action={
               <Button asChild>
-                <Link href="/patients">المرضى</Link>
+                <Link href="/patients">{t("dental.patientsLink")}</Link>
               </Button>
             }
           />
@@ -72,13 +74,13 @@ export function DentalHubPage() {
                     <div>
                       <p className="font-semibold text-rx-text">{patient.name}</p>
                       <p className="text-xs text-rx-muted">
-                        {patient.age} · {patient.phone ?? "بدون هاتف"}
+                        {patient.age} · {patient.phone ?? t("dental.noPhone")}
                       </p>
                     </div>
                     <Button asChild size="sm">
                       <Link href={`/dental/${patient.id}`}>
                         <Smile size={14} />
-                        فتح الطبلة
+                        {t("dental.openChart")}
                       </Link>
                     </Button>
                   </CardContent>

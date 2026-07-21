@@ -13,7 +13,7 @@ export const financeSettingsSchema = z.object({
   consultationFee: z.coerce.number().min(0, "السعر لا يمكن أن يكون سالباً"),
   followUpFee: z.coerce.number().min(0, "السعر لا يمكن أن يكون سالباً"),
   procedureFee: z.coerce.number().min(0, "السعر لا يمكن أن يكون سالباً"),
-  currency: z.string().min(1).default("SYP"),
+  currency: z.string().min(1).default("IQD"),
 });
 
 export const financeTransactionSchema = z

@@ -141,7 +141,11 @@ export function buildOptimisticPatient(body: {
   };
 }
 
-export function genderLabel(gender: "male" | "female"): string {
+export function genderLabel(
+  gender: "male" | "female",
+  locale: "ar" | "en" = "ar"
+): string {
+  if (locale === "en") return gender === "male" ? "Male" : "Female";
   return gender === "male" ? "ذكر" : "أنثى";
 }
 
@@ -166,7 +170,14 @@ export function countVisitsFromDates(
   return days.size;
 }
 
-export function visitCountLabel(count: number): string {
+export function visitCountLabel(
+  count: number,
+  locale: "ar" | "en" = "ar"
+): string {
+  if (locale === "en") {
+    if (count === 1) return "1 visit";
+    return `${count} visits`;
+  }
   if (count === 1) return "زيارة واحدة";
   if (count === 2) return "زيارتان";
   return `${count} زيارات`;
@@ -178,11 +189,14 @@ export function toDateInputValue(date: Date | string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function formatPrescriptionDateTime(value: string): string {
+export function formatPrescriptionDateTime(
+  value: string,
+  locale: "ar" | "en" = "ar"
+): string {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("ar-SY", {
+  return d.toLocaleString(locale === "en" ? "en-GB" : "ar-IQ", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -228,7 +242,7 @@ export function parsePatientPhoneInput(raw: string): {
 
   return {
     normalized: null,
-    error: "رقم الهاتف غير صالح — مثال: 09xxxxxxxx أو 07xxxxxxxxx",
+    error: "رقم الهاتف غير صالح — مثال: 07xxxxxxxxx",
   };
 }
 

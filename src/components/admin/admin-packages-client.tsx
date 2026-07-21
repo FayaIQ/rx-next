@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FormPageLoading } from "@/components/ui/page-loading";
 import { PageContent, PageHeader } from "@/components/ui/page-shell";
 import { adminApi, type AdminPackageDto } from "@/lib/api/admin-client";
+import { useLocale } from "@/i18n/locale-provider";
 
 const emptyPkg = {
   name: "",
@@ -29,6 +30,7 @@ const emptyPkg = {
 };
 
 export function AdminPackagesClient() {
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<AdminPackageDto | null>(null);
@@ -49,12 +51,13 @@ export function AdminPackagesClient() {
       setShowForm(false);
       setEditing(null);
       setForm(emptyPkg);
-      toast.success(editing ? "تم التحديث" : "تمت الإضافة");
+      toast.success(editing ? t("admin.updated") : t("admin.added"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const packages = data?.packages ?? [];
+  const numberLocale = locale === "en" ? "en-GB" : "ar-IQ";
 
   if (isLoading && !data) {
     return <FormPageLoading />;
@@ -77,11 +80,14 @@ export function AdminPackagesClient() {
 
   return (
     <>
-      <AppHeader title="الباقات" subtitle={`${packages.length} باقة`} />
+      <AppHeader
+        title={t("admin.packagesTitle")}
+        subtitle={t("admin.packageCount", { count: packages.length })}
+      />
       <PageContent className="space-y-6">
         <PageHeader
-          title="إدارة الباقات"
-          description="إنشاء وتعديل باقات الاشتراك"
+          title={t("admin.managePackages")}
+          description={t("admin.managePackagesDesc")}
           actions={
             <Button
               onClick={() => {
@@ -91,7 +97,7 @@ export function AdminPackagesClient() {
               }}
             >
               <Plus size={16} />
-              باقة جديدة
+              {t("admin.newPackage")}
             </Button>
           }
         />
@@ -99,18 +105,20 @@ export function AdminPackagesClient() {
         {showForm && (
           <Card>
             <CardHeader>
-              <CardTitle>{editing ? "تعديل باقة" : "باقة جديدة"}</CardTitle>
+              <CardTitle>
+                {editing ? t("admin.editPackage") : t("admin.newPackage")}
+              </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1 sm:col-span-2">
-                <Label>الاسم</Label>
+                <Label>{t("admin.name")}</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 />
               </div>
               <div className="space-y-1">
-                <Label>السعر (ل.س)</Label>
+                <Label>{t("admin.priceSyp")}</Label>
                 <Input
                   type="number"
                   value={form.price}
@@ -120,7 +128,7 @@ export function AdminPackagesClient() {
                 />
               </div>
               <div className="space-y-1">
-                <Label>المدة</Label>
+                <Label>{t("admin.duration")}</Label>
                 <div className="flex gap-2">
                   <Input
                     type="number"
@@ -140,13 +148,13 @@ export function AdminPackagesClient() {
                       }))
                     }
                   >
-                    <option value="days">يوم</option>
-                    <option value="months">شهر</option>
+                    <option value="days">{t("admin.day")}</option>
+                    <option value="months">{t("admin.month")}</option>
                   </select>
                 </div>
               </div>
               <div className="space-y-1 sm:col-span-2">
-                <Label>الوصف</Label>
+                <Label>{t("admin.description")}</Label>
                 <Textarea
                   rows={2}
                   value={form.description}
@@ -163,7 +171,7 @@ export function AdminPackagesClient() {
                     setForm((f) => ({ ...f, isTrial: e.target.checked }))
                   }
                 />
-                باقة تجريبية
+                {t("admin.trialPackage")}
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -173,14 +181,14 @@ export function AdminPackagesClient() {
                     setForm((f) => ({ ...f, isActive: e.target.checked }))
                   }
                 />
-                نشطة
+                {t("admin.activeLabel")}
               </label>
               <div className="flex gap-2 sm:col-span-2">
                 <Button
                   onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending}
                 >
-                  حفظ
+                  {t("common.save")}
                 </Button>
                 <Button
                   variant="outline"
@@ -189,7 +197,7 @@ export function AdminPackagesClient() {
                     setEditing(null);
                   }}
                 >
-                  إلغاء
+                  {t("common.cancel")}
                 </Button>
               </div>
             </CardContent>
@@ -207,8 +215,8 @@ export function AdminPackagesClient() {
             <div className="col-span-full">
               <EmptyState
                 icon={Package}
-                title="لا توجد باقات"
-                description="أنشئ أول باقة اشتراك"
+                title={t("admin.noPackages")}
+                description={t("admin.noPackagesDesc")}
               />
             </div>
           ) : (
@@ -226,17 +234,21 @@ export function AdminPackagesClient() {
                     </Button>
                   </div>
                   <p className="mt-2 text-2xl font-bold text-rx-primary">
-                    {pkg.price.toLocaleString("ar-SY")} ل.س
+                    {pkg.price.toLocaleString(numberLocale)} {t("admin.currencySyp")}
                   </p>
                   <p className="mt-1 text-sm text-rx-muted">
                     {pkg.duration}{" "}
-                    {pkg.durationUnit === "days" ? "يوم" : "شهر"}
+                    {pkg.durationUnit === "days" ? t("admin.day") : t("admin.month")}
                   </p>
                   <p className="mt-2 text-sm">{pkg.description}</p>
                   <div className="mt-3 flex gap-2">
-                    {pkg.isTrial && <Badge variant="default">تجريبية</Badge>}
+                    {pkg.isTrial && (
+                      <Badge variant="default">{t("admin.trialBadge")}</Badge>
+                    )}
                     <Badge variant={pkg.isActive ? "success" : "secondary"}>
-                      {pkg.isActive ? "نشطة" : "معطّلة"}
+                      {pkg.isActive
+                        ? t("admin.activeLabel")
+                        : t("admin.inactiveLabel")}
                     </Badge>
                   </div>
                 </CardContent>

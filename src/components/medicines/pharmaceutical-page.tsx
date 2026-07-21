@@ -32,18 +32,39 @@ import {
 import { fetchMedicinesPaginated } from "@/lib/data/offline-api";
 import { rxApi, type MedicineDto } from "@/lib/api/rx-client";
 import { cn } from "@/lib/utils";
+import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
 
-function MedicineMeta({ medicine }: { medicine: MedicineDto }) {
+function MedicineMeta({
+  medicine,
+  t,
+}: {
+  medicine: MedicineDto;
+  t: TranslateFn;
+}) {
   const items = [
-    medicine.type && { label: "النوع", value: medicine.type },
-    medicine.dosage && { label: "الجرعة", value: medicine.dosage },
-    medicine.quantity && { label: "الكمية", value: medicine.quantity },
-    medicine.period && { label: "المدة", value: medicine.period },
-    medicine.timeOfUse && { label: "الاستخدام", value: medicine.timeOfUse },
+    medicine.type && { label: t("medicines.metaType"), value: medicine.type },
+    medicine.dosage && {
+      label: t("medicines.metaDosage"),
+      value: medicine.dosage,
+    },
+    medicine.quantity && {
+      label: t("medicines.metaQuantity"),
+      value: medicine.quantity,
+    },
+    medicine.period && {
+      label: t("medicines.metaPeriod"),
+      value: medicine.period,
+    },
+    medicine.timeOfUse && {
+      label: t("medicines.metaTimeOfUse"),
+      value: medicine.timeOfUse,
+    },
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   if (items.length === 0) {
-    return <p className="text-xs text-rx-muted">لا توجد تفاصيل إضافية</p>;
+    return (
+      <p className="text-xs text-rx-muted">{t("medicines.noExtraDetails")}</p>
+    );
   }
 
   return (
@@ -63,11 +84,13 @@ function MedicineRow({
   onEdit,
   onDelete,
   deletePending,
+  t,
 }: {
   medicine: MedicineDto;
   onEdit: (m: MedicineDto) => void;
   onDelete: (id: number) => void;
   deletePending: boolean;
+  t: TranslateFn;
 }) {
   return (
     <div className="flex flex-col gap-3 p-4 transition-colors hover:bg-rx-bg-subtle/50 sm:flex-row sm:items-start sm:justify-between sm:p-5">
@@ -79,7 +102,7 @@ function MedicineRow({
           <div className="min-w-0">
             <p className="font-semibold text-rx-text">{medicine.name}</p>
             <div className="mt-2">
-              <MedicineMeta medicine={medicine} />
+              <MedicineMeta medicine={medicine} t={t} />
             </div>
           </div>
         </div>
@@ -92,7 +115,7 @@ function MedicineRow({
           onClick={() => onEdit(medicine)}
         >
           <Pencil size={14} />
-          تعديل
+          {t("medicines.edit")}
         </Button>
         <Button
           variant="outline"
@@ -100,13 +123,15 @@ function MedicineRow({
           className="flex-1 text-rx-danger hover:bg-red-50 hover:text-rx-danger sm:flex-none"
           disabled={deletePending}
           onClick={() => {
-            if (confirm(`حذف «${medicine.name}» من المكتبة؟`)) {
+            if (
+              confirm(t("medicines.deleteConfirm", { name: medicine.name }))
+            ) {
               onDelete(medicine.id);
             }
           }}
         >
           <Trash2 size={14} />
-          حذف
+          {t("medicines.delete")}
         </Button>
       </div>
     </div>
@@ -114,6 +139,7 @@ function MedicineRow({
 }
 
 export function PharmaceuticalPageClient() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<MedicineDto | null>(null);
@@ -150,7 +176,9 @@ export function PharmaceuticalPageClient() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medicines"] });
-      toast.success(editing ? "تم تحديث الدواء" : "تمت إضافة الدواء");
+      toast.success(
+        editing ? t("medicines.updated") : t("medicines.added")
+      );
       closeForm();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -160,7 +188,7 @@ export function PharmaceuticalPageClient() {
     mutationFn: (id: number) => rxApi.medicines.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medicines"] });
-      toast.success("تم حذف الدواء");
+      toast.success(t("medicines.deleted"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -172,7 +200,7 @@ export function PharmaceuticalPageClient() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["medicines"] });
-      toast.success(`تم استيراد ${data.added} دواء`);
+      toast.success(t("medicines.imported", { count: data.added }));
       setCatalogOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -214,9 +242,9 @@ export function PharmaceuticalPageClient() {
   const total = pagination?.total ?? medicines.length;
 
   const subtitle = useMemo(() => {
-    if (q.trim()) return `${total} نتيجة للبحث`;
-    return `${total} دواء في المكتبة`;
-  }, [q, total]);
+    if (q.trim()) return t("medicines.searchCount", { count: total });
+    return t("medicines.libraryCount", { count: total });
+  }, [q, total, t]);
 
   if (isLoading && !data) {
     return <TablePageLoading />;
@@ -224,7 +252,7 @@ export function PharmaceuticalPageClient() {
 
   return (
     <>
-      <AppHeader title="مكتبة الأدوية" subtitle={subtitle} />
+      <AppHeader title={t("medicines.title")} subtitle={subtitle} />
 
       <PageContent className="space-y-4">
         <Card className="overflow-hidden">
@@ -233,7 +261,7 @@ export function PharmaceuticalPageClient() {
               <SearchInput
                 value={q}
                 onChange={setQ}
-                placeholder="ابحث بالاسم..."
+                placeholder={t("medicines.searchPlaceholder")}
                 className="w-full sm:max-w-md sm:flex-1"
               />
               <div className="flex flex-wrap gap-2">
@@ -246,7 +274,7 @@ export function PharmaceuticalPageClient() {
                     aria-expanded={catalogOpen}
                   >
                     <Package size={15} />
-                    استيراد كتالوج
+                    {t("medicines.importCatalog")}
                     <ChevronDown
                       size={14}
                       className={cn(
@@ -258,7 +286,7 @@ export function PharmaceuticalPageClient() {
                 )}
                 <Button size="sm" onClick={openCreateForm}>
                   <Plus size={15} />
-                  دواء جديد
+                  {t("medicines.newMedicine")}
                 </Button>
               </div>
             </div>
@@ -266,7 +294,7 @@ export function PharmaceuticalPageClient() {
             {catalogOpen && hasCatalog && (
               <div className="rounded-xl border border-rx-border bg-rx-surface p-3">
                 <p className="mb-2 text-xs text-rx-muted">
-                  اختر فئة لإضافة أدوية جاهزة إلى مكتبتك
+                  {t("medicines.catalogHint")}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {categories.map((cat) => (
@@ -302,22 +330,29 @@ export function PharmaceuticalPageClient() {
             {medicines.length === 0 ? (
               <EmptyState
                 icon={Pill}
-                title={q.trim() ? "لا توجد نتائج" : "مكتبتك فارغة"}
+                title={
+                  q.trim()
+                    ? t("medicines.emptySearchTitle")
+                    : t("medicines.emptyLibraryTitle")
+                }
                 description={
                   q.trim()
-                    ? "جرّب كلمة بحث أخرى أو أضف دواءً جديداً"
-                    : "أضف أدوية يدوياً أو استورد من الكتالوج الجاهز"
+                    ? t("medicines.emptySearchDesc")
+                    : t("medicines.emptyLibraryDesc")
                 }
                 action={
                   <div className="flex flex-wrap justify-center gap-2">
                     <Button onClick={openCreateForm}>
                       <Plus size={16} />
-                      إضافة دواء
+                      {t("medicines.addMedicine")}
                     </Button>
                     {hasCatalog && (
-                      <Button variant="outline" onClick={() => setCatalogOpen(true)}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setCatalogOpen(true)}
+                      >
                         <Download size={16} />
-                        استيراد كتالوج
+                        {t("medicines.importCatalog")}
                       </Button>
                     )}
                   </div>
@@ -333,6 +368,7 @@ export function PharmaceuticalPageClient() {
                       onEdit={openEditForm}
                       onDelete={(id) => deleteMutation.mutate(id)}
                       deletePending={deleteMutation.isPending}
+                      t={t}
                     />
                   ))}
                 </div>
@@ -360,14 +396,16 @@ export function PharmaceuticalPageClient() {
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-rx-border/80 pb-3">
               <CardTitle className="text-base">
-                {editing ? "تعديل دواء" : "إضافة دواء جديد"}
+                {editing
+                  ? t("medicines.editMedicine")
+                  : t("medicines.addNewMedicine")}
               </CardTitle>
               <Button
                 variant="ghost"
                 size="icon"
                 className="size-8"
                 onClick={closeForm}
-                aria-label="إغلاق"
+                aria-label={t("medicines.close")}
               >
                 <X size={16} />
               </Button>

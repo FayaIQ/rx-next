@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useLocale } from "@/i18n/locale-provider";
 import { CalendarClock, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CompleteSessionNoteDialog } from "@/components/treatment/complete-session-note-dialog";
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const day = todayDateKey();
   const [completingSession, setCompletingSession] =
@@ -46,7 +48,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
       });
       queryClient.invalidateQueries({ queryKey: ["treatment-plans"] });
       setCompletingSession(null);
-      toast.success("تم إتمام الجلسة");
+      toast.success(t("treatment.completed"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -59,7 +61,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
         <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
           <CalendarClock size={15} className="text-teal-700" />
           <span className="text-sm font-semibold text-slate-800">
-            جلسات اليوم
+            {t("treatment.todaySessions")}
           </span>
           <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-bold text-teal-800">
             {sessions.length}
@@ -81,7 +83,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
                   {session.patientName}
                 </p>
                 <p className="truncate text-xs text-slate-500">
-                  {session.treatmentLabel} · سن {session.toothFdi} · جلسة{" "}
+                  {session.treatmentLabel} · {t("treatment.tooth")} {session.toothFdi} · {t("treatment.session")}{" "}
                   {session.sessionNumber}
                   {session.totalSessions ? `/${session.totalSessions}` : ""}
                 </p>
@@ -92,7 +94,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
                 variant="ghost"
                 className="h-8 w-8 shrink-0 p-0 text-slate-500"
                 asChild
-                title="فتح الطبلة"
+                title={t("treatment.openChart")}
               >
                 <Link
                   href={`/dental/${session.patientId}?tooth=${session.toothFdi}`}
@@ -107,7 +109,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
                 disabled={completeMutation.isPending}
                 onClick={() => setCompletingSession(session)}
               >
-                إتمام
+                {t("treatment.complete")}
               </Button>
             </li>
           ))}
@@ -118,12 +120,12 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
         open={completingSession !== null}
         title={
           completingSession
-            ? `إتمام جلسة — ${completingSession.patientName}`
+            ? t("treatment.completeSession", { name: completingSession.patientName })
             : ""
         }
         subtitle={
           completingSession
-            ? `${completingSession.treatmentLabel} · سن ${completingSession.toothFdi} · جلسة ${completingSession.sessionNumber}${completingSession.totalSessions ? `/${completingSession.totalSessions}` : ""}`
+            ? `${completingSession.treatmentLabel} · ${t("treatment.tooth")} ${completingSession.toothFdi} · ${t("treatment.session")} ${completingSession.sessionNumber}${completingSession.totalSessions ? `/${completingSession.totalSessions}` : ""}`
             : undefined
         }
         isPending={completeMutation.isPending}

@@ -71,9 +71,6 @@ export default auth((req) => {
 
   if (!session?.user) {
     if (isPublicPath(pathname) || pathname === "/") {
-      if (pathname === "/") {
-        return NextResponse.redirect(new URL("/auth/signin", req.url));
-      }
       return nextWithPathname(req);
     }
     // Never redirect API callers to the HTML sign-in page — that breaks

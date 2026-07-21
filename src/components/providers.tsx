@@ -6,8 +6,27 @@ import { Toaster } from "sonner";
 import { useState } from "react";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { DevServiceWorkerCleanup } from "@/components/pwa/dev-sw-cleanup";
-import { LocaleProvider } from "@/i18n/locale-provider";
+import { LocaleProvider, useLocale } from "@/i18n/locale-provider";
 import { SyncProvider } from "@/components/sync/sync-provider";
+
+function AppToaster() {
+  const { dir } = useLocale();
+  return (
+    <Toaster
+      position="top-center"
+      dir={dir}
+      toastOptions={{
+        className: "rounded-xl shadow-lg",
+        style: {
+          background: "#0f172a",
+          color: "#f8fafc",
+          border: "1px solid #334155",
+          fontFamily: "var(--font-ibm-arabic)",
+        },
+      }}
+    />
+  );
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -27,23 +46,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <LocaleProvider>
         <QueryClientProvider client={queryClient}>
           <DevServiceWorkerCleanup />
-          <SyncProvider>
-            {children}
-          </SyncProvider>
+          <SyncProvider>{children}</SyncProvider>
           <InstallPrompt />
-        <Toaster
-          position="top-center"
-          dir="rtl"
-          toastOptions={{
-            className: "rounded-xl shadow-lg",
-            style: {
-              background: "#0f172a",
-              color: "#f8fafc",
-              border: "1px solid #334155",
-              fontFamily: "var(--font-tajawal)",
-            },
-          }}
-        />
+          <AppToaster />
         </QueryClientProvider>
       </LocaleProvider>
     </SessionProvider>

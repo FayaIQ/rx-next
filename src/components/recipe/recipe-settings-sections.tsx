@@ -16,6 +16,7 @@ import {
 } from "@/components/recipe/template-picker";
 import type { RecipeTemplateId } from "@/lib/recipe-templates";
 import { CorePatientFieldsTable } from "@/components/settings/core-patient-fields-settings";
+import { useLocale } from "@/i18n/locale-provider";
 
 const selectClassName =
   "h-11 w-full rounded-xl border border-rx-border bg-rx-surface px-3 text-sm focus:border-rx-primary focus:outline-none focus:ring-2 focus:ring-rx-primary/20";
@@ -36,6 +37,7 @@ function ImageUploadField({
   onFile: (file: File) => void;
   disabled?: boolean;
 }) {
+  const { t } = useLocale();
   const preview = path ? resolveImageUrl(path) : null;
 
   return (
@@ -56,7 +58,7 @@ function ImageUploadField({
         )}
         <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-rx-border bg-white px-3 py-2 text-sm font-medium text-rx-text shadow-sm transition-colors hover:bg-rx-bg-subtle">
           <Upload size={14} />
-          {preview ? "تغيير الصورة" : "رفع صورة"}
+          {preview ? t("recipe.changeImage") : t("recipe.uploadImage")}
           <input
             type="file"
             accept="image/*"
@@ -81,40 +83,41 @@ export function DoctorInfoSection({
   form: RecipeSettingsDto;
   onPatch: PatchFn;
 }) {
+  const { t } = useLocale();
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">بيانات الطبيب والعيادة</CardTitle>
+        <CardTitle className="text-base">{t("recipe.doctorClinicData")}</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3">
         <div className="space-y-1.5">
-          <Label>اسم الطبيب</Label>
+          <Label>{t("recipe.doctorName")}</Label>
           <Input
             value={form.doctorName}
             onChange={(e) => onPatch("doctorName", e.target.value)}
-            placeholder="د. أحمد محمد"
+            placeholder={t("recipe.doctorNamePh")}
           />
         </div>
         <div className="space-y-1.5">
-          <Label>التخصص</Label>
+          <Label>{t("recipe.specialty")}</Label>
           <Input
             value={form.doctorSpecialty}
             onChange={(e) => onPatch("doctorSpecialty", e.target.value)}
-            placeholder="طب عام، أطفال..."
+            placeholder={t("recipe.specialtyPh")}
           />
         </div>
         <div className="space-y-1.5">
-          <Label>نص إضافي في الترويسة</Label>
+          <Label>{t("recipe.headerExtra")}</Label>
           <Textarea
             rows={2}
             value={form.additionalText1 ?? ""}
             onChange={(e) => onPatch("additionalText1", e.target.value || null)}
-            placeholder="عيادة النور — استشارات يومية"
+            placeholder={t("recipe.headerExtraPh")}
           />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>هاتف العيادة</Label>
+            <Label>{t("recipe.clinicPhone")}</Label>
             <Input
               dir="ltr"
               value={form.phoneNumber ?? ""}
@@ -122,7 +125,7 @@ export function DoctorInfoSection({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>البريد الإلكتروني</Label>
+            <Label>{t("recipe.email")}</Label>
             <Input
               type="email"
               dir="ltr"
@@ -132,11 +135,11 @@ export function DoctorInfoSection({
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label>العنوان</Label>
+          <Label>{t("recipe.address")}</Label>
           <Input
             value={form.address ?? ""}
             onChange={(e) => onPatch("address", e.target.value || null)}
-            placeholder="دمشق — المزة"
+            placeholder={t("recipe.addressPh")}
           />
         </div>
       </CardContent>
@@ -151,21 +154,22 @@ export function AppearanceSection({
   form: RecipeSettingsDto;
   onPatch: PatchFn;
 }) {
+  const { t } = useLocale();
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">الخط والألوان</CardTitle>
+        <CardTitle className="text-base">{t("recipe.fontsColors")}</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label>نوع الخط</Label>
+          <Label>{t("recipe.fontType")}</Label>
           <select
             className={selectClassName}
             value={form.fontFamily}
             onChange={(e) => onPatch("fontFamily", e.target.value)}
             style={{ fontFamily: fontFamilyCss(form.fontFamily) }}
           >
-            <optgroup label="خطوط عادية">
+            <optgroup label={t("recipe.fontsStandard")}>
               {RECIPE_FONT_OPTIONS.filter((f) => f.category === "standard").map(
                 (f) => (
                   <option
@@ -178,7 +182,7 @@ export function AppearanceSection({
                 )
               )}
             </optgroup>
-            <optgroup label="خطوط مزج / يدوية">
+            <optgroup label={t("recipe.fontsScript")}>
               {RECIPE_FONT_OPTIONS.filter((f) => f.category === "script").map(
                 (f) => (
                   <option
@@ -197,18 +201,18 @@ export function AppearanceSection({
             data-recipe-font-preview
             style={{ fontFamily: fontFamilyCss(form.fontFamily) }}
           >
-            معاينة الخط: وصفة طبية — أحمد محمد — Amoxicillin 500mg
+            {t("recipe.fontPreview")}
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label>حجم الخط (px)</Label>
+          <Label>{t("recipe.fontSize")}</Label>
           <Input
             value={form.fontSize}
             onChange={(e) => onPatch("fontSize", e.target.value)}
           />
         </div>
         <div className="space-y-1.5">
-          <Label>حجم الورق</Label>
+          <Label>{t("recipe.paperSize")}</Label>
           <select
             className={selectClassName}
             value={form.paperSize}
@@ -222,7 +226,7 @@ export function AppearanceSection({
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label>اللون الرئيسي</Label>
+          <Label>{t("recipe.mainColor")}</Label>
           <div className="flex items-center gap-2">
             <Input
               type="color"
@@ -240,7 +244,7 @@ export function AppearanceSection({
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label>
-            شفافية خلفية الصورة ({Math.round(form.opacity * 100)}%)
+            {t("recipe.opacity", { pct: Math.round(form.opacity * 100) })}
           </Label>
           <input
             type="range"
@@ -259,22 +263,25 @@ export function AppearanceSection({
 
 export function DesignTemplateSection({
   form,
+  onPatch,
   onTemplateSelect,
   onDesignModeChange,
   onUpload,
   uploadPending,
 }: {
   form: RecipeSettingsDto;
+  onPatch: PatchFn;
   onTemplateSelect: (id: RecipeTemplateId) => void;
   onDesignModeChange: (mode: "design" | "image") => void;
   onUpload: (kind: "logo" | "design", file: File) => void;
   uploadPending?: boolean;
 }) {
+  const { t } = useLocale();
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">نمط الخلفية</CardTitle>
+          <CardTitle className="text-base">{t("recipe.bgStyle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
@@ -286,7 +293,9 @@ export function DesignTemplateSection({
                 variant={form.designMode === mode ? "default" : "outline"}
                 onClick={() => onDesignModeChange(mode)}
               >
-                {mode === "design" ? "قوالب جاهزة" : "صورة خلفية مخصصة"}
+                {mode === "design"
+                  ? t("recipe.readyTemplates")
+                  : t("recipe.customBgImage")}
               </Button>
             ))}
           </div>
@@ -301,28 +310,45 @@ export function DesignTemplateSection({
               <RecipeTemplatePickerPreview settings={form} />
             </>
           ) : (
-            <p className="text-sm text-rx-muted">
-              ارفع صورة خلفية للوصفة واضبط الشفافية من تبويب المظهر. يمكنك سحب
-              الحقول في المعاينة لمواءمتها مع التصميم.
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm text-rx-muted">{t("recipe.imageModeHint")}</p>
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-rx-border bg-rx-bg-subtle/40 px-3 py-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 rounded border-rx-border"
+                  checked={form.printWithoutDesignImage}
+                  onChange={(e) =>
+                    onPatch("printWithoutDesignImage", e.target.checked)
+                  }
+                />
+                <span>
+                  <span className="font-medium text-rx-text">
+                    {t("recipe.printWithoutBg")}
+                  </span>
+                  <span className="mt-0.5 block text-rx-muted">
+                    {t("recipe.printWithoutBgHint")}
+                  </span>
+                </span>
+              </label>
+            </div>
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">الشعار والصور</CardTitle>
+          <CardTitle className="text-base">{t("recipe.logoImages")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <ImageUploadField
-            label="شعار العيادة"
+            label={t("recipe.clinicLogo")}
             path={form.logoPath}
             disabled={uploadPending}
             onFile={(file) => onUpload("logo", file)}
           />
           {form.designMode === "image" && (
             <ImageUploadField
-              label="صورة خلفية الوصفة"
+              label={t("recipe.prescriptionBg")}
               path={form.designImagePath}
               disabled={uploadPending}
               onFile={(file) => onUpload("design", file)}
@@ -341,16 +367,17 @@ export function PatientFieldsSection({
   form: RecipeSettingsDto;
   onPatch: PatchFn;
 }) {
+  const { t } = useLocale();
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">حقول المريض على الوصفة</CardTitle>
+        <CardTitle className="text-base">{t("recipe.patientFieldsOnRx")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-rx-muted">
-          اختر ما يظهر عند إضافة المريض وما يُطبع على الوصفة. لتحريك المواضع،
-          استخدم تبويب <strong className="text-rx-text">المعاينة</strong> واسحب
-          الصناديق على التصميم.
+          {t("recipe.patientFieldsHintBefore")}{" "}
+          <strong className="text-rx-text">{t("recipe.tabPreview")}</strong>{" "}
+          {t("recipe.patientFieldsHintAfter")}
         </p>
         <CorePatientFieldsTable
           settings={form}
@@ -364,7 +391,7 @@ export function PatientFieldsSection({
             checked={form.printDiagnosis}
             onChange={(e) => onPatch("printDiagnosis", e.target.checked)}
           />
-          طباعة التشخيص ضمن صندوق الأدوية
+          {t("recipe.printDiagnosisInBox")}
         </label>
       </CardContent>
     </Card>

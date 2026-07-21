@@ -7,7 +7,6 @@ import { Check, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { rxApi, type TreatmentPlanDto } from "@/lib/api/rx-client";
 import {
   fetchTreatmentPlansOfflineFirst,
@@ -22,11 +21,12 @@ import {
   TREATMENT_TYPES,
   defaultSessionsForType,
   todayDateKey,
-  treatmentTypeLabel,
   type TreatmentTypeId,
 } from "@/lib/treatment/constants";
 import { cn } from "@/lib/utils";
 import { CompleteSessionNoteDialog } from "@/components/treatment/complete-session-note-dialog";
+import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
+import { tTreatmentTemplate, tTreatmentType } from "@/lib/i18n-labels";
 
 type Props = {
   patientId: number;
@@ -34,6 +34,7 @@ type Props = {
 };
 
 export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [showNewPlan, setShowNewPlan] = useState(false);
   const [treatmentType, setTreatmentType] =
@@ -66,7 +67,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
 
   const createPlanMutation = useMutation({
     mutationFn: () => {
-      const template = TREATMENT_TEMPLATES.find((t) => t.id === selectedTemplate);
+      const template = TREATMENT_TEMPLATES.find((tpl) => tpl.id === selectedTemplate);
       const count =
         totalSessions || defaultSessionsForType(treatmentType);
       const sessions = template
@@ -86,7 +87,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
     onSuccess: () => {
       invalidate();
       setShowNewPlan(false);
-      toast.success("تم إنشاء خطة العلاج");
+      toast.success(t("dental.planCreated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -117,7 +118,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
     mutationFn: (planId: number) => rxApi.treatment.deletePlan(planId),
     onSuccess: () => {
       invalidate();
-      toast.success("تم حذف الخطة");
+      toast.success(t("dental.planDeleted"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -130,7 +131,9 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
   return (
     <div className="space-y-3 border-t border-rx-border pt-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-800">خطة العلاج</h3>
+        <h3 className="text-sm font-semibold text-slate-800">
+          {t("dental.planTitle")}
+        </h3>
         {!showNewPlan ? (
           <Button
             type="button"
@@ -143,7 +146,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
             }}
           >
             <Plus size={14} />
-            خطة جديدة
+            {t("dental.newPlan")}
           </Button>
         ) : null}
       </div>
@@ -151,43 +154,43 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
       {showNewPlan ? (
         <div className="space-y-3 rounded-lg border border-teal-200 bg-teal-50/40 p-3">
           <div className="space-y-1">
-            <Label className="text-xs">قالب جاهز</Label>
+            <Label className="text-xs">{t("dental.readyTemplate")}</Label>
             <select
               className="h-9 w-full rounded-md border border-rx-border bg-white px-3 text-sm"
               value={selectedTemplate}
               onChange={(e) => {
                 const id = e.target.value;
                 setSelectedTemplate(id);
-                const tpl = TREATMENT_TEMPLATES.find((t) => t.id === id);
+                const tpl = TREATMENT_TEMPLATES.find((item) => item.id === id);
                 if (tpl) {
                   setTreatmentType(tpl.treatmentType);
                   setTotalSessions(tpl.totalSessions);
                 }
               }}
             >
-              {TREATMENT_TEMPLATES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
+              {TREATMENT_TEMPLATES.map((tpl) => (
+                <option key={tpl.id} value={tpl.id}>
+                  {tTreatmentTemplate(t, tpl.id)}
                 </option>
               ))}
             </select>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label className="text-xs">نوع العلاج</Label>
+              <Label className="text-xs">{t("dental.treatmentType")}</Label>
               <div className="relative">
                 <select
                   className="h-9 w-full appearance-none rounded-md border border-rx-border bg-white px-3 text-sm"
                   value={treatmentType}
                   onChange={(e) => {
-                    const t = e.target.value as TreatmentTypeId;
-                    setTreatmentType(t);
-                    setTotalSessions(defaultSessionsForType(t));
+                    const next = e.target.value as TreatmentTypeId;
+                    setTreatmentType(next);
+                    setTotalSessions(defaultSessionsForType(next));
                   }}
                 >
-                  {TREATMENT_TYPES.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.label}
+                  {TREATMENT_TYPES.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {tTreatmentType(t, type.id)}
                     </option>
                   ))}
                 </select>
@@ -198,7 +201,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">عدد الجلسات</Label>
+              <Label className="text-xs">{t("dental.sessionCount")}</Label>
               <Input
                 type="number"
                 min={1}
@@ -218,7 +221,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
               onClick={() => createPlanMutation.mutate()}
               disabled={isBusy}
             >
-              إنشاء
+              {t("dental.create")}
             </Button>
             <Button
               type="button"
@@ -226,7 +229,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
               variant="ghost"
               onClick={() => setShowNewPlan(false)}
             >
-              إلغاء
+              {t("common.cancel")}
             </Button>
           </div>
         </div>
@@ -235,9 +238,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
       {isLoading ? (
         <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
       ) : plans.length === 0 ? (
-        <p className="text-xs text-rx-muted">
-          لا توجد خطة لهذا السن. أنشئ خطة مثل علاج جذر (3 جلسات).
-        </p>
+        <p className="text-xs text-rx-muted">{t("dental.noPlanHint")}</p>
       ) : (
         <div className="space-y-3">
           {plans.map((plan) => (
@@ -245,11 +246,17 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
               key={plan.id}
               plan={plan}
               isBusy={isBusy}
+              t={t}
               onCompleteSession={(session) =>
                 setCompletingSession({
                   id: session.id,
-                  title: `جلسة ${session.sessionNumber}`,
-                  subtitle: `${treatmentTypeLabel(plan.treatmentType)} — السن ${plan.toothFdi}`,
+                  title: t("dental.sessionTitle", {
+                    number: session.sessionNumber,
+                  }),
+                  subtitle: t("dental.sessionSubtitle", {
+                    type: tTreatmentType(t, plan.treatmentType),
+                    fdi: plan.toothFdi,
+                  }),
                 })
               }
               onUpdateSession={(sessionId, body) =>
@@ -283,6 +290,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
 function PlanBlock({
   plan,
   isBusy,
+  t,
   onCompleteSession,
   onUpdateSession,
   onAddSession,
@@ -290,6 +298,7 @@ function PlanBlock({
 }: {
   plan: TreatmentPlanDto;
   isBusy: boolean;
+  t: TranslateFn;
   onCompleteSession: (session: {
     id: number;
     sessionNumber: number;
@@ -305,7 +314,7 @@ function PlanBlock({
   const completed = sessions.filter((s) => s.status === "completed").length;
   const total = plan.totalSessions ?? sessions.length;
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const label = treatmentTypeLabel(plan.treatmentType);
+  const label = tTreatmentType(t, plan.treatmentType);
   const nextSession = sessions.find((s) => s.status !== "completed");
 
   return (
@@ -314,7 +323,7 @@ function PlanBlock({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-900">{label}</p>
           <p className="mt-0.5 text-xs text-slate-500">
-            {completed} من {total} جلسة مكتملة
+            {t("dental.sessionsProgress", { completed, total })}
           </p>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
             <div
@@ -329,7 +338,7 @@ function PlanBlock({
           variant="ghost"
           className="h-8 w-8 shrink-0 p-0 text-slate-400 hover:text-red-600"
           onClick={onDeletePlan}
-          title="حذف الخطة"
+          title={t("dental.deletePlan")}
         >
           <Trash2 size={15} />
         </Button>
@@ -369,7 +378,11 @@ function PlanBlock({
                       done ? "text-emerald-700" : "text-slate-700"
                     )}
                   >
-                    {done ? "مكتملة" : isNext ? "الجلسة التالية" : "مجدولة"}
+                    {done
+                      ? t("dental.statusDone")
+                      : isNext
+                        ? t("dental.statusNext")
+                        : t("dental.statusScheduled")}
                   </span>
                   <input
                     type="date"
@@ -408,7 +421,7 @@ function PlanBlock({
                     })
                   }
                 >
-                  إتمام
+                  {t("treatment.complete")}
                 </Button>
               ) : null}
             </li>
@@ -423,7 +436,7 @@ function PlanBlock({
           disabled={isBusy}
           onClick={onAddSession}
         >
-          + إضافة جلسة
+          {t("dental.addSession")}
         </button>
       ) : null}
     </div>

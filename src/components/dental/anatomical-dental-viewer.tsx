@@ -38,6 +38,7 @@ import {
   DENTAL_ORBIT_TARGET,
 } from "@/lib/dental/viewer-pose";
 import type { TreatmentPlanMarker } from "@/lib/dental/treatment-plan-markers";
+import { useLocale } from "@/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 type ToothRecord = {
@@ -69,13 +70,14 @@ function TreatmentPlanBox({
   selectedFdi: number | null;
   onSelect: (fdi: number) => void;
 }) {
+  const { t } = useLocale();
   if (markers.length === 0) return null;
 
   return (
     <div className="pointer-events-auto absolute bottom-7 left-2 right-2 z-10">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-2.5 py-2 shadow-sm">
         <span className="text-[11px] font-semibold text-slate-600">
-          خطط علاج:
+          {t("dental.treatmentPlansLabel")}
         </span>
         {markers.map((marker) => {
           const isSelected = selectedFdi === marker.toothFdi;
@@ -313,6 +315,7 @@ export function AnatomicalDentalViewer({
   treatmentPlanMarkers = [],
   ...props
 }: Props) {
+  const { t } = useLocale();
   const hasPlans = treatmentPlanMarkers.length > 0;
 
   return (
@@ -321,7 +324,7 @@ export function AnatomicalDentalViewer({
         <div
           className={`flex ${VIEWER_HEIGHT} items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500`}
         >
-          تعذّر عرض النموذج التشريحي.
+          {t("dental.anatomicalError")}
         </div>
       }
     >
@@ -342,7 +345,7 @@ export function AnatomicalDentalViewer({
             fallback={
               <Html center>
                 <p className="rounded-lg bg-white/90 px-4 py-2 text-sm text-slate-600 shadow">
-                  جاري تحميل النموذج التشريحي...
+                  {t("dental.anatomicalLoading")}
                 </p>
               </Html>
             }
@@ -361,7 +364,7 @@ export function AnatomicalDentalViewer({
             hasPlans ? "bottom-1" : "bottom-2"
           )}
         >
-          نموذج تشريحي تفاعلي · للنموذج CT الكامل:{" "}
+          {t("dental.anatomicalHint")}{" "}
           <Link
             href={DUNDEE_PERMANENT_DENTITION.sketchfabUrl}
             target="_blank"

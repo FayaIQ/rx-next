@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
   patientId: number;
@@ -20,6 +21,9 @@ type Props = {
 };
 
 export function PatientQueueSummary({ patientId, className }: Props) {
+  const { t, locale } = useLocale();
+  const dateLocale = locale === "en" ? "en-GB" : "ar-IQ";
+
   const { data, isLoading } = useQuery({
     queryKey: ["queue-summary", patientId],
     queryFn: async () => {
@@ -43,7 +47,9 @@ export function PatientQueueSummary({ patientId, className }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-semibold text-violet-950">{data.patient.name}</p>
           <Button size="sm" variant="outline" asChild>
-            <Link href={`/patients/${patientId}/record`}>ملف المريض</Link>
+            <Link href={`/patients/${patientId}/record`}>
+              {t("waitingRoom.patientFile")}
+            </Link>
           </Button>
         </div>
 
@@ -51,7 +57,8 @@ export function PatientQueueSummary({ patientId, className }: Props) {
           <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <span>
-              <strong>حساسية:</strong> {data.patient.allergies}
+              <strong>{t("waitingRoom.allergies")}</strong>{" "}
+              {data.patient.allergies}
             </span>
           </p>
         ) : null}
@@ -60,7 +67,8 @@ export function PatientQueueSummary({ patientId, className }: Props) {
           <p className="flex items-start gap-2 text-xs text-slate-700">
             <Pill size={14} className="mt-0.5 shrink-0 text-slate-500" />
             <span>
-              <strong>أدوية حالية:</strong> {data.patient.currentMedications}
+              <strong>{t("waitingRoom.currentMeds")}</strong>{" "}
+              {data.patient.currentMedications}
             </span>
           </p>
         ) : null}
@@ -70,7 +78,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
             <div className="rounded-lg border border-white/80 bg-white/70 px-3 py-2">
               <p className="flex items-center gap-1 font-semibold text-slate-800">
                 <FileText size={12} />
-                آخر وصفة
+                {t("waitingRoom.lastPrescription")}
               </p>
               <p className="mt-1 text-slate-600">
                 #{data.lastPrescription.prescriptionNumber} ·{" "}
@@ -83,11 +91,14 @@ export function PatientQueueSummary({ patientId, className }: Props) {
             <div className="rounded-lg border border-white/80 bg-white/70 px-3 py-2">
               <p className="flex items-center gap-1 font-semibold text-slate-800">
                 <Smile size={12} />
-                جلسة قادمة
+                {t("waitingRoom.nextSession")}
               </p>
               <p className="mt-1 text-slate-600">
-                سن {data.nextSession.toothFdi} · {data.nextSession.label} · جلسة{" "}
-                {data.nextSession.sessionNumber}
+                {t("waitingRoom.toothSession", {
+                  tooth: data.nextSession.toothFdi,
+                  label: data.nextSession.label,
+                  session: data.nextSession.sessionNumber,
+                })}
                 {data.nextSession.scheduledDate
                   ? ` · ${data.nextSession.scheduledDate}`
                   : ""}
@@ -99,10 +110,12 @@ export function PatientQueueSummary({ patientId, className }: Props) {
             <div className="rounded-lg border border-white/80 bg-white/70 px-3 py-2">
               <p className="flex items-center gap-1 font-semibold text-slate-800">
                 <Calendar size={12} />
-                موعد قادم
+                {t("waitingRoom.nextAppointment")}
               </p>
               <p className="mt-1 text-slate-600">
-                {new Date(data.nextAppointment.datetime).toLocaleString("ar-SY")}
+                {new Date(data.nextAppointment.datetime).toLocaleString(
+                  dateLocale
+                )}
               </p>
             </div>
           ) : null}
@@ -110,10 +123,10 @@ export function PatientQueueSummary({ patientId, className }: Props) {
           <div className="rounded-lg border border-white/80 bg-white/70 px-3 py-2">
             <p className="flex items-center gap-1 font-semibold text-slate-800">
               <Wallet size={12} />
-              الرصيد
+              {t("waitingRoom.balance")}
             </p>
             <p className="mt-1 font-mono text-slate-600">
-              {data.financeBalance.toLocaleString("ar-SY")}
+              {data.financeBalance.toLocaleString(dateLocale)}
             </p>
           </div>
         </div>
@@ -121,7 +134,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
         {data.activeTreatments?.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {data.activeTreatments.map(
-              (t: {
+              (treatment: {
                 id: number;
                 toothFdi: number;
                 label: string;
@@ -129,10 +142,15 @@ export function PatientQueueSummary({ patientId, className }: Props) {
                 total: number;
               }) => (
                 <span
-                  key={t.id}
+                  key={treatment.id}
                   className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-900"
                 >
-                  سن {t.toothFdi} · {t.label} ({t.completed}/{t.total})
+                  {t("waitingRoom.toothTreatment", {
+                    tooth: treatment.toothFdi,
+                    label: treatment.label,
+                    completed: treatment.completed,
+                    total: treatment.total,
+                  })}
                 </span>
               )
             )}

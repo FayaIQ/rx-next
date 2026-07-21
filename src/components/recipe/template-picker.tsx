@@ -6,6 +6,8 @@ import {
   type RecipeTemplateId,
 } from "@/lib/recipe-templates";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
+import { tRecipeTemplate } from "@/lib/i18n-labels";
 
 type Props = {
   selected: string;
@@ -112,27 +114,29 @@ function TemplateThumb({
 }
 
 export function RecipeTemplatePicker({ selected, designMode, onSelect }: Props) {
+  const { t } = useLocale();
   if (designMode === "image") return null;
 
   return (
     <div className="space-y-3">
       <div>
-        <p className="text-sm font-medium text-rx-text">قالب الوصفة</p>
-        <p className="text-xs text-rx-muted">
-          اختر تصميماً جاهزاً من النظام — يمكنك تعديل اللون والخط لاحقاً
-        </p>
+        <p className="text-sm font-medium text-rx-text">{t("recipe.templateTitle")}</p>
+        <p className="text-xs text-rx-muted">{t("recipe.templateHint")}</p>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {RECIPE_TEMPLATES.map((template) => (
-          <TemplateThumb
-            key={template.id}
-            id={template.id}
-            name={template.name}
-            swatch={template.swatch}
-            selected={selected === template.id}
-            onSelect={() => onSelect(template.id)}
-          />
-        ))}
+        {RECIPE_TEMPLATES.map((template) => {
+          const localized = tRecipeTemplate(t, template.id);
+          return (
+            <TemplateThumb
+              key={template.id}
+              id={template.id}
+              name={localized?.name ?? template.name}
+              swatch={template.swatch}
+              selected={selected === template.id}
+              onSelect={() => onSelect(template.id)}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -143,14 +147,19 @@ export function RecipeTemplatePickerPreview({
 }: {
   settings: RecipeSettingsDto;
 }) {
-  const template = RECIPE_TEMPLATES.find((t) => t.id === settings.designTemplate);
+  const { t } = useLocale();
+  const template = RECIPE_TEMPLATES.find((item) => item.id === settings.designTemplate);
   if (!template || settings.designMode === "image") return null;
+  const localized = tRecipeTemplate(t, template.id);
 
   return (
     <p className="text-xs text-rx-muted">
-      القالب الحالي: <strong className="text-rx-text">{template.name}</strong>
+      {t("recipe.currentTemplate")}{" "}
+      <strong className="text-rx-text">
+        {localized?.name ?? template.name}
+      </strong>
       {" — "}
-      {template.description}
+      {localized?.description ?? template.description}
     </p>
   );
 }

@@ -16,21 +16,28 @@ import { PageContent } from "@/components/ui/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { ToothSessionsPanel } from "@/components/dental/tooth-sessions-panel";
 import { buildTreatmentPlanMarkers } from "@/lib/dental/treatment-plan-markers";
-import { rxApi } from "@/lib/api/rx-client";
 import {
   fetchDentalChartOfflineFirst,
   fetchTreatmentPlansOfflineFirst,
   saveDentalChartOffline,
-  updateTreatmentSessionOffline,
 } from "@/lib/data/dental-offline-api";
 import {
   FDI_ALL,
   TOOTH_STATUSES,
-  toothQuadrantLabel,
-  toothStatusLabel,
   type ToothStatusId,
 } from "@/lib/dental/constants";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
+import { tToothQuadrant, tToothStatus } from "@/lib/i18n-labels";
+
+function DentalViewerLoading() {
+  const { t } = useLocale();
+  return (
+    <div className="flex h-[min(62vh,560px)] items-center justify-center rounded-2xl border border-slate-700 bg-black text-sm text-slate-400">
+      {t("dental.loading3d")}
+    </div>
+  );
+}
 
 const DentalViewerShell = dynamic(
   () =>
@@ -39,11 +46,7 @@ const DentalViewerShell = dynamic(
     ),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex h-[min(62vh,560px)] items-center justify-center rounded-2xl border border-slate-700 bg-black text-sm text-slate-400">
-        جاري تحميل المشهد ثلاثي الأبعاد...
-      </div>
-    ),
+    loading: () => <DentalViewerLoading />,
   }
 );
 
@@ -52,6 +55,7 @@ type Props = {
 };
 
 export function DentalChartClient({ patientId }: Props) {
+  const { t } = useLocale();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedFdi, setSelectedFdi] = useState<number | null>(null);
@@ -87,10 +91,10 @@ export function DentalChartClient({ patientId }: Props) {
     if (!data?.chart) return;
     setChartNotes(data.chart.notes ?? "");
     const map: Record<number, { status: ToothStatusId; notes: string }> = {};
-    for (const t of data.chart.teeth) {
-      map[t.toothFdi] = {
-        status: t.status as ToothStatusId,
-        notes: t.notes ?? "",
+    for (const tooth of data.chart.teeth) {
+      map[tooth.toothFdi] = {
+        status: tooth.status as ToothStatusId,
+        notes: tooth.notes ?? "",
       };
     }
     setToothMap(map);
@@ -109,7 +113,7 @@ export function DentalChartClient({ patientId }: Props) {
   const recordedCount = useMemo(
     () =>
       teethList.filter(
-        (t) => t.status !== "healthy" || t.notes.trim().length > 0
+        (tooth) => tooth.status !== "healthy" || tooth.notes.trim().length > 0
       ).length,
     [teethList]
   );
@@ -119,7 +123,7 @@ export function DentalChartClient({ patientId }: Props) {
       saveDentalChartOffline(patientId, {
         notes: chartNotes || null,
         teeth: teethList.filter(
-          (t) => t.status !== "healthy" || t.notes.trim().length > 0
+          (tooth) => tooth.status !== "healthy" || tooth.notes.trim().length > 0
         ),
       }),
     onSuccess: (res) => {
@@ -127,7 +131,7 @@ export function DentalChartClient({ patientId }: Props) {
         patient: data?.patient,
         chart: res.chart,
       });
-      toast.success("تم حفظ طبلة الأسنان");
+      toast.success(t("dental.saved"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -155,24 +159,26 @@ export function DentalChartClient({ patientId }: Props) {
     );
   }
 
-  const patientName = data?.patient.name ?? "المريض";
+  const patientName = data?.patient.name ?? t("dental.patientFallback");
 
   return (
     <>
       <AppHeader
-        title={`طبلة مريض الأسنان — ${patientName}`}
-        subtitle={`${recordedCount} سن مسجّل`}
+        title={t("dental.chartTitle", { name: patientName })}
+        subtitle={t("dental.teethRecorded", { count: recordedCount })}
       />
       <PageContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/dental">
               <ArrowRight size={14} />
-              العودة لقائمة الطبلات
+              {t("dental.backToList")}
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/patients/${patientId}/record`}>ملف المريض</Link>
+            <Link href={`/patients/${patientId}/record`}>
+              {t("dental.patientFile")}
+            </Link>
           </Button>
           <Button
             size="sm"
@@ -181,7 +187,7 @@ export function DentalChartClient({ patientId }: Props) {
             disabled={saveMutation.isPending}
           >
             <Save size={14} />
-            {saveMutation.isPending ? "جاري الحفظ..." : "حفظ الطبلة"}
+            {saveMutation.isPending ? t("common.saving") : t("dental.saveChart")}
           </Button>
         </div>
 
@@ -190,7 +196,7 @@ export function DentalChartClient({ patientId }: Props) {
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Smile size={18} className="text-rx-primary" />
-                الفك العلوي والسفلي — عرض تشريحي
+                {t("dental.archTitle")}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0">
@@ -209,8 +215,11 @@ export function DentalChartClient({ patientId }: Props) {
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
                   {selectedFdi
-                    ? `السن ${selectedFdi} — ${toothQuadrantLabel(selectedFdi)}`
-                    : "اختر سناً من النموذج"}
+                    ? t("dental.toothSelected", {
+                        fdi: selectedFdi,
+                        quadrant: tToothQuadrant(t, selectedFdi),
+                      })
+                    : t("dental.selectTooth")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -218,7 +227,7 @@ export function DentalChartClient({ patientId }: Props) {
                   <>
                     <div>
                       <Label className="mb-2 block text-xs text-rx-muted">
-                        حالة السن
+                        {t("dental.toothStatus")}
                       </Label>
                       <div className="grid grid-cols-3 gap-1.5">
                         {TOOTH_STATUSES.map((s) => {
@@ -242,7 +251,7 @@ export function DentalChartClient({ patientId }: Props) {
                                 className="ml-1 inline-block size-2 rounded-full align-middle"
                                 style={{ backgroundColor: s.color }}
                               />
-                              {s.label}
+                              {tToothStatus(t, s.id)}
                             </button>
                           );
                         })}
@@ -250,7 +259,7 @@ export function DentalChartClient({ patientId }: Props) {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs text-rx-muted">
-                        ملاحظات السن
+                        {t("dental.toothNotes")}
                       </Label>
                       <Textarea
                         rows={2}
@@ -258,7 +267,7 @@ export function DentalChartClient({ patientId }: Props) {
                         onChange={(e) =>
                           updateTooth(selectedFdi, { notes: e.target.value })
                         }
-                        placeholder="وصف مختصر لحالة السن..."
+                        placeholder={t("dental.toothNotesPlaceholder")}
                       />
                     </div>
                     <ToothSessionsPanel
@@ -267,53 +276,55 @@ export function DentalChartClient({ patientId }: Props) {
                     />
                   </>
                 ) : (
-                  <p className="text-sm text-rx-muted">
-                    اضغط على أي سن في النموذج ثلاثي الأبعاد لتسجيل حالته
-                    (تسوس، حشوة، تاج، مفقود...).
-                  </p>
+                  <p className="text-sm text-rx-muted">{t("dental.selectHint")}</p>
                 )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">ملاحظات عامة</CardTitle>
+                <CardTitle className="text-base">
+                  {t("dental.generalNotes")}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Textarea
                   rows={3}
                   value={chartNotes}
                   onChange={(e) => setChartNotes(e.target.value)}
-                  placeholder="ملاحظات عامة عن فم المريض..."
+                  placeholder={t("dental.generalNotesPlaceholder")}
                 />
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">ملخص الأسنان المسجّلة</CardTitle>
+                <CardTitle className="text-base">
+                  {t("dental.recordedSummary")}
+                </CardTitle>
               </CardHeader>
               <CardContent className="max-h-48 space-y-1.5 overflow-y-auto">
                 {recordedCount === 0 ? (
-                  <p className="text-sm text-rx-muted">لا توجد حالات مسجّلة بعد.</p>
+                  <p className="text-sm text-rx-muted">{t("dental.noRecorded")}</p>
                 ) : (
                   teethList
                     .filter(
-                      (t) =>
-                        t.status !== "healthy" || t.notes.trim().length > 0
+                      (tooth) =>
+                        tooth.status !== "healthy" ||
+                        tooth.notes.trim().length > 0
                     )
-                    .map((t) => (
+                    .map((tooth) => (
                       <button
-                        key={t.toothFdi}
+                        key={tooth.toothFdi}
                         type="button"
-                        onClick={() => setSelectedFdi(t.toothFdi)}
+                        onClick={() => setSelectedFdi(tooth.toothFdi)}
                         className="flex w-full items-center justify-between rounded-lg border border-rx-border/80 px-3 py-2 text-right text-sm hover:bg-rx-bg-subtle"
                       >
                         <span>
-                          <strong>{t.toothFdi}</strong> —{" "}
-                          {toothStatusLabel(t.status)}
+                          <strong>{tooth.toothFdi}</strong> —{" "}
+                          {tToothStatus(t, tooth.status)}
                         </span>
-                        <Badge variant="secondary">{t.toothFdi}</Badge>
+                        <Badge variant="secondary">{tooth.toothFdi}</Badge>
                       </button>
                     ))
                 )}

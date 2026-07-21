@@ -99,7 +99,7 @@
   --color-rx-warning: var(--rx-warning);
   --color-rx-rx-color: var(--rx-rx-color);
   --color-rx-sidebar-bg: var(--rx-doctor-sidebar-from);
-  --font-sans: var(--font-tajawal);
+  --font-sans: var(--font-ibm-arabic);
 }
 
 * {
@@ -114,7 +114,7 @@ html {
 body {
   background: var(--rx-bg);
   color: var(--rx-text);
-  font-family: var(--font-tajawal), system-ui, sans-serif;
+  font-family: var(--font-ibm-arabic), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -418,5 +418,32 @@ body {
   .prescription-doc,
   .prescription-doc * {
     font-family: inherit;
+  }
+}
+
+/* —— Marketing landing —— */
+.rx-landing-hero-copy {
+  animation: rx-landing-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rx-landing-visual {
+  animation: rx-landing-rise 1s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+
+@keyframes rx-landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rx-landing-hero-copy,
+  .rx-landing-visual {
+    animation: none;
   }
 }

@@ -5,8 +5,10 @@ import { RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { useSyncStore } from "@/stores/sync-store";
 import { reconnectAndSync } from "@/lib/sync/reconnect";
+import { useLocale } from "@/i18n/locale-provider";
 
 const ConnectionStatus = dynamic(
   () =>
@@ -34,6 +36,7 @@ interface AppHeaderProps {
 
 export function AppHeader({ title, subtitle, meta, actions }: AppHeaderProps) {
   const { pendingCount, syncing, hydrating } = useSyncStore();
+  const { t } = useLocale();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -57,7 +60,7 @@ export function AppHeader({ title, subtitle, meta, actions }: AppHeaderProps) {
           {mounted && (hydrating || syncing) && (
             <Badge variant="secondary" className="hidden gap-1 sm:inline-flex">
               <RefreshCw size={12} className="animate-spin" />
-              {hydrating ? "تحميل" : "مزامنة"}
+              {hydrating ? t("sync.loading") : t("sync.syncing")}
             </Badge>
           )}
 
@@ -68,10 +71,11 @@ export function AppHeader({ title, subtitle, meta, actions }: AppHeaderProps) {
               onClick={() => void reconnectAndSync()}
               className="hidden border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 sm:inline-flex"
             >
-              {pendingCount} معلّق
+              {t("common.pending", { count: pendingCount })}
             </Button>
           )}
 
+          <LanguageSwitcher variant="toggle" className="hidden sm:inline-flex" />
           <ConnectionStatus />
         </div>
       </div>

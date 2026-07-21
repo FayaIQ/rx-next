@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/layout/app-header";
+import { useLocale } from "@/i18n/locale-provider";
 import { PageContent } from "@/components/ui/page-shell";
 import {
   Card,
@@ -148,6 +149,7 @@ export function PrescriptionComposer() {
   const editId = searchParams.get("id");
   const preselectPatientId = searchParams.get("patientId");
   const queryClient = useQueryClient();
+  const { t, locale } = useLocale();
   const nextRowKeyRef = useRef(1);
   const diagnosisRef = useRef<HTMLTextAreaElement>(null);
   const composerRootRef = useRef<HTMLDivElement>(null);
@@ -348,7 +350,7 @@ export function PrescriptionComposer() {
 
   const saveMutation = useMutation({
     mutationFn: async (action: "save" | "save_and_print") => {
-      if (!selectedPatient) throw new Error("اختر مريضاً");
+      if (!selectedPatient) throw new Error(t("composer.selectPatient"));
 
       let patientId = selectedPatient.id;
       if (!patientId && pendingPatientSyncRef.current) {
@@ -358,7 +360,7 @@ export function PrescriptionComposer() {
         setPatientSearch(synced.name);
       }
       if (!patientId) {
-        throw new Error("جاري حفظ المريض، انتظر لحظة...");
+        throw new Error(t("composer.savingPatient"));
       }
 
       const savedItems = items
@@ -386,7 +388,7 @@ export function PrescriptionComposer() {
       };
 
       if (payload.items.length === 0) {
-        throw new Error("أضف دواءً واحداً على الأقل");
+        throw new Error(t("composer.addOneMedicine"));
       }
 
       const result = currentPrescriptionId
@@ -420,12 +422,12 @@ export function PrescriptionComposer() {
           router.push(`/prescriptions/${rx.id}/print`);
         }
       } else {
-        toast.info("حُفظت الوصفة أوفلاين وستُزامَن عند عودة الاتصال");
+        toast.info(t("composer.savedOffline"));
       }
       if (rx.prescriptionNumber) {
         setPrescriptionNumber(rx.prescriptionNumber);
       }
-      toast.success("تم حفظ الوصفة");
+      toast.success(t("composer.saved"));
 
       queryClient.setQueryData<MedicinePresetDto[]>(
         ["medicine-presets"],
@@ -488,7 +490,7 @@ export function PrescriptionComposer() {
     setShowNewPatient(false);
     setNewPatientInitialName("");
     if (patient.diagnosis) {
-      toast.info(`آخر تشخيص: ${patient.diagnosis}`, { duration: 4000 });
+      toast.info(t("composer.lastDiagnosis", { diagnosis: patient.diagnosis }), { duration: 4000 });
     }
     if (options?.focusDiagnosis) {
       requestAnimationFrame(() => diagnosisRef.current?.focus());
@@ -513,7 +515,7 @@ export function PrescriptionComposer() {
     setSelectedPatient(null);
     setNewPatientInitialName(trimmed);
     setShowNewPatient(true);
-    toast.info("مريض جديد — أكمل البيانات ثم اضغط إضافة");
+    toast.info(t("composer.newPatientHint"));
   }
 
   function handlePatientSearchEnter() {
@@ -602,12 +604,12 @@ export function PrescriptionComposer() {
 
   const attachmentsSection = (
     <section className="space-y-3">
-      <FieldLabel>مرفقات (أشعة / تحليل)</FieldLabel>
+      <FieldLabel>{t("composer.attachments")}</FieldLabel>
       <div className="grid gap-2 sm:grid-cols-2">
         {(
           [
             {
-              label: "أشعة",
+              label: t("composer.xray"),
               kind: "xray" as const,
               path: xrayImage,
               pending: pendingXray,
@@ -615,7 +617,7 @@ export function PrescriptionComposer() {
               setPending: setPendingXray,
             },
             {
-              label: "تحليل",
+              label: t("composer.analysis"),
               kind: "analysis" as const,
               path: analysisImage,
               pending: pendingAnalysis,
@@ -653,7 +655,7 @@ export function PrescriptionComposer() {
                         );
                       } catch (e) {
                         toast.error(
-                          e instanceof Error ? e.message : "فشل الحذف"
+                          e instanceof Error ? e.message : t("composer.deleteFailed")
                         );
                         return;
                       }
@@ -675,7 +677,7 @@ export function PrescriptionComposer() {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 if (file.size > 2 * 1024 * 1024) {
-                  toast.error("الحد الأقصى 2 ميغابايت");
+                  toast.error(t("composer.maxFile"));
                   return;
                 }
                 if (currentPrescriptionId) {
@@ -687,15 +689,15 @@ export function PrescriptionComposer() {
                     );
                     setPath(res.path);
                     setPending(null);
-                    toast.success("تم رفع الصورة");
+                    toast.success(t("composer.uploaded"));
                   } catch (err) {
                     toast.error(
-                      err instanceof Error ? err.message : "فشل الرفع"
+                      err instanceof Error ? err.message : t("composer.uploadFailed")
                     );
                   }
                 } else {
                   setPending(file);
-                  toast.info("ستُرفع عند الحفظ");
+                  toast.info(t("composer.uploadOnSave"));
                 }
               }}
             />
@@ -708,15 +710,15 @@ export function PrescriptionComposer() {
   return (
     <div ref={composerRootRef}>
       <AppHeader
-        title="كتابة الوصفة"
-        subtitle={editId ? "تعديل وصفة" : "وصفة جديدة"}
+        title={t("home.title")}
+        subtitle={editId ? t("home.editSubtitle") : t("home.subtitle")}
         meta={
           <span className="hidden text-xs text-rx-muted sm:inline">
             <span className="font-mono font-medium text-rx-text">
               #{prescriptionNumber ?? "—"}
             </span>
             <span className="mx-1.5 opacity-50">·</span>
-            {formatPrescriptionDateTime(prescriptionDate)}
+            {formatPrescriptionDateTime(prescriptionDate, locale)}
           </span>
         }
         actions={
@@ -728,7 +730,7 @@ export function PrescriptionComposer() {
               disabled={saveMutation.isPending}
             >
               <Save size={14} />
-              حفظ
+              {t("composer.save")}
             </Button>
             <Button
               size="sm"
@@ -738,7 +740,7 @@ export function PrescriptionComposer() {
               disabled={saveMutation.isPending}
             >
               <Printer size={14} />
-              طباعة
+              {t("composer.print")}
             </Button>
             {currentPrescriptionId && (
               <Button size="sm" variant="outline" asChild>
@@ -746,7 +748,7 @@ export function PrescriptionComposer() {
                   tabIndex={-1}
                   href={`/prescriptions/${currentPrescriptionId}/preview`}
                 >
-                  معاينة
+                  {t("composer.preview")}
                 </Link>
               </Button>
             )}
@@ -776,7 +778,7 @@ export function PrescriptionComposer() {
                   const { patient } = await rxApi.patients.get(patientId);
                   selectPatient(patient, { focusDiagnosis: true });
                 } catch {
-                  toast.error("تعذّر تحميل بيانات المريض");
+                  toast.error(t("composer.loadPatientFailed"));
                 }
               }}
             />
@@ -786,19 +788,19 @@ export function PrescriptionComposer() {
                   const { patient } = await rxApi.patients.get(patientId);
                   selectPatient(patient, { focusDiagnosis: true });
                 } catch {
-                  toast.error("تعذّر تحميل بيانات المريض");
+                  toast.error(t("composer.loadPatientFailed"));
                 }
               }}
             />
 
-            <ComposerPanel title="بيانات المريض">
+            <ComposerPanel title={t("composer.patientData")}>
               <div className="space-y-3">
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="min-w-[14rem] flex-1">
-                    <FieldLabel>المريض — Enter للاختيار</FieldLabel>
+                    <FieldLabel>{t("composer.patientEnter")}</FieldLabel>
                     <SearchInput
                       fieldSize="default"
-                      placeholder="ابحث بالاسم أو رقم الهاتف..."
+                      placeholder={t("composer.searchPatient")}
                       value={patientSearch}
                       onChange={(v) => {
                         setPatientSearch(v);
@@ -826,15 +828,15 @@ export function PrescriptionComposer() {
                     }}
                   >
                     <Plus size={16} />
-                    مريض جديد
+                    {t("composer.newPatient")}
                   </Button>
                 </div>
 
                 {patientSearch.trim() && !selectedPatient && !showNewPatient && (
                   <p className="text-sm text-rx-muted-foreground">
                     {findPatientByExactName(patientSearch) || patients.length > 0
-                      ? "اضغط Enter لاختيار المريض"
-                      : "اضغط Enter لإضافة مريض جديد"}
+                      ? t("composer.pressEnterSelect")
+                      : t("composer.pressEnterAdd")}
                   </p>
                 )}
 
@@ -853,8 +855,8 @@ export function PrescriptionComposer() {
                           >
                             <span className="font-medium text-rx-text">{p.name}</span>
                             <span className="mr-2 text-sm text-rx-muted">
-                              {genderLabel(p.gender)} · {p.age} ·{" "}
-                              {visitCountLabel(p.visitCount)}
+                              {genderLabel(p.gender, locale)} · {p.age} ·{" "}
+                              {visitCountLabel(p.visitCount, locale)}
                             </span>
                           </button>
                         </li>
@@ -894,12 +896,12 @@ export function PrescriptionComposer() {
                   <div className="space-y-3 rounded-lg border border-rx-border/60 bg-rx-bg-subtle/30 p-3">
                     {selectedPatient.allergies?.trim() ? (
                       <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
-                        <strong>تنبيه حساسية:</strong> {selectedPatient.allergies}
+                        <strong>{t("composer.allergyAlert")}</strong> {selectedPatient.allergies}
                       </div>
                     ) : null}
                     {selectedPatient.currentMedications?.trim() ? (
                       <p className="text-sm text-slate-700">
-                        <strong>أدوية حالية:</strong>{" "}
+                        <strong>{t("composer.currentMeds")}</strong>{" "}
                         {selectedPatient.currentMedications}
                       </p>
                     ) : null}
@@ -909,7 +911,7 @@ export function PrescriptionComposer() {
                         {patientFieldVisibility.showGender && (
                           <span className="text-rx-muted">
                             {" "}
-                            · {genderLabel(selectedPatient.gender)}
+                            · {genderLabel(selectedPatient.gender, locale)}
                           </span>
                         )}
                         {patientFieldVisibility.showAge && (
@@ -927,7 +929,7 @@ export function PrescriptionComposer() {
                           )}
                         <span className="text-rx-muted">
                           {" "}
-                          · {visitCountLabel(selectedPatient.visitCount)}
+                          · {visitCountLabel(selectedPatient.visitCount, locale)}
                         </span>
                       </p>
                       {selectedPatient.id > 0 && (
@@ -939,7 +941,7 @@ export function PrescriptionComposer() {
                             )}
                           >
                             <FileText size={14} />
-                            السجل
+                            {t("composer.record")}
                           </Link>
                         </Button>
                       )}
@@ -964,10 +966,10 @@ export function PrescriptionComposer() {
               </div>
             </ComposerPanel>
 
-            <ComposerPanel title="الوصفة الطبية">
+            <ComposerPanel title={t("composer.prescription")}>
               {recipeFields.length > 0 && (
                 <section className="space-y-3">
-                  <FieldLabel>حقول الوصفة</FieldLabel>
+                  <FieldLabel>{t("composer.recipeFields")}</FieldLabel>
                   <PersonalFieldInputs
                     fields={recipeFields}
                     values={fieldValues}
@@ -979,12 +981,12 @@ export function PrescriptionComposer() {
               )}
 
               <section className="space-y-3">
-                <FieldLabel>التشخيص</FieldLabel>
+                <FieldLabel>{t("composer.diagnosis")}</FieldLabel>
                 <Textarea
                   ref={diagnosisRef}
                   fieldSize="default"
                   rows={3}
-                  placeholder="اكتب التشخيص هنا..."
+                  placeholder={t("composer.diagnosisPlaceholder")}
                   value={diagnosis}
                   onChange={(e) => setDiagnosis(e.target.value)}
                 />
@@ -992,7 +994,7 @@ export function PrescriptionComposer() {
 
               <section className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <FieldLabel>الأدوية</FieldLabel>
+                  <FieldLabel>{t("composer.medicines")}</FieldLabel>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1000,7 +1002,7 @@ export function PrescriptionComposer() {
                     onClick={() => setItems((rows) => [...rows, newEmptyRow()])}
                   >
                     <Plus size={14} />
-                    إضافة دواء
+                    {t("composer.addMedicine")}
                   </Button>
                 </div>
                 <div className="space-y-2">
@@ -1036,11 +1038,15 @@ export function PrescriptionComposer() {
 
           {livePreviewData ? (
             <aside className="min-h-0 xl:sticky xl:col-start-1 xl:row-start-1 xl:self-start xl:top-[calc(var(--rx-header-height)+0.5rem)]">
-              <PrescriptionLivePreview data={livePreviewData} className="w-full" />
+              <PrescriptionLivePreview
+                data={livePreviewData}
+                className="w-full"
+                label={t("composer.livePreview")}
+              />
             </aside>
           ) : (
             <p className="text-sm text-rx-muted xl:col-start-1 xl:row-start-1">
-              جاري تحميل إعدادات الوصفة للمعاينة...
+              {t("composer.loadingPreview")}
             </p>
           )}
         </div>

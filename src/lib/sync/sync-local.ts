@@ -5,6 +5,10 @@ export function markSubscriptionExpired() {
   useSyncStore.getState().setSubscriptionBlocked(true);
 }
 
+export function clearSubscriptionBlocked() {
+  useSyncStore.getState().setSubscriptionBlocked(false);
+}
+
 export function isSubscriptionBlocked() {
   return useSyncStore.getState().subscriptionBlocked;
 }

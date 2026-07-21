@@ -5,6 +5,7 @@ import { BarChart3, Users, FileText, Smile, Wallet, TrendingUp } from "lucide-re
 import { AppHeader } from "@/components/layout/app-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContent } from "@/components/ui/page-shell";
+import { useLocale } from "@/i18n/locale-provider";
 
 function StatCard({
   label,
@@ -31,7 +32,9 @@ function StatCard({
 }
 
 export function ReportsPageClient() {
+  const { t, locale } = useLocale();
   const month = new Date().toISOString().slice(0, 7);
+  const numberLocale = locale === "en" ? "en-GB" : "ar-IQ";
 
   const { data, isLoading } = useQuery({
     queryKey: ["reports", month],
@@ -45,44 +48,63 @@ export function ReportsPageClient() {
 
   return (
     <>
-      <AppHeader title="التقارير والإحصائيات" subtitle={`شهر ${data?.month ?? month}`} />
+      <AppHeader
+        title={t("reports.title")}
+        subtitle={t("reports.monthSubtitle", {
+          month: data?.month ?? month,
+        })}
+      />
       <PageContent className="space-y-4">
         {isLoading || !data ? (
           <div className="h-40 animate-pulse rounded-xl bg-slate-100" />
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <StatCard label="مرضى جدد" value={data.summary.newPatients} icon={Users} />
-              <StatCard label="وصفات" value={data.summary.prescriptions} icon={FileText} />
               <StatCard
-                label="جلسات مكتملة"
+                label={t("reports.newPatients")}
+                value={data.summary.newPatients}
+                icon={Users}
+              />
+              <StatCard
+                label={t("reports.prescriptions")}
+                value={data.summary.prescriptions}
+                icon={FileText}
+              />
+              <StatCard
+                label={t("reports.completedSessions")}
                 value={data.summary.completedSessions}
                 icon={Smile}
               />
               <StatCard
-                label="مواعيد ملغاة"
+                label={t("reports.cancelledAppointments")}
                 value={data.summary.cancelledAppointments}
                 icon={BarChart3}
               />
               <StatCard
-                label="إيرادات"
-                value={data.summary.totalIncome.toLocaleString("ar-SY")}
+                label={t("reports.totalIncome")}
+                value={data.summary.totalIncome.toLocaleString(numberLocale, {
+                  numberingSystem: "latn",
+                })}
                 icon={Wallet}
               />
               <StatCard
-                label="صافي الدخل"
-                value={data.summary.netIncome.toLocaleString("ar-SY")}
+                label={t("reports.netIncome")}
+                value={data.summary.netIncome.toLocaleString(numberLocale, {
+                  numberingSystem: "latn",
+                })}
                 icon={TrendingUp}
               />
             </div>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">خطط العلاج حسب النوع</CardTitle>
+                <CardTitle className="text-base">
+                  {t("reports.treatmentByType")}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {data.treatmentBreakdown.length === 0 ? (
-                  <p className="text-sm text-rx-muted">لا توجد خطط هذا الشهر.</p>
+                  <p className="text-sm text-rx-muted">{t("reports.noPlans")}</p>
                 ) : (
                   data.treatmentBreakdown.map(
                     (row: { type: string; label: string; count: number }) => (

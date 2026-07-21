@@ -9,12 +9,23 @@ import { PageContent } from "@/components/ui/page-shell";
 import { PatientFileClient } from "@/components/patient-file/patient-file-client";
 import { resolvePatientRecordReturn } from "@/lib/patient-record-navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useLocale } from "@/i18n/locale-provider";
+
+const RETURN_LABEL_KEYS = {
+  home: "patientFile.backToHome",
+  queue: "patientFile.backToQueue",
+  dental: "patientFile.backToDental",
+  dates: "patientFile.backToDates",
+  back: "common.back",
+  patients: "patientFile.backToPatients",
+} as const;
 
 export default function PatientRecordPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const patientId = Number(params.id);
   const back = resolvePatientRecordReturn(searchParams.get("returnTo"));
+  const { t } = useLocale();
 
   const { data, isError } = useQuery({
     queryKey: ["patient-file-title", patientId],
@@ -29,12 +40,16 @@ export default function PatientRecordPage() {
 
   return (
     <>
-      <AppHeader title={`ملف المريض: ${isError ? "—" : (data?.name ?? "…")}`} />
+      <AppHeader
+        title={t("patientFile.titleWithName", {
+          name: isError ? "—" : (data?.name ?? "…"),
+        })}
+      />
       <PageContent className="space-y-4">
         <Button variant="outline" size="sm" asChild>
           <Link href={back.href}>
             <ArrowRight size={14} />
-            {back.label}
+            {t(RETURN_LABEL_KEYS[back.labelKey])}
           </Link>
         </Button>
         <PatientFileClient patientId={patientId} />

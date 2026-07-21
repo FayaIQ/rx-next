@@ -27,31 +27,37 @@ import { FormPageLoading } from "@/components/ui/page-loading";
 import { PatientFieldsManager } from "@/components/settings/patient-fields-manager";
 import { queryKeys } from "@/lib/query-keys";
 import { rxApi } from "@/lib/api/rx-client";
-import { useLocale, type Locale } from "@/i18n/locale-provider";
+import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { cn } from "@/lib/utils";
 
 type SettingsTab = "account" | "fields" | "invites" | "language";
 
-const TABS: Array<{
+const TAB_DEFS: Array<{
   id: SettingsTab;
-  label: string;
+  labelKey: string;
   icon: typeof UserRound;
 }> = [
-  { id: "account", label: "الحساب", icon: UserRound },
-  { id: "fields", label: "الحقول", icon: ListChecks },
-  { id: "invites", label: "السكرتير", icon: UserPlus },
-  { id: "language", label: "اللغة", icon: Globe },
+  { id: "account", labelKey: "settings.tabAccount", icon: UserRound },
+  { id: "fields", labelKey: "settings.tabFields", icon: ListChecks },
+  { id: "invites", labelKey: "settings.tabInvites", icon: UserPlus },
+  { id: "language", labelKey: "settings.tabLanguage", icon: Globe },
 ];
 
 function InviteRow({
   code,
   used,
   expiresAt,
+  t,
+  locale,
 }: {
   code: string;
   used: boolean;
   expiresAt: string | null;
+  t: TranslateFn;
+  locale: string;
 }) {
+  const dateLocale = locale === "ar" ? "ar-IQ" : "en-GB";
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-rx-border bg-rx-surface p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1.5">
@@ -60,12 +66,14 @@ function InviteRow({
             {code}
           </span>
           <Badge variant={used ? "secondary" : "success"}>
-            {used ? "مستخدم" : "متاح"}
+            {used ? t("settings.inviteUsed") : t("settings.inviteAvailable")}
           </Badge>
         </div>
         {!used && expiresAt && (
           <p className="text-xs text-rx-muted">
-            ينتهي: {new Date(expiresAt).toLocaleDateString("ar-SY")}
+            {t("settings.inviteExpires", {
+              date: new Date(expiresAt).toLocaleDateString(dateLocale),
+            })}
           </p>
         )}
       </div>
@@ -75,11 +83,11 @@ function InviteRow({
           variant="outline"
           onClick={() => {
             void navigator.clipboard.writeText(code);
-            toast.success("تم نسخ رمز الدعوة");
+            toast.success(t("settings.inviteCopied"));
           }}
         >
           <Copy size={14} />
-          نسخ الرمز
+          {t("settings.copyCode")}
         </Button>
       )}
     </div>
@@ -88,7 +96,7 @@ function InviteRow({
 
 export function DoctorSettingsPage() {
   const queryClient = useQueryClient();
-  const { locale, setLocale, t } = useLocale();
+  const { locale, t } = useLocale();
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
   const [profile, setProfile] = useState({
     name: "",
@@ -134,7 +142,7 @@ export function DoctorSettingsPage() {
           : {}),
       }),
     onSuccess: () => {
-      toast.success("تم حفظ بيانات الحساب");
+      toast.success(t("settings.profileSaved"));
       setProfile((p) => ({ ...p, currentPassword: "", newPassword: "" }));
     },
     onError: (e: Error) => toast.error(e.message),
@@ -144,7 +152,7 @@ export function DoctorSettingsPage() {
     mutationFn: () => rxApi.settings.createInvite(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["secretary-invites"] });
-      toast.success("تم إنشاء رمز دعوة جديد");
+      toast.success(t("settings.inviteCreated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -163,8 +171,8 @@ export function DoctorSettingsPage() {
   return (
     <>
       <AppHeader
-        title="الإعدادات"
-        subtitle="إدارة حسابك وحقول المرضى والسكرتارية"
+        title={t("settings.title")}
+        subtitle={t("settings.subtitle")}
         actions={
           activeTab === "account" ? (
             <Button
@@ -173,7 +181,9 @@ export function DoctorSettingsPage() {
               disabled={saveProfile.isPending || !profile.name.trim()}
             >
               <Save size={15} />
-              {saveProfile.isPending ? "جاري الحفظ..." : "حفظ الحساب"}
+              {saveProfile.isPending
+                ? t("common.saving")
+                : t("settings.saveAccount")}
             </Button>
           ) : undefined
         }
@@ -182,7 +192,7 @@ export function DoctorSettingsPage() {
       <PageContent className={cn("space-y-4", activeTab === "account" && "pb-24 xl:pb-8")}>
         <div className="sticky top-[var(--rx-header-height)] z-20 -mx-1 overflow-x-auto px-1 pb-1">
           <div className="flex min-w-max gap-1.5 rounded-2xl border border-rx-border bg-rx-surface p-1.5 shadow-sm">
-            {TABS.map(({ id, label, icon: Icon }) => (
+            {TAB_DEFS.map(({ id, labelKey, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
@@ -195,7 +205,7 @@ export function DoctorSettingsPage() {
                 )}
               >
                 <Icon size={15} />
-                {label}
+                {t(labelKey)}
               </button>
             ))}
           </div>
@@ -205,7 +215,9 @@ export function DoctorSettingsPage() {
           <div className="mx-auto max-w-2xl space-y-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">البيانات الشخصية</CardTitle>
+                <CardTitle className="text-base">
+                  {t("settings.personalData")}
+                </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3">
                 {profileLoading ? (
@@ -216,17 +228,17 @@ export function DoctorSettingsPage() {
                 ) : (
                   <>
                     <div className="space-y-1.5">
-                      <Label>الاسم</Label>
+                      <Label>{t("settings.name")}</Label>
                       <Input
                         value={profile.name}
                         onChange={(e) =>
                           setProfile((p) => ({ ...p, name: e.target.value }))
                         }
-                        placeholder="د. أحمد محمد"
+                        placeholder={t("settings.namePlaceholder")}
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>رقم تسجيل الدخول</Label>
+                      <Label>{t("settings.loginNumber")}</Label>
                       <Input
                         dir="ltr"
                         value={profile.phoneNumber}
@@ -235,8 +247,7 @@ export function DoctorSettingsPage() {
                         className="bg-rx-bg-subtle text-rx-muted"
                       />
                       <p className="text-xs text-rx-muted">
-                        رقم الهاتف ثابت ويُستخدم لتسجيل الدخول — لا يمكن تغييره
-                        من الإعدادات.
+                        {t("settings.phoneFixedHint")}
                       </p>
                     </div>
                   </>
@@ -248,15 +259,15 @@ export function DoctorSettingsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <KeyRound size={17} />
-                  تغيير كلمة المرور
+                  {t("settings.changePassword")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3">
                 <p className="text-sm text-rx-muted">
-                  اترك الحقول فارغة إذا لا تريد تغيير كلمة المرور.
+                  {t("settings.passwordLeaveBlank")}
                 </p>
                 <div className="space-y-1.5">
-                  <Label>كلمة المرور الحالية</Label>
+                  <Label>{t("settings.currentPassword")}</Label>
                   <Input
                     type="password"
                     autoComplete="current-password"
@@ -270,7 +281,7 @@ export function DoctorSettingsPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>كلمة المرور الجديدة</Label>
+                  <Label>{t("settings.newPassword")}</Label>
                   <Input
                     type="password"
                     autoComplete="new-password"
@@ -291,11 +302,11 @@ export function DoctorSettingsPage() {
         {activeTab === "fields" && (
           <div className="space-y-4">
             <div className="rounded-xl bg-rx-primary-light/50 px-4 py-3 text-sm text-rx-text-secondary">
-              الحقول الأساسية (الاسم، الجنس، العمر) تُضبط من{" "}
+              {t("settings.fieldsCoreHintBefore")}{" "}
               <Link href="/recipe-settings" className="font-medium text-rx-primary hover:underline">
-                تصميم الوصفة
+                {t("settings.recipeDesign")}
               </Link>
-              . هنا تُدار الحقول الإضافية للمريض والوصفة.
+              {t("settings.fieldsCoreHintAfter")}
             </div>
             {fieldsLoading ? (
               <div className="space-y-4">
@@ -312,9 +323,11 @@ export function DoctorSettingsPage() {
           <Card className="mx-auto max-w-2xl">
             <CardHeader className="flex flex-col gap-3 border-b border-rx-border/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <CardTitle className="text-base">دعوات السكرتير</CardTitle>
+                <CardTitle className="text-base">
+                  {t("settings.secretaryInvites")}
+                </CardTitle>
                 <p className="mt-1 text-sm text-rx-muted">
-                  أنشئ رمزاً وشاركه مع السكرتير للتسجيل في عيادتك
+                  {t("settings.secretaryInvitesHint")}
                 </p>
               </div>
               <Button
@@ -323,7 +336,7 @@ export function DoctorSettingsPage() {
                 disabled={createInvite.isPending}
               >
                 <Plus size={15} />
-                رمز جديد
+                {t("settings.newCode")}
               </Button>
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
@@ -336,15 +349,15 @@ export function DoctorSettingsPage() {
               ) : invites.length === 0 ? (
                 <EmptyState
                   icon={UserPlus}
-                  title="لا توجد دعوات"
-                  description="أنشئ رمز دعوة وشاركه مع السكرتير لربطه بحسابك"
+                  title={t("settings.noInvites")}
+                  description={t("settings.noInvitesDesc")}
                   action={
                     <Button
                       onClick={() => createInvite.mutate()}
                       disabled={createInvite.isPending}
                     >
                       <Plus size={16} />
-                      إنشاء رمز
+                      {t("settings.createCode")}
                     </Button>
                   }
                 />
@@ -352,7 +365,9 @@ export function DoctorSettingsPage() {
                 <>
                   {activeInvites.length > 0 && (
                     <p className="text-xs text-rx-muted">
-                      {activeInvites.length} رمز متاح للاستخدام
+                      {t("settings.activeCodes", {
+                        count: activeInvites.length,
+                      })}
                     </p>
                   )}
                   <div className="space-y-2">
@@ -362,6 +377,8 @@ export function DoctorSettingsPage() {
                         code={invite.code}
                         used={invite.used}
                         expiresAt={invite.expiresAt}
+                        t={t}
+                        locale={locale}
                       />
                     ))}
                   </div>
@@ -376,35 +393,15 @@ export function DoctorSettingsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Globe size={17} />
-                {t.language}
+                {t("settings.languageTitle")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-rx-muted">
-                اختر لغة واجهة التطبيق. التغيير فوري ويُحفظ على هذا الجهاز.
+              <p className="text-sm text-rx-muted">{t("settings.languageHint")}</p>
+              <LanguageSwitcher variant="full" />
+              <p className="text-xs text-rx-muted">
+                {locale === "ar" ? t("common.arabic") : t("common.english")}
               </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {(
-                  [
-                    ["ar", "العربية"],
-                    ["en", "English"],
-                  ] as const
-                ).map(([code, label]) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => setLocale(code as Locale)}
-                    className={cn(
-                      "rounded-xl border px-4 py-3 text-sm font-medium transition-all",
-                      locale === code
-                        ? "border-rx-primary bg-rx-primary-light text-rx-primary shadow-sm"
-                        : "border-rx-border bg-rx-surface text-rx-text-secondary hover:border-rx-primary/30 hover:bg-rx-bg-subtle"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
             </CardContent>
           </Card>
         )}
@@ -417,7 +414,9 @@ export function DoctorSettingsPage() {
               disabled={saveProfile.isPending || !profile.name.trim()}
             >
               <Save size={16} />
-              {saveProfile.isPending ? "جاري الحفظ..." : "حفظ الحساب"}
+              {saveProfile.isPending
+                ? t("common.saving")
+                : t("settings.saveAccount")}
             </Button>
           </div>
         )}

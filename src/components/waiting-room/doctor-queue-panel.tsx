@@ -28,6 +28,7 @@ import {
   visitStatusSortOrder,
 } from "@/lib/visit-queue/constants";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 function todayKey() {
   const d = new Date();
@@ -48,7 +49,9 @@ type TodaySession = {
   sessionNumber: number;
 };
 
-export function DoctorQueuePanel({ onSelectPatient }: Props) {
+export function DoctorQueuePanel(
+  /*i18n*/{ onSelectPatient }: Props) {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const day = todayKey();
 
@@ -125,9 +128,9 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
         onSelectPatient(res.appointment.patient.id);
       }
       if (res.appointment) {
-        toast.success(`تم استدعاء ${res.appointment.patient?.name ?? "المريض"}`);
+        toast.success(t("queue.called", { name: res.appointment.patient?.name ?? t("queue.patient") }));
       } else {
-        toast.info(res.message ?? "لا يوجد مرضى في الانتظار");
+        toast.info(res.message ?? t("queue.nobodyInQueue"));
       }
     },
     onError: (e: Error) => toast.error(e.message),
@@ -138,7 +141,7 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["doctor-queue"] });
       queryClient.invalidateQueries({ queryKey: ["waiting-room"] });
-      toast.success("انتهت الزيارة");
+      toast.success(t("queue.visitEnded"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -161,7 +164,7 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
         className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-violet-800 hover:bg-violet-100/80"
       >
         <Users size={13} />
-        <span className="hidden sm:inline">الطابور</span>
+        <span className="hidden sm:inline">{t("queue.panel")}</span>
       </Link>
 
       <span className="h-4 w-px shrink-0 bg-violet-200" aria-hidden />
@@ -172,14 +175,14 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
             <Stethoscope size={12} className="text-violet-700" />
             <PatientChip
               patientId={current.patient?.id}
-              name={current.patient?.name ?? "مريض"}
+              name={current.patient?.name ?? t("queue.patient")}
               sessions={sessionsByPatient.get(current.patient?.id ?? 0)}
               onSelect={onSelectPatient}
             />
             <Link
               href={patientRecordHref(current.patient?.id ?? 0, "/queue")}
               className="shrink-0 rounded-full bg-white/80 p-1 text-violet-800 hover:bg-white"
-              title="ملف المريض"
+              title={t("queue.patientFile")}
             >
               <FileText size={11} />
             </Link>
@@ -189,7 +192,7 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
               disabled={finishMutation.isPending}
               onClick={() => finishMutation.mutate(current.id)}
             >
-              انتهى
+              {t("queue.done")}
             </button>
           </div>
           {waiting.length > 0 ? (
@@ -201,7 +204,7 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
       {waiting.length > 0 ? (
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <span className="shrink-0 text-[10px] font-medium text-amber-800">
-            {waiting.length} انتظار
+            {t("queue.waiting", { count: waiting.length })}
           </span>
           {waiting.slice(0, 6).map((ap, i) => (
             <WaitingCapsuleChip
@@ -219,7 +222,7 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
           ) : null}
         </div>
       ) : !current ? (
-        <span className="shrink-0 text-xs text-rx-muted">لا أحد في الانتظار</span>
+        <span className="shrink-0 text-xs text-rx-muted">{t("queue.nobodyWaiting")}</span>
       ) : null}
 
       <span className="ms-auto h-4 w-px shrink-0 bg-violet-200" aria-hidden />
@@ -231,7 +234,7 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
         onClick={() => callNextMutation.mutate()}
       >
         <UserCheck size={13} />
-        <span className="hidden sm:inline">استدعاء</span>
+        <span className="hidden sm:inline">{t("queue.callNext")}</span>
         <ChevronLeft size={12} className="sm:hidden" />
       </Button>
 
@@ -241,7 +244,7 @@ export function DoctorQueuePanel({ onSelectPatient }: Props) {
         className="h-7 w-7 shrink-0 rounded-full p-0 text-violet-700"
         asChild
       >
-        <Link href="/queue" title="فتح الطابور">
+        <Link href="/queue" title={t("queue.openQueue")}>
           <ListOrdered size={14} />
         </Link>
       </Button>
@@ -260,6 +263,7 @@ function PatientChip({
   sessions?: TodaySession[];
   onSelect?: (patientId: number) => void;
 }) {
+  const { t } = useLocale();
   if (patientId && onSelect) {
     return (
       <button
@@ -270,7 +274,7 @@ function PatientChip({
         <span className="truncate">{name}</span>
         {sessions?.length ? (
           <span className="shrink-0 rounded bg-sky-100 px-1 text-[9px] font-medium text-sky-800">
-            {sessions.length} علاج
+            {t("queue.treatmentCount", { count: sessions.length })}
           </span>
         ) : null}
       </button>
@@ -295,6 +299,7 @@ function WaitingCapsuleChip({
   sessions?: TodaySession[];
   onSelect?: (patientId: number) => void;
 }) {
+  const { t } = useLocale();
   const patientId = appointment.patient?.id;
 
   return (
@@ -307,7 +312,7 @@ function WaitingCapsuleChip({
         }}
       >
         <span className="font-mono opacity-50">{index}.</span>{" "}
-        {appointment.patient?.name ?? "مريض"}
+        {appointment.patient?.name ?? t("queue.patient")}
         {sessions?.length ? (
           <span className="mr-1 rounded bg-sky-100 px-1 text-[9px] text-sky-800">
             {sessions[0].treatmentLabel}
@@ -318,7 +323,7 @@ function WaitingCapsuleChip({
         <Link
           href={patientRecordHref(patientId, "/queue")}
           className="rounded-full p-0.5 text-amber-800 hover:bg-amber-100"
-          title="ملف المريض"
+          title={t("queue.patientFile")}
         >
           <FileText size={10} />
         </Link>

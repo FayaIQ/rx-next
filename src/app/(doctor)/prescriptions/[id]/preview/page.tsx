@@ -1,10 +1,8 @@
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { toUserId } from "@/lib/user-id";
 import { loadPrescriptionDocument } from "@/lib/prescription-document-data";
-import { PrescriptionDocument } from "@/components/prescription/prescription-document";
+import { PrescriptionPreviewClient } from "./preview-client";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,23 +18,5 @@ export default async function PrescriptionPreviewPage({ params }: Params) {
 
   if (!data) notFound();
 
-  return (
-    <div className="min-h-screen bg-gray-100 p-4" dir="rtl">
-      <div className="mx-auto mb-4 flex max-w-[210mm] flex-wrap gap-2">
-        <Button asChild variant="secondary">
-          <Link href="/home">رجوع</Link>
-        </Button>
-        <Button asChild>
-          <Link href={`/prescriptions/${id}/print`}>طباعة</Link>
-        </Button>
-        <Button asChild variant="secondary">
-          <Link href={`/api/prescriptions/${id}/download-pdf`} target="_blank">
-            تحميل PDF
-          </Link>
-        </Button>
-      </div>
-
-      <PrescriptionDocument data={data} className="mx-auto" />
-    </div>
-  );
+  return <PrescriptionPreviewClient id={id} data={data} />;
 }

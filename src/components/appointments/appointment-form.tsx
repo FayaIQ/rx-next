@@ -16,6 +16,7 @@ import {
   fetchPatientsOfflineFirst,
 } from "@/lib/data/offline-api";
 import { genderLabel } from "@/lib/patient-utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
   appointment?: AppointmentDto | null;
@@ -66,6 +67,7 @@ export function AppointmentForm({
   onCancel,
   offline = true,
 }: Props) {
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
   const patientFormRef = useRef<PatientFormHandle>(null);
   const initial = splitDatetime(
@@ -119,7 +121,7 @@ export function AppointmentForm({
       return;
     }
     setShowNewPatient(true);
-    toast.info("مريض جديد — أكمل البيانات");
+    toast.info(t("appointments.newPatientToast"));
   }
 
   const saveMutation = useMutation({
@@ -128,14 +130,14 @@ export function AppointmentForm({
 
       if (!patient && showNewPatient) {
         patient = (await patientFormRef.current?.submit()) ?? null;
-        if (!patient) throw new Error("أكمل بيانات المريض الجديد");
+        if (!patient) throw new Error(t("appointments.completeNewPatient"));
         if (patient.id <= 0) {
-          throw new Error("تعذّر حفظ المريض — حاول مرة أخرى");
+          throw new Error(t("appointments.savePatientFailed"));
         }
         selectPatient(patient);
       }
 
-      if (!patient) throw new Error("اختر مريضاً أو أضف مريضاً جديداً");
+      if (!patient) throw new Error(t("appointments.selectOrAddPatient"));
 
       const appointmentDatetime = new Date(`${date}T${time}`).toISOString();
       const payload = {
@@ -165,10 +167,10 @@ export function AppointmentForm({
       queryClient.invalidateQueries({ queryKey: ["patients"] });
       toast.success(
         appointment
-          ? "تم تحديث الموعد"
+          ? t("appointments.updated")
           : showNewPatient
-            ? "تم إنشاء المريض وحجز الموعد"
-            : "تم حجز الموعد"
+            ? t("appointments.createdWithPatient")
+            : t("appointments.booked")
       );
       onSuccess();
     },
@@ -184,11 +186,11 @@ export function AppointmentForm({
       }}
     >
       <div className="space-y-2">
-        <Label>المريض</Label>
+        <Label>{t("appointments.patientLabel")}</Label>
         <div className="flex gap-2">
           <SearchInput
             className="flex-1"
-            placeholder="ابحث بالاسم..."
+            placeholder={t("appointments.searchPatient")}
             value={patientSearch}
             onChange={(v) => {
               setPatientSearch(v);
@@ -212,13 +214,15 @@ export function AppointmentForm({
               setSelectedPatient(null);
             }}
           >
-            جديد
+            {t("appointments.new")}
           </Button>
         </div>
 
         {patientSearch.trim() && !selectedPatient && !showNewPatient && (
           <p className="text-xs text-rx-muted">
-            {suggestions.length > 0 ? "Enter — اختيار" : "Enter — مريض جديد"}
+            {suggestions.length > 0
+              ? t("appointments.enterSelect")
+              : t("appointments.enterNewPatient")}
           </p>
         )}
 
@@ -233,7 +237,7 @@ export function AppointmentForm({
                 >
                   <span className="font-medium">{p.name}</span>
                   <span className="mr-2 text-xs text-rx-muted">
-                    {genderLabel(p.gender)} · {p.phone ?? "—"}
+                    {genderLabel(p.gender, locale)} · {p.phone ?? "—"}
                   </span>
                 </button>
               </li>
@@ -246,7 +250,7 @@ export function AppointmentForm({
             <strong>{selectedPatient.name}</strong>
             <span className="text-rx-muted">
               {" "}
-              · {genderLabel(selectedPatient.gender)}
+              · {genderLabel(selectedPatient.gender, locale)}
               {selectedPatient.phone && (
                 <span dir="ltr"> · {selectedPatient.phone}</span>
               )}
@@ -257,7 +261,7 @@ export function AppointmentForm({
         {showNewPatient && (
           <div className="rounded-lg border border-dashed border-rx-border p-3">
             <p className="mb-2 text-xs text-rx-muted">
-              أكمل بيانات المريض ثم اضغط «حجز الموعد» — سيُنشأ المريض تلقائياً.
+              {t("appointments.newPatientHint")}
             </p>
             <PatientForm
               ref={patientFormRef}
@@ -273,7 +277,7 @@ export function AppointmentForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>التاريخ</Label>
+          <Label>{t("appointments.date")}</Label>
           <Input
             fieldSize="compact"
             type="date"
@@ -283,7 +287,7 @@ export function AppointmentForm({
           />
         </div>
         <div className="space-y-1">
-          <Label>الوقت</Label>
+          <Label>{t("appointments.time")}</Label>
           <Input
             fieldSize="compact"
             type="time"
@@ -295,13 +299,13 @@ export function AppointmentForm({
       </div>
 
       <div className="space-y-1">
-        <Label>ملاحظات</Label>
+        <Label>{t("appointments.notes")}</Label>
         <Textarea
           fieldSize="compact"
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="اختياري..."
+          placeholder={t("appointments.notesPlaceholder")}
         />
       </div>
 
@@ -312,7 +316,7 @@ export function AppointmentForm({
           checked={status}
           onChange={(e) => setStatus(e.target.checked)}
         />
-        موعد نشط
+        {t("appointments.activeAppointment")}
       </label>
 
       <div className="flex gap-2 border-t border-rx-border/80 pt-3">
@@ -324,13 +328,13 @@ export function AppointmentForm({
           }
         >
           {appointment
-            ? "حفظ"
+            ? t("common.save")
             : showNewPatient
-              ? "حجز الموعد وإنشاء المريض"
-              : "حجز الموعد"}
+              ? t("appointments.bookAndCreatePatient")
+              : t("appointments.book")}
         </Button>
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-          إلغاء
+          {t("common.cancel")}
         </Button>
       </div>
     </form>

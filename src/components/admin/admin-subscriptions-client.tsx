@@ -17,12 +17,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { adminApi, type AdminUserDto } from "@/lib/api/admin-client";
 import { SubscriptionBadge } from "@/components/admin/subscription-badge";
 import { ActivateSubscriptionDialog } from "@/components/admin/activate-subscription-dialog";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function AdminSubscriptionsClient({
   initialFilter = "all",
 }: {
   initialFilter?: string;
 }) {
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState(initialFilter);
   const [activateUser, setActivateUser] = useState<AdminUserDto | null>(null);
@@ -43,13 +45,15 @@ export function AdminSubscriptionsClient({
     mutationFn: (userId: number) => adminApi.cancelSubscription(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
-      toast.success("تم إلغاء الاشتراك");
+      toast.success(t("admin.cancelled"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const list = data?.subscriptions ?? [];
   const pagination = data?.pagination;
+  const total = pagination?.total ?? list.length;
+  const dateLocale = locale === "en" ? "en-GB" : "ar-IQ";
 
   if (isLoading && !data) {
     return <CardsPageLoading />;
@@ -58,29 +62,31 @@ export function AdminSubscriptionsClient({
   return (
     <>
       <AppHeader
-        title="الاشتراكات"
-        subtitle={`${pagination?.total ?? list.length} اشتراك`}
+        title={t("admin.subscriptionsTitle")}
+        subtitle={t("admin.subscriptionCount", { count: total })}
       />
       <PageContent className="space-y-6">
         <PageHeader
-          title="إدارة الاشتراكات"
-          description="تفعيل، إلغاء، ومتابعة اشتراكات الأطباء"
+          title={t("admin.manageSubscriptions")}
+          description={t("admin.manageSubscriptionsDesc")}
         />
 
         <div className="flex flex-wrap gap-2">
-          {[
-            ["all", "الكل"],
-            ["active", "نشطة"],
-            ["trial", "تجربة"],
-            ["expired", "منتهية"],
-          ].map(([key, label]) => (
+          {(
+            [
+              ["all", "admin.filterAll"],
+              ["active", "admin.filterActive"],
+              ["trial", "admin.filterTrial"],
+              ["expired", "admin.filterExpired"],
+            ] as const
+          ).map(([key, labelKey]) => (
             <Button
               key={key}
               size="sm"
               variant={filter === key ? "default" : "outline"}
               onClick={() => setFilter(key)}
             >
-              {label}
+              {t(labelKey)}
             </Button>
           ))}
         </div>
@@ -96,8 +102,8 @@ export function AdminSubscriptionsClient({
             ) : list.length === 0 ? (
               <EmptyState
                 icon={CreditCard}
-                title="لا توجد اشتراكات"
-                description="جرّب تغيير الفلتر"
+                title={t("admin.noSubscriptions")}
+                description={t("admin.noSubscriptionsDesc")}
               />
             ) : (
               list.map((u) => (
@@ -115,36 +121,36 @@ export function AdminSubscriptionsClient({
                     </div>
                     {u.subscription?.endsAt && (
                       <p className="mt-1 text-xs text-rx-muted">
-                        ينتهي:{" "}
-                        {new Date(u.subscription.endsAt).toLocaleDateString(
-                          "ar-SY"
-                        )}
+                        {t("admin.endsAt", {
+                          date: new Date(u.subscription.endsAt).toLocaleDateString(
+                            dateLocale
+                          ),
+                        })}
                       </p>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => setActivateUser(u)}
-                    >
+                    <Button size="sm" onClick={() => setActivateUser(u)}>
                       <Plus size={14} />
-                      تفعيل
+                      {t("admin.activate")}
                     </Button>
                     {u.subscription?.isActive && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          if (confirm("إلغاء اشتراك هذا الطبيب؟")) {
+                          if (confirm(t("admin.confirmCancel"))) {
                             cancelMutation.mutate(u.id);
                           }
                         }}
                       >
-                        إلغاء
+                        {t("admin.cancel")}
                       </Button>
                     )}
                     <Button asChild size="sm" variant="ghost">
-                      <Link href={`/dashboard/users/${u.id}`}>السجل</Link>
+                      <Link href={`/dashboard/users/${u.id}`}>
+                        {t("admin.history")}
+                      </Link>
                     </Button>
                   </div>
                 </div>

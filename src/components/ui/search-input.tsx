@@ -1,7 +1,10 @@
+"use client";
+
 import type { KeyboardEventHandler } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
   value: string;
@@ -15,11 +18,12 @@ type Props = {
 export function SearchInput({
   value,
   onChange,
-  placeholder = "بحث...",
+  placeholder,
   className,
   onKeyDown,
   fieldSize = "compact",
 }: Props) {
+  const { t } = useLocale();
   return (
     <div className={cn("relative", className)}>
       <Search
@@ -29,7 +33,7 @@ export function SearchInput({
       <Input
         fieldSize={fieldSize}
         className="!ps-10"
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("ui.searchPlaceholder")}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}

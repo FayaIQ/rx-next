@@ -5,10 +5,26 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { signIn, signOut, getSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Loader2, Phone, Lock, User, ArrowLeft } from "lucide-react";
+import {
+  Loader2,
+  Phone,
+  Lock,
+  User,
+  ArrowLeft,
+  ArrowRight,
+  Stethoscope,
+  Smile,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  DOCTOR_PRACTICE_TYPES,
+  type DoctorPracticeType,
+} from "@/lib/doctor-practice";
+import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 
 interface AuthFormProps {
   mode: "signin" | "signup";
@@ -32,6 +48,25 @@ function safeCallbackUrl(raw: string | null | undefined, fallback: string) {
   }
 }
 
+const PRACTICE_ICONS: Record<DoctorPracticeType, typeof Stethoscope> = {
+  general: Stethoscope,
+  dental: Smile,
+};
+
+const PRACTICE_LABEL_KEYS: Record<
+  DoctorPracticeType,
+  { label: string; desc: string }
+> = {
+  general: {
+    label: "auth.practiceGeneral",
+    desc: "auth.practiceGeneralDesc",
+  },
+  dental: {
+    label: "auth.practiceDental",
+    desc: "auth.practiceDentalDesc",
+  },
+};
+
 export function AuthForm({
   mode,
   role,
@@ -41,10 +76,13 @@ export function AuthForm({
   alternateLabel,
 }: AuthFormProps) {
   const searchParams = useSearchParams();
+  const { t, locale } = useLocale();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [practiceType, setPracticeType] =
+    useState<DoctorPracticeType>("general");
 
   const defaultCallbackUrl =
     role === "admin"
@@ -57,11 +95,10 @@ export function AuthForm({
     if (mode !== "signin") return;
     const error = searchParams.get("error");
     if (error === "session_expired") {
-      toast.info("انتهت الجلسة — سجّل الدخول مجدداً");
-      // Ensure stale JWT is gone before the next login attempt.
+      toast.info(t("auth.sessionExpired"));
       void signOut({ redirect: false });
     }
-  }, [mode, searchParams]);
+  }, [mode, searchParams, t]);
 
   async function resolveCallbackUrl(): Promise<string> {
     const fromQuery = safeCallbackUrl(
@@ -89,6 +126,11 @@ export function AuthForm({
 
     try {
       if (mode === "signup") {
+        if (role === "doctor" && !practiceType) {
+          toast.error(t("auth.choosePractice"));
+          return;
+        }
+
         const endpoint =
           role === "secretary"
             ? "/api/auth/secretary/register"
@@ -97,17 +139,21 @@ export function AuthForm({
         const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, phone, password }),
+          body: JSON.stringify({
+            name,
+            phone,
+            password,
+            ...(role === "doctor" ? { practiceType } : {}),
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
-          toast.error(data.error ?? "فشل التسجيل");
+          toast.error(data.error ?? t("auth.registerFailed"));
           return;
         }
-        toast.success("تم إنشاء الحساب بنجاح");
+        toast.success(t("auth.accountCreated"));
       }
 
-      // Clear any previous JWT so a new login doesn't fight an old sessionId.
       await signOut({ redirect: false });
 
       const result = await signIn("credentials", {
@@ -118,23 +164,29 @@ export function AuthForm({
       });
 
       if (result?.error) {
-        toast.error("بيانات الدخول غير صحيحة");
+        toast.error(t("auth.invalidCredentials"));
         return;
       }
 
-      // Full navigation ensures session cookie is loaded before middleware runs
       window.location.href = await resolveCallbackUrl();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "حدث خطأ، حاول مرة أخرى"
+        err instanceof Error ? err.message : t("common.error")
       );
     } finally {
       setLoading(false);
     }
   }
 
+  const iconSide = locale === "ar" ? "right-3.5" : "left-3.5";
+  const inputPad = locale === "ar" ? "pr-10" : "pl-10";
+  const AltArrow = locale === "ar" ? ArrowLeft : ArrowRight;
+
   return (
     <div className="w-full max-w-md">
+      <div className="mb-6 flex justify-end">
+        <LanguageSwitcher variant="toggle" />
+      </div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-rx-text">{title}</h1>
         {subtitle && (
@@ -145,34 +197,90 @@ export function AuthForm({
       <form onSubmit={handleSubmit} className="space-y-5">
         {mode === "signup" && (
           <div className="space-y-2">
-            <Label htmlFor="name">الاسم الكامل</Label>
+            <Label htmlFor="name">{t("auth.fullName")}</Label>
             <div className="relative">
-              <User className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-rx-muted" />
+              <User
+                className={cn(
+                  "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-rx-muted",
+                  iconSide
+                )}
+              />
               <Input
                 id="name"
-                className="pr-10"
+                className={inputPad}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
                 autoComplete="name"
-                placeholder="د. محمد أحمد"
+                placeholder={t("auth.namePlaceholder")}
               />
             </div>
           </div>
         )}
 
+        {mode === "signup" && role === "doctor" ? (
+          <div className="space-y-2">
+            <Label>{t("auth.practiceType")}</Label>
+            <p className="text-xs text-rx-muted">{t("auth.practiceHint")}</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {DOCTOR_PRACTICE_TYPES.map((type) => {
+                const Icon = PRACTICE_ICONS[type.id];
+                const selected = practiceType === type.id;
+                const keys = PRACTICE_LABEL_KEYS[type.id];
+                return (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => setPracticeType(type.id)}
+                    className={cn(
+                      "rounded-xl border p-3 text-start transition",
+                      selected
+                        ? "border-rx-primary bg-rx-primary/5 ring-1 ring-rx-primary"
+                        : "border-rx-border hover:border-rx-primary/40"
+                    )}
+                  >
+                    <div className="mb-2 flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-lg",
+                          selected
+                            ? "bg-rx-primary text-white"
+                            : "bg-rx-bg-subtle text-rx-muted"
+                        )}
+                      >
+                        <Icon size={16} />
+                      </span>
+                      <span className="text-sm font-semibold text-rx-text">
+                        {t(keys.label)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-rx-muted">
+                      {t(keys.desc)}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
         <div className="space-y-2">
-          <Label htmlFor="phone">رقم الهاتف</Label>
+          <Label htmlFor="phone">{t("auth.phone")}</Label>
           <div className="relative">
-            <Phone className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-rx-muted" />
+            <Phone
+              className={cn(
+                "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-rx-muted",
+                iconSide
+              )}
+            />
             <Input
               id="phone"
               type="tel"
               dir="ltr"
-              className="pr-10 text-left"
+              className={cn(inputPad, "text-left")}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="09XXXXXXXX أو 07XXXXXXXXX"
+              placeholder={t("auth.phonePlaceholder")}
               required
               autoComplete="tel"
             />
@@ -180,13 +288,18 @@ export function AuthForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">كلمة المرور</Label>
+          <Label htmlFor="password">{t("auth.password")}</Label>
           <div className="relative">
-            <Lock className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-rx-muted" />
+            <Lock
+              className={cn(
+                "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-rx-muted",
+                iconSide
+              )}
+            />
             <Input
               id="password"
               type="password"
-              className="pr-10"
+              className={inputPad}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -203,12 +316,12 @@ export function AuthForm({
           {loading ? (
             <>
               <Loader2 size={18} className="animate-spin" />
-              جاري المعالجة...
+              {mode === "signup" ? t("auth.creating") : t("auth.signingIn")}
             </>
           ) : mode === "signup" ? (
-            "إنشاء حساب"
+            t("auth.signUp")
           ) : (
-            "تسجيل الدخول"
+            t("auth.signIn")
           )}
         </Button>
       </form>
@@ -219,7 +332,7 @@ export function AuthForm({
             href={alternateHref}
             className="inline-flex items-center gap-1 font-medium text-rx-primary hover:underline"
           >
-            <ArrowLeft size={14} />
+            <AltArrow size={14} />
             {alternateLabel}
           </Link>
         </p>

@@ -16,8 +16,10 @@ import { Pagination } from "@/components/ui/pagination";
 import { usePaginationState } from "@/hooks/use-pagination-state";
 import { adminApi, type AdminUserDto } from "@/lib/api/admin-client";
 import { SubscriptionBadge } from "@/components/admin/subscription-badge";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function AdminUsersClient() {
+  const { t } = useLocale();
   const [q, setQ] = useState("");
   const [type, setType] = useState<string>("");
   const { page, pageSize, onPageChange, onPageSizeChange } =
@@ -37,6 +39,7 @@ export function AdminUsersClient() {
 
   const users = data?.users ?? [];
   const pagination = data?.pagination;
+  const total = pagination?.total ?? users.length;
 
   if (isLoading && !data) {
     return <TablePageLoading />;
@@ -45,35 +48,37 @@ export function AdminUsersClient() {
   return (
     <>
       <AppHeader
-        title="المستخدمون"
-        subtitle={`${pagination?.total ?? users.length} مستخدم`}
+        title={t("admin.usersTitle")}
+        subtitle={t("admin.userCount", { count: total })}
       />
       <PageContent className="space-y-6">
         <PageHeader
-          title="جميع المستخدمين"
-          description="أطباء وسكرتارية مسجّلون في النظام"
+          title={t("admin.allUsers")}
+          description={t("admin.allUsersDesc")}
         />
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <SearchInput
             value={q}
             onChange={setQ}
-            placeholder="بحث بالاسم أو الهاتف..."
+            placeholder={t("admin.searchPlaceholder")}
             className="max-w-md flex-1"
           />
           <div className="flex gap-2">
-            {[
-              ["", "الكل"],
-              ["doctor", "أطباء"],
-              ["secretary", "سكرتارية"],
-            ].map(([val, label]) => (
+            {(
+              [
+                ["", "admin.filterAll"],
+                ["doctor", "admin.filterDoctors"],
+                ["secretary", "admin.filterSecretaries"],
+              ] as const
+            ).map(([val, labelKey]) => (
               <Button
                 key={val}
                 size="sm"
                 variant={type === val ? "default" : "outline"}
                 onClick={() => setType(val)}
               >
-                {label}
+                {t(labelKey)}
               </Button>
             ))}
           </div>
@@ -90,19 +95,29 @@ export function AdminUsersClient() {
             ) : users.length === 0 ? (
               <EmptyState
                 icon={Users}
-                title="لا يوجد مستخدمون"
-                description="جرّب تغيير معايير البحث"
+                title={t("admin.noUsers")}
+                description={t("admin.noUsersDesc")}
               />
             ) : (
               <div className="overflow-x-auto">
                 <table className="rx-table w-full text-sm">
                   <thead>
                     <tr className="border-b border-rx-border text-rx-muted">
-                      <th className="px-5 py-3.5 text-right font-medium">الاسم</th>
-                      <th className="px-5 py-3.5 text-right font-medium">النوع</th>
-                      <th className="px-5 py-3.5 text-right font-medium">الهاتف</th>
-                      <th className="px-5 py-3.5 text-right font-medium">الاشتراك</th>
-                      <th className="px-5 py-3.5 text-right font-medium">إجراء</th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("admin.name")}
+                      </th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("admin.type")}
+                      </th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("admin.phone")}
+                      </th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("admin.subscription")}
+                      </th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("admin.action")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-rx-border/60">
@@ -110,7 +125,9 @@ export function AdminUsersClient() {
                       <tr key={u.id}>
                         <td className="px-5 py-4 font-semibold">{u.name}</td>
                         <td className="px-5 py-4 text-rx-text-secondary">
-                          {u.type === "doctor" ? "طبيب" : "سكرتير"}
+                          {u.type === "doctor"
+                            ? t("admin.typeDoctor")
+                            : t("admin.typeSecretary")}
                         </td>
                         <td className="px-5 py-4 font-mono text-xs" dir="ltr">
                           {u.phoneNumber}
@@ -120,7 +137,9 @@ export function AdminUsersClient() {
                         </td>
                         <td className="px-5 py-4">
                           <Button asChild size="sm" variant="outline">
-                            <Link href={`/dashboard/users/${u.id}`}>تفاصيل</Link>
+                            <Link href={`/dashboard/users/${u.id}`}>
+                              {t("admin.details")}
+                            </Link>
                           </Button>
                         </td>
                       </tr>

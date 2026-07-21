@@ -1,20 +1,21 @@
-import { AuthPageLayout } from "@/components/auth/auth-page-layout";
-import { AuthForm } from "@/components/auth/auth-form";
+"use client";
+
+import { AuthSignUpPage } from "@/components/auth/auth-page-layout";
+import { useLocale } from "@/i18n/locale-provider";
 
 export default function DoctorSignUpPage() {
+  const { t } = useLocale();
+
   return (
-    <AuthPageLayout role="doctor">
-      <AuthForm
-        mode="signup"
-        role="doctor"
-        title="ابدأ تجربتك المجانية"
-        subtitle="14 يوماً مجاناً — بدون بطاقة ائتمان"
-        alternateHref="/auth/signin"
-        alternateLabel="لديك حساب؟ سجّل الدخول"
-      />
-      <p className="mt-6 text-center text-xs text-rx-muted">
-        بالتسجيل توافق على شروط الاستخدام وسياسة الخصوصية
-      </p>
-    </AuthPageLayout>
+    <AuthSignUpPage
+      role="doctor"
+      titleKey="auth.doctorSignUpTitle"
+      subtitleKey="auth.doctorSignUpSubtitle"
+      alternateHref="/auth/signin"
+      alternateLabelKey="auth.doctorAlternateSignIn"
+      footer={
+        <p className="mt-6 text-center text-xs text-rx-muted">{t("auth.terms")}</p>
+      }
+    />
   );
 }

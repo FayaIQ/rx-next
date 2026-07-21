@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function ActivateSubscriptionDialog({
   user,
@@ -17,6 +18,7 @@ export function ActivateSubscriptionDialog({
   user: AdminUserDto;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [packageId, setPackageId] = useState<number | "">("");
   const [customDays, setCustomDays] = useState("");
@@ -38,7 +40,7 @@ export function ActivateSubscriptionDialog({
         });
       }
       const days = Number(customDays);
-      if (!days || days < 1) throw new Error("أدخل عدد أيام صالح");
+      if (!days || days < 1) throw new Error(t("admin.invalidDays"));
       return adminApi.activateSubscription(user.id, {
         duration: days,
         durationUnit: "days",
@@ -49,7 +51,7 @@ export function ActivateSubscriptionDialog({
       queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       queryClient.invalidateQueries({ queryKey: ["admin-doctors"] });
-      toast.success(`تم تفعيل اشتراك ${user.name}`);
+      toast.success(t("admin.activated", { name: user.name }));
       onClose();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -59,11 +61,11 @@ export function ActivateSubscriptionDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>تفعيل اشتراك — {user.name}</CardTitle>
+          <CardTitle>{t("admin.activateTitle", { name: user.name })}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <Label>اختر باقة</Label>
+            <Label>{t("admin.choosePackage")}</Label>
             <select
               className="h-10 w-full rounded-md border px-3 text-sm"
               value={packageId}
@@ -72,18 +74,18 @@ export function ActivateSubscriptionDialog({
                 setCustomDays("");
               }}
             >
-              <option value="">— باقة —</option>
+              <option value="">{t("admin.packageOption")}</option>
               {packages.map((p: AdminPackageDto) => (
                 <option key={p.id} value={p.id}>
                   {p.name} — {p.duration}{" "}
-                  {p.durationUnit === "days" ? "يوم" : "شهر"}
+                  {p.durationUnit === "days" ? t("admin.day") : t("admin.month")}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="space-y-1">
-            <Label>أو مدة مخصصة (أيام)</Label>
+            <Label>{t("admin.customDays")}</Label>
             <Input
               type="number"
               min={1}
@@ -92,12 +94,12 @@ export function ActivateSubscriptionDialog({
                 setCustomDays(e.target.value);
                 setPackageId("");
               }}
-              placeholder="مثال: 30"
+              placeholder={t("admin.customDaysPlaceholder")}
             />
           </div>
 
           <div className="space-y-1">
-            <Label>ملاحظات</Label>
+            <Label>{t("admin.notes")}</Label>
             <Textarea
               rows={2}
               value={notes}
@@ -110,10 +112,10 @@ export function ActivateSubscriptionDialog({
               onClick={() => activateMutation.mutate()}
               disabled={activateMutation.isPending}
             >
-              تفعيل
+              {t("admin.activate")}
             </Button>
             <Button variant="secondary" onClick={onClose}>
-              إلغاء
+              {t("common.cancel")}
             </Button>
           </div>
         </CardContent>

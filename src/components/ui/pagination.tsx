@@ -7,6 +7,7 @@ import {
   PAGE_SIZE_OPTIONS,
   type PaginationMeta,
 } from "@/lib/pagination";
+import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
   pagination: PaginationMeta;
@@ -41,11 +42,15 @@ export function Pagination({
   onPageSizeChange,
   className,
 }: Props) {
+  const { t, locale } = useLocale();
   const { page, pageSize, total, totalPages, hasPrev, hasNext } = pagination;
   if (total === 0) return null;
 
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
+  const isRtl = locale === "ar";
+  const PrevIcon = isRtl ? ChevronRight : ChevronLeft;
+  const NextIcon = isRtl ? ChevronLeft : ChevronRight;
 
   return (
     <div
@@ -55,10 +60,7 @@ export function Pagination({
       )}
     >
       <p className="text-xs text-rx-muted">
-        عرض{" "}
-        <span className="font-medium text-rx-text">{from}</span>–
-        <span className="font-medium text-rx-text">{to}</span> من{" "}
-        <span className="font-medium text-rx-text">{total}</span>
+        {t("ui.showingRange", { from, to, total })}
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -67,11 +69,11 @@ export function Pagination({
             className="h-8 rounded-lg border border-rx-border bg-rx-surface px-2 text-xs focus:border-rx-primary focus:outline-none focus:ring-2 focus:ring-rx-primary/20"
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            aria-label="عدد العناصر في الصفحة"
+            aria-label={t("ui.pageSizeAria")}
           >
             {PAGE_SIZE_OPTIONS.map((n) => (
               <option key={n} value={n}>
-                {n} / صفحة
+                {t("ui.pageSize", { n })}
               </option>
             ))}
           </select>
@@ -84,9 +86,9 @@ export function Pagination({
             className="size-8"
             disabled={!hasPrev}
             onClick={() => onPageChange(page - 1)}
-            aria-label="الصفحة السابقة"
+            aria-label={t("ui.prevPage")}
           >
-            <ChevronRight size={16} />
+            <PrevIcon size={16} />
           </Button>
 
           {pageNumbers(page, totalPages).map((p, i) =>
@@ -114,9 +116,9 @@ export function Pagination({
             className="size-8"
             disabled={!hasNext}
             onClick={() => onPageChange(page + 1)}
-            aria-label="الصفحة التالية"
+            aria-label={t("ui.nextPage")}
           >
-            <ChevronLeft size={16} />
+            <NextIcon size={16} />
           </Button>
         </div>
       </div>

@@ -32,14 +32,14 @@ export function shiftWeek(dateKey: string, weeks: number): string {
 }
 
 export function formatWeekDayShort(dateKey: string): string {
-  return new Date(`${dateKey}T12:00:00`).toLocaleDateString("ar-SY", {
+  return new Date(`${dateKey}T12:00:00`).toLocaleDateString("ar-IQ", {
     weekday: "short",
     numberingSystem: "latn",
   });
 }
 
 export function formatWeekDayLabel(dateKey: string): string {
-  return new Date(`${dateKey}T12:00:00`).toLocaleDateString("ar-SY", {
+  return new Date(`${dateKey}T12:00:00`).toLocaleDateString("ar-IQ", {
     weekday: "long",
     day: "numeric",
     month: "short",

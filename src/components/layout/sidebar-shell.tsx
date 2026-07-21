@@ -6,7 +6,9 @@ import { useSession, signOut } from "next-auth/react";
 import { Menu, X, LogOut, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 export type NavItem = {
   href: string;
@@ -58,7 +60,9 @@ export function SidebarShell({ items, theme, brandSubtitle }: Props) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
-  const t = themes[theme];
+  const themeCfg = themes[theme];
+  const { t, locale } = useLocale();
+  const isRtl = locale === "ar";
 
   function isActive(item: NavItem) {
     if (item.exact) return pathname === item.href;
@@ -70,11 +74,12 @@ export function SidebarShell({ items, theme, brandSubtitle }: Props) {
       <button
         type="button"
         className={cn(
-          "fixed top-4 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg lg:hidden",
-          t.gradient
+          "fixed top-4 z-50 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg lg:hidden",
+          isRtl ? "right-4" : "left-4",
+          themeCfg.gradient
         )}
         onClick={() => setOpen(!open)}
-        aria-label="القائمة"
+        aria-label={t("common.menu")}
       >
         {open ? <X size={20} /> : <Menu size={20} />}
       </button>
@@ -89,16 +94,21 @@ export function SidebarShell({ items, theme, brandSubtitle }: Props) {
       <aside
         style={{ width: "var(--rx-sidebar-width)" }}
         className={cn(
-          "fixed inset-y-0 right-0 z-40 flex flex-col bg-gradient-to-b text-white shadow-2xl transition-transform duration-300 ease-out lg:translate-x-0",
-          t.gradient,
-          open ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+          "fixed inset-y-0 z-40 flex flex-col bg-gradient-to-b text-white shadow-2xl transition-transform duration-300 ease-out lg:translate-x-0",
+          isRtl ? "right-0" : "left-0",
+          themeCfg.gradient,
+          open
+            ? "translate-x-0"
+            : isRtl
+              ? "translate-x-full lg:translate-x-0"
+              : "-translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="flex h-[var(--rx-header-height)] items-center border-b border-white/10 px-4">
-          <BrandLogo
-            variant="dark"
-            size="sm"
-            subtitle={brandSubtitle}
+        <div className="flex h-[var(--rx-header-height)] items-center justify-between gap-2 border-b border-white/10 px-4">
+          <BrandLogo variant="dark" size="sm" subtitle={brandSubtitle} />
+          <LanguageSwitcher
+            variant="compact"
+            className="border-white/20 bg-white/10 [&_button]:text-white/70 [&_button.bg-rx-surface]:bg-white/20 [&_button.bg-rx-surface]:text-white"
           />
         </div>
 
@@ -114,7 +124,7 @@ export function SidebarShell({ items, theme, brandSubtitle }: Props) {
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   active
-                    ? t.accent
+                    ? themeCfg.accent
                     : "text-white/75 hover:bg-white/10 hover:text-white"
                 )}
               >
@@ -127,7 +137,7 @@ export function SidebarShell({ items, theme, brandSubtitle }: Props) {
                 />
                 <span>{item.label}</span>
                 {active && (
-                  <span className="mr-auto h-1.5 w-1.5 rounded-full bg-teal-300" />
+                  <span className="ms-auto h-1.5 w-1.5 rounded-full bg-teal-300" />
                 )}
               </Link>
             );
@@ -141,7 +151,7 @@ export function SidebarShell({ items, theme, brandSubtitle }: Props) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">
-                {session?.user?.name ?? "مستخدم"}
+                {session?.user?.name ?? t("common.user")}
               </p>
               <p className="truncate text-xs text-white/50" dir="ltr">
                 {session?.user?.phoneNumber}
@@ -150,11 +160,15 @@ export function SidebarShell({ items, theme, brandSubtitle }: Props) {
           </div>
           <button
             type="button"
-            onClick={() => signOut({ callbackUrl: t.signOutUrl })}
+            onClick={() =>
+              void signOut({ redirect: false }).then(() => {
+                window.location.href = themeCfg.signOutUrl;
+              })
+            }
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-sm font-medium text-white/90 transition-colors hover:bg-white/15"
           >
             <LogOut size={16} />
-            تسجيل الخروج
+            {t("common.logout")}
           </button>
         </div>
       </aside>

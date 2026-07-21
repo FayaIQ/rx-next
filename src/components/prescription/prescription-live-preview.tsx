@@ -5,6 +5,7 @@ import { PrescriptionDocument } from "@/components/prescription/prescription-doc
 import type { PrescriptionDocumentData } from "@/components/prescription/prescription-document";
 import { paperDimensions } from "@/lib/recipe-paper";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
   data: PrescriptionDocumentData;
@@ -23,8 +24,9 @@ const PX_PER_MM = 3.7795275591;
 export function PrescriptionLivePreview({
   data,
   className,
-  label = "معاينة حية",
+  label,
 }: Props) {
+  const { t } = useLocale();
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const paperSize = data.settings.paperSize;
@@ -32,6 +34,7 @@ export function PrescriptionLivePreview({
   const sizeMm = paperSizeMm(paperSize);
   const paperWidthPx = sizeMm.width * PX_PER_MM;
   const paperHeightPx = sizeMm.height * PX_PER_MM;
+  const previewLabel = label ?? t("home.livePreview");
 
   useEffect(() => {
     function updateScale() {
@@ -65,9 +68,9 @@ export function PrescriptionLivePreview({
       )}
     >
       <div className="flex shrink-0 items-center justify-between border-b border-rx-border/80 bg-white/80 px-3 py-1.5">
-        <p className="text-xs font-semibold text-rx-text">{label}</p>
+        <p className="text-xs font-semibold text-rx-text">{previewLabel}</p>
         <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[0.65rem] font-medium text-emerald-700">
-          مباشر
+          {t("home.liveBadge")}
         </span>
       </div>
 

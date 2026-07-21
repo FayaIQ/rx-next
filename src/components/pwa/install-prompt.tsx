@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/i18n/locale-provider";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -10,6 +11,7 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 export function InstallPrompt() {
+  const { t } = useLocale();
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(
     null
   );
@@ -36,8 +38,8 @@ export function InstallPrompt() {
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border bg-white p-4 shadow-lg lg:left-auto lg:right-6">
       <div className="text-sm">
-        <p className="font-semibold">ثبّت تطبيق RX</p>
-        <p className="text-rx-muted">استخدمه كتطبيق على جهازك</p>
+        <p className="font-semibold">{t("pwa.title")}</p>
+        <p className="text-rx-muted">{t("pwa.subtitle")}</p>
       </div>
       <div className="flex shrink-0 gap-2">
         <Button
@@ -48,7 +50,7 @@ export function InstallPrompt() {
           }}
         >
           <Download size={14} />
-          تثبيت
+          {t("pwa.install")}
         </Button>
         <Button
           size="icon"
@@ -58,6 +60,7 @@ export function InstallPrompt() {
             setDismissed(true);
             setDeferred(null);
           }}
+          aria-label={t("common.close")}
         >
           <X size={14} />
         </Button>

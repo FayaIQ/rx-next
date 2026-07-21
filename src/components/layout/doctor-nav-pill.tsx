@@ -21,26 +21,28 @@ import {
 import { cn } from "@/lib/utils";
 import { useClinicFeatures } from "@/components/clinic/clinic-features-provider";
 import { filterNavHref } from "@/lib/clinic-features";
+import { useLocale } from "@/i18n/locale-provider";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 
 type NavItem = {
   href: string;
-  label: string;
+  labelKey: string;
   icon: LucideIcon;
   exact?: boolean;
 };
 
 const navItems: NavItem[] = [
-  { href: "/home", label: "كتابة الوصفة", icon: Home, exact: true },
-  { href: "/queue", label: "طابور الاستدعاء", icon: ListOrdered },
-  { href: "/dates", label: "المواعيد", icon: Calendar },
-  { href: "/pharmaceutical", label: "مكتبة الأدوية", icon: Pill },
-  { href: "/patients", label: "المرضى", icon: Users },
-  { href: "/dental", label: "طبلة الأسنان", icon: Smile },
-  { href: "/finances", label: "المالية", icon: Wallet },
-  { href: "/reports", label: "التقارير", icon: BarChart3 },
-  { href: "/prescriptions", label: "سجل الوصفات", icon: FileText },
-  { href: "/recipe-settings", label: "تصميم الوصفة", icon: ClipboardList },
-  { href: "/setting", label: "الإعدادات", icon: Settings },
+  { href: "/home", labelKey: "nav.writePrescription", icon: Home, exact: true },
+  { href: "/queue", labelKey: "nav.queue", icon: ListOrdered },
+  { href: "/dates", labelKey: "nav.appointments", icon: Calendar },
+  { href: "/pharmaceutical", labelKey: "nav.medicines", icon: Pill },
+  { href: "/patients", labelKey: "nav.patients", icon: Users },
+  { href: "/dental", labelKey: "nav.dental", icon: Smile },
+  { href: "/finances", labelKey: "nav.finances", icon: Wallet },
+  { href: "/reports", labelKey: "nav.reports", icon: BarChart3 },
+  { href: "/prescriptions", labelKey: "nav.prescriptions", icon: FileText },
+  { href: "/recipe-settings", labelKey: "nav.recipeSettings", icon: ClipboardList },
+  { href: "/setting", labelKey: "nav.settings", icon: Settings },
 ];
 
 function getInitials(name?: string | null) {
@@ -57,6 +59,7 @@ export function DoctorNavPill() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { enabledMap } = useClinicFeatures();
+  const { t } = useLocale();
 
   const visibleItems = navItems.filter((item) =>
     filterNavHref(item.href, enabledMap)
@@ -70,19 +73,20 @@ export function DoctorNavPill() {
   return (
     <nav
       className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
-      aria-label="التنقل الرئيسي"
+      aria-label={t("nav.main")}
     >
       <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-full border border-white/60 bg-white/90 p-1.5 shadow-[0_8px_32px_rgb(8_51_68/0.18)] backdrop-blur-xl ring-1 ring-slate-900/5">
         <div className="flex max-w-[min(100vw-5rem,42rem)] items-center gap-0.5 overflow-x-auto rounded-full [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item);
+            const label = t(item.labelKey);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                title={item.label}
-                aria-label={item.label}
+                title={label}
+                aria-label={label}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200",
@@ -106,11 +110,17 @@ export function DoctorNavPill() {
 
         <div className="mx-0.5 h-8 w-px shrink-0 bg-slate-200" aria-hidden />
 
+        <LanguageSwitcher variant="toggle" className="shrink-0 shadow-none" />
+
         <button
           type="button"
-          title={session?.user?.name ?? "تسجيل الخروج"}
-          onClick={() => signOut({ callbackUrl: "/auth/signin" })}
-          className="group flex shrink-0 items-center gap-2 rounded-full py-1.5 pr-2 pl-1.5 text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600"
+          title={session?.user?.name ?? t("common.logout")}
+          onClick={() =>
+            void signOut({ redirect: false }).then(() => {
+              window.location.href = "/auth/signin";
+            })
+          }
+          className="group flex shrink-0 items-center gap-2 rounded-full py-1.5 pe-2 ps-1.5 text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-cyan-700 text-[0.65rem] font-bold text-white shadow-sm">
             {getInitials(session?.user?.name)}

@@ -340,6 +340,15 @@ export async function deletePatientOffline(id: number) {
 
   if (existing) await db.patients.delete(localId);
 
+  if (navigator.onLine) {
+    try {
+      await rxApi.patients.delete(id);
+      return;
+    } catch {
+      // fall through to queue
+    }
+  }
+
   await enqueueSyncItem({
     entity: "patient",
     action: "delete",
@@ -347,11 +356,7 @@ export async function deletePatientOffline(id: number) {
     localId,
     serverId: id,
   });
-
-  if (navigator.onLine) {
-    void processSyncQueue();
-    await rxApi.patients.delete(id);
-  }
+  void processSyncQueue();
 }
 
 export async function createPrescriptionOffline(body: Record<string, unknown>) {

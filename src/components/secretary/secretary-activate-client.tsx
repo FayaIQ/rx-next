@@ -18,8 +18,10 @@ import {
   normalizeSecretaryInviteCode,
   SECRETARY_INVITE_CODE_LENGTH,
 } from "@/lib/secretary-invite";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function SecretaryActivateClient() {
+  const { t } = useLocale();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -34,17 +36,17 @@ export function SecretaryActivateClient() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "رمز غير صالح");
+        toast.error(data.error ?? t("secretary.invalidCode"));
         return;
       }
       toast.success(
         data.alreadyActivated
-          ? "حسابك مفعّل — جاري فتح لوحة السكرتير..."
-          : "تم ربط حسابك بالطبيب بنجاح"
+          ? t("secretary.alreadyActivated")
+          : t("secretary.linkedSuccess")
       );
       window.location.assign("/secretary/desk");
     } catch {
-      toast.error("حدث خطأ");
+      toast.error(t("secretary.genericError"));
     } finally {
       setLoading(false);
     }
@@ -57,16 +59,17 @@ export function SecretaryActivateClient() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
             <KeyRound size={28} />
           </div>
-          <CardTitle className="text-2xl">تفعيل حساب السكرتير</CardTitle>
+          <CardTitle className="text-2xl">{t("secretary.activateTitle")}</CardTitle>
           <CardDescription>
-            أدخل رمز الدعوة المكوّن من {SECRETARY_INVITE_CODE_LENGTH} أحرف
-            الذي أرسله لك الطبيب
+            {t("secretary.activateDescription", {
+              length: SECRETARY_INVITE_CODE_LENGTH,
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleActivate} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="code">رمز الدعوة</Label>
+              <Label htmlFor="code">{t("secretary.inviteCode")}</Label>
               <Input
                 id="code"
                 value={code}
@@ -81,7 +84,9 @@ export function SecretaryActivateClient() {
               />
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "جاري التفعيل..." : "تفعيل الحساب"}
+              {loading
+                ? t("secretary.activating")
+                : t("secretary.activateAccount")}
             </Button>
           </form>
         </CardContent>

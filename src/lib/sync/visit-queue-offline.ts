@@ -110,7 +110,6 @@ export async function updateVisitStatusOffline(
   }
 
   const updated = await applyVisitStatusLocally(existing, visitStatus);
-  await enqueueVisitStatusSync(updated, visitStatus);
 
   if (navigator.onLine) {
     try {
@@ -125,11 +124,12 @@ export async function updateVisitStatusOffline(
         return { appointment: data.appointment };
       }
     } catch {
-      // queued for later
+      // fall through to queue
     }
-  } else {
-    void processSyncQueue();
   }
+
+  await enqueueVisitStatusSync(updated, visitStatus);
+  void processSyncQueue();
 
   const all = await getLocalAppointments();
   const dto =
@@ -178,10 +178,11 @@ export async function callNextOffline(
 ): Promise<{ appointment: AppointmentDto | null; message?: string }> {
   if (navigator.onLine) {
     try {
-      const res = await fetch(
-        `/api/appointments/call-next${date ? `?date=${date}` : ""}`,
-        { method: "POST" }
-      );
+      const res = await fetch("/api/appointments/queue/call-next", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(date ? { date } : {}),
+      });
       const data = await res.json();
       if (res.ok) {
         if (data.appointment) {
@@ -189,7 +190,7 @@ export async function callNextOffline(
         }
         return {
           appointment: data.appointment ?? null,
-          message: data.message,
+          message: data.message ?? undefined,
         };
       }
     } catch {

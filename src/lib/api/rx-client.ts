@@ -218,6 +218,7 @@ export type RecipeSettingsDto = {
   printGender: boolean;
   printPhone: boolean;
   printDiagnosis: boolean;
+  printWithoutDesignImage: boolean;
   designPhoneX: number;
   designPhoneY: number;
 };
@@ -423,6 +424,7 @@ export const rxApi = {
             patientName: string;
             sessionNumber: number;
             toothFdi: number;
+            treatmentType?: string;
             treatmentLabel: string;
             totalSessions: number | null;
           }>

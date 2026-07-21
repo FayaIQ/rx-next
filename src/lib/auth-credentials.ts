@@ -87,7 +87,16 @@ export async function registerDoctor(data: {
   name: string;
   phone: string;
   password: string;
+  practiceType?: string;
 }) {
+  const { isDoctorPracticeType, getPracticeTypeMeta, applyPracticeTypeFeatures } =
+    await import("@/lib/doctor-practice");
+
+  const practiceType = isDoctorPracticeType(data.practiceType)
+    ? data.practiceType
+    : "general";
+  const practiceMeta = getPracticeTypeMeta(practiceType);
+
   const phoneNumber = normalizePhoneForAuth(data.phone);
   const existing = await findUserByPhone(data.phone);
   if (existing) {
@@ -106,7 +115,7 @@ export async function registerDoctor(data: {
         create: {
           doctorName: data.name,
           phoneNumber,
-          doctorSpecialty: "",
+          doctorSpecialty: practiceMeta.specialty,
           fontFamily: "cairo",
           fontSize: "14",
           opacity: 0.2,
@@ -116,7 +125,9 @@ export async function registerDoctor(data: {
     },
   });
 
-  await activateTrialForDoctor(fromDbId(user.id));
+  const doctorId = fromDbId(user.id);
+  await activateTrialForDoctor(doctorId);
+  await applyPracticeTypeFeatures(doctorId, practiceType);
   return user;
 }
 

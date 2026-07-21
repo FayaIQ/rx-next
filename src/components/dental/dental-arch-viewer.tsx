@@ -12,10 +12,9 @@ import {
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls, RoundedBox, useGLTF, Environment } from "@react-three/drei";
 import * as THREE from "three";
-import {
-  toothStatusColor,
-  toothStatusLabel,
-} from "@/lib/dental/constants";
+import { toothStatusColor } from "@/lib/dental/constants";
+import { useLocale } from "@/i18n/locale-provider";
+import { tToothStatus } from "@/lib/i18n-labels";
 import { FDI_ALL } from "@/lib/dental/constants";
 import {
   DENTAL_MODEL_PATH,
@@ -106,7 +105,8 @@ function ToothAnnotation({
     labelRef.current.position.copy(end);
   });
 
-  const statusText = toothStatusLabel(tooth.status);
+  const { t, dir } = useLocale();
+  const statusText = tToothStatus(t, tooth.status);
   const notesText = tooth.notes?.trim();
 
   return (
@@ -120,7 +120,7 @@ function ToothAnnotation({
           zIndexRange={[40, 0]}
         >
           <div
-            dir="rtl"
+            dir={dir}
             className="max-w-[9.5rem] rounded-lg border border-slate-600 bg-slate-900/95 px-2 py-1.5 text-right text-[10px] leading-snug text-slate-100 shadow-lg"
           >
             <div className="mb-0.5 flex items-center justify-end gap-1.5 font-bold">
@@ -128,7 +128,7 @@ function ToothAnnotation({
                 className="inline-block size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: color }}
               />
-              <span>السن {tooth.toothFdi}</span>
+              <span>{t("dental.toothLabel", { fdi: tooth.toothFdi })}</span>
             </div>
             <div className="font-semibold" style={{ color }}>
               {statusText}
@@ -486,14 +486,16 @@ function Scene(props: Props) {
 }
 
 function ViewerFallback() {
+  const { t } = useLocale();
   return (
     <div className="flex h-[min(62vh,560px)] items-center justify-center rounded-2xl border border-slate-700 bg-black p-6 text-center text-sm text-slate-400">
-      تعذّر عرض نموذج الأسنان. حدّث الصفحة وحاول مجدداً.
+      {t("dental.archError")}
     </div>
   );
 }
 
 export function DentalArchViewer(props: Props) {
+  const { t } = useLocale();
   return (
     <CanvasErrorBoundary fallback={<ViewerFallback />}>
       <div className="relative h-[min(62vh,560px)] w-full overflow-hidden rounded-2xl border border-slate-700 bg-black shadow-inner">
@@ -511,7 +513,7 @@ export function DentalArchViewer(props: Props) {
             fallback={
               <Html center>
                 <p className="rounded-lg bg-slate-900/90 px-4 py-2 text-sm text-slate-300 shadow">
-                  جاري تحميل نموذج الأسنان...
+                  {t("dental.archLoading")}
                 </p>
               </Html>
             }
@@ -520,7 +522,7 @@ export function DentalArchViewer(props: Props) {
           </Suspense>
         </Canvas>
         <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-xs text-slate-500">
-          اسحب للدوران · قرّب/بعّد بعجلة الفأرة · اضغط على السن لتسجيل حالته
+          {t("dental.archHint")}
         </p>
       </div>
     </CanvasErrorBoundary>

@@ -1,6 +1,9 @@
+"use client";
+
 import type { PrescriptionDocumentData } from "@/components/prescription/prescription-document";
 import type { RecipeSettingsDto } from "@/lib/recipe-settings";
 import { MedicineLineList } from "@/components/prescription/medicine-line";
+import { useLocale } from "@/i18n/locale-provider";
 
 export const DEFAULT_ITEMS_BOX_WIDTH = 84;
 export const DEFAULT_ITEMS_BOX_HEIGHT = 45;
@@ -19,11 +22,12 @@ export function PrescriptionItemsContent({
   data: Pick<PrescriptionDocumentData, "diagnosis" | "items">;
   settings: Pick<RecipeSettingsDto, "printDiagnosis">;
 }) {
+  const { t } = useLocale();
   return (
     <div dir="ltr" className="text-left">
       {settings.printDiagnosis && data.diagnosis && (
         <p className="mb-1 text-left">
-          <strong>التشخيص:</strong> {data.diagnosis}
+          <strong>{t("recipe.diagnosis")}</strong> {data.diagnosis}
         </p>
       )}
       <MedicineLineList items={data.items} />

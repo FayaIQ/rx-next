@@ -7,13 +7,14 @@ import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
 import { DetailPageLoading } from "@/components/ui/page-loading";
 import { PageContent } from "@/components/ui/page-shell";
 import { adminApi } from "@/lib/api/admin-client";
 import { SubscriptionBadge } from "@/components/admin/subscription-badge";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function AdminUserDetailClient({ userId }: { userId: number }) {
+  const { t, locale } = useLocale();
   const { data, isLoading } = useQuery({
     queryKey: ["admin-user", userId],
     queryFn: () => adminApi.user(userId),
@@ -21,6 +22,7 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
 
   const user = data?.user;
   const history = data?.subscriptionHistory ?? [];
+  const dateLocale = locale === "en" ? "en-GB" : "ar-IQ";
 
   if (isLoading && !data) {
     return <DetailPageLoading />;
@@ -28,12 +30,12 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
 
   return (
     <>
-      <AppHeader title="تفاصيل المستخدم" />
+      <AppHeader title={t("admin.userDetailTitle")} />
       <PageContent className="space-y-6">
         <Button asChild variant="outline" size="sm">
           <Link href="/dashboard/users">
             <ArrowRight size={14} />
-            رجوع للمستخدمين
+            {t("admin.backToUsers")}
           </Link>
         </Button>
 
@@ -45,29 +47,33 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
               </CardHeader>
               <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
                 <div className="rounded-xl bg-rx-bg-subtle p-3">
-                  <p className="text-xs text-rx-muted">النوع</p>
+                  <p className="text-xs text-rx-muted">{t("admin.type")}</p>
                   <p className="font-medium">
-                    {user.type === "doctor" ? "طبيب" : "سكرتير"}
+                    {user.type === "doctor"
+                      ? t("admin.typeDoctor")
+                      : t("admin.typeSecretary")}
                   </p>
                 </div>
                 <div className="rounded-xl bg-rx-bg-subtle p-3">
-                  <p className="text-xs text-rx-muted">الهاتف</p>
+                  <p className="text-xs text-rx-muted">{t("admin.phone")}</p>
                   <p className="font-mono font-medium" dir="ltr">
                     {user.phoneNumber}
                   </p>
                 </div>
                 {user.doctorName && (
                   <div className="rounded-xl bg-rx-bg-subtle p-3">
-                    <p className="text-xs text-rx-muted">الطبيب</p>
+                    <p className="text-xs text-rx-muted">{t("admin.doctor")}</p>
                     <p className="font-medium">{user.doctorName}</p>
                   </div>
                 )}
                 <div className="rounded-xl bg-rx-bg-subtle p-3">
-                  <p className="text-xs text-rx-muted">المرضى</p>
+                  <p className="text-xs text-rx-muted">{t("admin.patients")}</p>
                   <p className="font-medium">{user.patientsCount}</p>
                 </div>
                 <div className="rounded-xl bg-rx-bg-subtle p-3 sm:col-span-2">
-                  <p className="mb-1 text-xs text-rx-muted">الاشتراك الحالي</p>
+                  <p className="mb-1 text-xs text-rx-muted">
+                    {t("admin.currentSubscription")}
+                  </p>
                   <SubscriptionBadge subscription={user.subscription} />
                 </div>
               </CardContent>
@@ -75,14 +81,14 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
 
             <Card>
               <CardHeader>
-                <CardTitle>سجل الاشتراكات</CardTitle>
+                <CardTitle>{t("admin.subscriptionHistory")}</CardTitle>
               </CardHeader>
               <CardContent className="divide-y divide-rx-border/60 p-0">
                 {history.length === 0 ? (
                   <EmptyState
                     icon={FileText}
-                    title="لا يوجد سجل"
-                    description="لم يتم تفعيل أي اشتراك بعد"
+                    title={t("admin.noHistory")}
+                    description={t("admin.noHistoryDesc")}
                   />
                 ) : (
                   history.map((s) => {
@@ -101,8 +107,8 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
                           {sub.packageName ?? sub.planType} — {sub.status}
                         </p>
                         <p className="mt-1 text-rx-muted">
-                          {new Date(sub.startsAt).toLocaleDateString("ar-SY")} →{" "}
-                          {new Date(sub.endsAt).toLocaleDateString("ar-SY")}
+                          {new Date(sub.startsAt).toLocaleDateString(dateLocale)} →{" "}
+                          {new Date(sub.endsAt).toLocaleDateString(dateLocale)}
                         </p>
                         {sub.notes && (
                           <p className="mt-1 text-rx-text-secondary">{sub.notes}</p>
@@ -117,8 +123,8 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
         ) : (
           <EmptyState
             icon={FileText}
-            title="المستخدم غير موجود"
-            description="تعذّر العثور على هذا المستخدم"
+            title={t("admin.userNotFound")}
+            description={t("admin.userNotFoundDesc")}
           />
         )}
       </PageContent>

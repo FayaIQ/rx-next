@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 type SearchResults = {
   patients: Array<{ id: number; name: string; phone: string | null; href: string }>;
@@ -32,6 +33,7 @@ type SearchResults = {
 };
 
 export function GlobalSearch() {
+  const { t, locale } = useLocale();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const router = useRouter();
@@ -66,7 +68,7 @@ export function GlobalSearch() {
         className="fixed bottom-[calc(var(--rx-nav-pill-offset)+0.75rem)] left-4 z-40 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium shadow-lg hover:bg-slate-50"
       >
         <Search size={16} />
-        بحث
+        {t("search.label")}
         <kbd className="hidden rounded bg-slate-100 px-1.5 text-[10px] sm:inline">⌘K</kbd>
       </button>
     );
@@ -88,7 +90,7 @@ export function GlobalSearch() {
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="ابحث عن مريض، وصفة، موعد، علاج..."
+            placeholder={t("search.placeholder")}
             className="min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
           <button type="button" onClick={() => setOpen(false)}>
@@ -98,17 +100,17 @@ export function GlobalSearch() {
         <div className="max-h-[50vh] overflow-y-auto p-2">
           {q.trim().length < 2 ? (
             <p className="p-4 text-center text-sm text-slate-500">
-              اكتب حرفين على الأقل
+              {t("search.minChars")}
             </p>
           ) : isFetching ? (
-            <p className="p-4 text-center text-sm text-slate-500">جاري البحث...</p>
+            <p className="p-4 text-center text-sm text-slate-500">{t("search.searching")}</p>
           ) : !hasResults ? (
-            <p className="p-4 text-center text-sm text-slate-500">لا توجد نتائج</p>
+            <p className="p-4 text-center text-sm text-slate-500">{t("search.noResults")}</p>
           ) : (
             <>
               {data!.patients.length > 0 ? (
                 <SearchGroup
-                  title="مرضى"
+                  title={t("search.patients")}
                   items={data!.patients.map((p) => ({
                     key: p.id,
                     label: p.name,
@@ -121,7 +123,7 @@ export function GlobalSearch() {
               ) : null}
               {data!.prescriptions.length > 0 ? (
                 <SearchGroup
-                  title="وصفات"
+                  title={t("search.prescriptions")}
                   items={data!.prescriptions.map((p) => ({
                     key: p.id,
                     label: `#${p.prescriptionNumber} — ${p.patientName}`,
@@ -134,12 +136,15 @@ export function GlobalSearch() {
               ) : null}
               {data!.treatments.length > 0 ? (
                 <SearchGroup
-                  title="علاجات"
-                  items={data!.treatments.map((t) => ({
-                    key: t.id,
-                    label: `${t.patientName} — سن ${t.toothFdi}`,
-                    sub: t.label,
-                    href: t.href,
+                  title={t("search.treatments")}
+                  items={data!.treatments.map((tr) => ({
+                    key: tr.id,
+                    label: t("search.treatmentTooth", {
+                      name: tr.patientName,
+                      fdi: tr.toothFdi,
+                    }),
+                    sub: tr.label,
+                    href: tr.href,
                   }))}
                   onPick={() => setOpen(false)}
                   router={router}
@@ -147,11 +152,13 @@ export function GlobalSearch() {
               ) : null}
               {data!.appointments.length > 0 ? (
                 <SearchGroup
-                  title="مواعيد"
+                  title={t("search.appointments")}
                   items={data!.appointments.map((a) => ({
                     key: a.id,
                     label: a.patientName,
-                    sub: new Date(a.datetime).toLocaleString("ar-SY"),
+                    sub: new Date(a.datetime).toLocaleString(
+                      locale === "en" ? "en-GB" : "ar-IQ"
+                    ),
                     href: a.href,
                   }))}
                   onPick={() => setOpen(false)}

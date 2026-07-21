@@ -25,18 +25,19 @@ import { fetchAppointmentsOfflineFirst } from "@/lib/data/offline-api";
 import { genderLabel } from "@/lib/patient-utils";
 import {
   type VisitStatus,
-  DOCTOR_ACTION_LABELS,
   DOCTOR_VISIT_STATUS_NEXT,
-  SECRETARY_ACTION_LABELS,
   SECRETARY_VISIT_STATUS_NEXT,
   VISIT_STATUS_COLORS,
-  VISIT_STATUS_LABELS,
   isVisitStatus,
   normalizeQueueStatus,
-  secretaryStatusLabel,
 } from "@/lib/visit-queue/constants";
 import { cn } from "@/lib/utils";
 import { PatientQueueSummary } from "@/components/waiting-room/patient-queue-summary";
+import {
+  useLocale,
+  type Locale,
+  type TranslateFn,
+} from "@/i18n/locale-provider";
 
 const SECRETARY_COLUMNS: VisitStatus[] = [
   "scheduled",
@@ -58,22 +59,64 @@ function todayKey() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("ar-SY", {
+function dateLocale(locale: Locale) {
+  return locale === "en" ? "en-GB" : "ar-IQ";
+}
+
+function formatTime(iso: string, locale: Locale) {
+  return new Date(iso).toLocaleTimeString(dateLocale(locale), {
     hour: "2-digit",
     minute: "2-digit",
     numberingSystem: "latn",
   });
 }
 
-function formatWaitTime(checkedInAt: string | null) {
+function formatWaitTime(
+  checkedInAt: string | null,
+  t: TranslateFn
+): string | null {
   if (!checkedInAt) return null;
   const mins = Math.max(
     0,
     Math.floor((Date.now() - new Date(checkedInAt).getTime()) / 60000)
   );
-  if (mins < 1) return "الآن";
-  return `${mins} د`;
+  if (mins < 1) return t("waitingRoom.now");
+  return t("waitingRoom.minutes", { count: mins });
+}
+
+function visitStatusLabel(status: VisitStatus, t: TranslateFn): string {
+  switch (status) {
+    case "scheduled":
+      return t("waitingRoom.statusScheduled");
+    case "arrived":
+      return t("waitingRoom.statusArrived");
+    case "waiting":
+      return t("waitingRoom.statusWaiting");
+    case "with_doctor":
+      return t("waitingRoom.statusWithDoctor");
+    case "done":
+      return t("waitingRoom.statusDone");
+  }
+}
+
+function secretaryColumnLabel(status: VisitStatus, t: TranslateFn): string {
+  if (status === "with_doctor") return t("waitingRoom.statusCalled");
+  return visitStatusLabel(status, t);
+}
+
+function actionLabelFor(
+  status: VisitStatus,
+  role: "secretary" | "doctor",
+  t: TranslateFn
+): string | null {
+  if (role === "secretary") {
+    if (status === "scheduled") return t("waitingRoom.actionCheckIn");
+    return null;
+  }
+  if (status === "scheduled") return t("waitingRoom.actionCheckIn");
+  if (status === "waiting") return t("waitingRoom.actionCall");
+  if (status === "with_doctor") return t("waitingRoom.actionEndVisit");
+  return null;
 }
 
 type Props = {
@@ -89,6 +132,7 @@ export function WaitingRoomBoard({
   onChanged,
   onSelectPatient,
 }: Props) {
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
   const day = date ?? todayKey();
   const isDoctor = role === "doctor";
@@ -153,7 +197,9 @@ export function WaitingRoomBoard({
         onSelectPatient(res.appointment.patient.id);
       }
       toast.success(
-        `تم استدعاء ${res.appointment.patient?.name ?? "المريض"}`
+        t("waitingRoom.called", {
+          name: res.appointment.patient?.name ?? t("waitingRoom.thePatient"),
+        })
       );
     },
     onError: (e: Error) => toast.error(e.message),
@@ -168,10 +214,13 @@ export function WaitingRoomBoard({
       }
       if (res.appointment) {
         toast.success(
-          `تم استدعاء ${res.appointment.patient?.name ?? "المريض"}`
+          t("waitingRoom.called", {
+            name:
+              res.appointment.patient?.name ?? t("waitingRoom.thePatient"),
+          })
         );
       } else {
-        toast.info(res.message ?? "لا يوجد مرضى في الانتظار");
+        toast.info(res.message ?? t("waitingRoom.nobodyWaiting"));
       }
     },
     onError: (e: Error) => toast.error(e.message),
@@ -188,7 +237,7 @@ export function WaitingRoomBoard({
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-rx-muted">
-          جاري تحميل الطابور...
+          {t("waitingRoom.loading")}
         </CardContent>
       </Card>
     );
@@ -213,10 +262,12 @@ export function WaitingRoomBoard({
             ) : (
               <Users size={18} className="text-rx-primary" />
             )}
-            {isDoctor ? "طابور الاستدعاء" : "متابعة الطابور"}
+            {isDoctor
+              ? t("waitingRoom.titleDoctor")
+              : t("waitingRoom.titleSecretary")}
             {isFetching && !isLoading ? (
               <span className="text-xs font-normal text-rx-muted">
-                تحديث...
+                {t("waitingRoom.updating")}
               </span>
             ) : null}
           </CardTitle>
@@ -231,13 +282,17 @@ export function WaitingRoomBoard({
               onClick={() => callNextMutation.mutate()}
             >
               <UserCheck size={14} />
-              استدعاء التالي
+              {t("waitingRoom.callNext")}
             </Button>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{appointments.length} موعد</Badge>
+              <Badge variant="secondary">
+                {t("waitingRoom.appointmentCount", {
+                  count: appointments.length,
+                })}
+              </Badge>
               <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">
-                {waitingList.length} انتظار
+                {t("waitingRoom.waitingCount", { count: waitingList.length })}
               </Badge>
             </div>
           )}
@@ -252,13 +307,17 @@ export function WaitingRoomBoard({
               >
                 <BellRing size={16} className="shrink-0" />
                 <span>
-                  <strong>{ap.patient?.name ?? "مريض"}</strong>
+                  <strong>
+                    {ap.patient?.name ?? t("waitingRoom.patient")}
+                  </strong>
                   {" — "}
-                  <span className="font-semibold">تم استدعاؤه من الطبيب</span>
+                  <span className="font-semibold">
+                    {t("waitingRoom.calledByDoctor")}
+                  </span>
                   {ap.updatedAt ? (
                     <span className="text-violet-800/80">
                       {" "}
-                      · {formatTime(ap.updatedAt)}
+                      · {formatTime(ap.updatedAt, locale)}
                     </span>
                   ) : null}
                 </span>
@@ -269,11 +328,11 @@ export function WaitingRoomBoard({
 
         {!isDoctor ? (
           <p className="mt-2 text-xs text-rx-muted">
-            تسجيل الوصول يصل المريض للانتظار. الاستدعاء من الطبيب.
+            {t("waitingRoom.secretaryHint")}
           </p>
         ) : (
           <p className="mt-2 text-xs text-rx-muted">
-            يمكنك تسجيل وصول المريض أو استدعائه من الانتظار.
+            {t("waitingRoom.doctorHint")}
           </p>
         )}
 
@@ -287,7 +346,7 @@ export function WaitingRoomBoard({
       <CardContent>
         {appointments.length === 0 ? (
           <p className="py-6 text-center text-sm text-rx-muted">
-            لا توجد مواعيد نشطة اليوم.
+            {t("waitingRoom.emptyToday")}
           </p>
         ) : (
           <div className="grid gap-3 lg:grid-cols-4">
@@ -295,8 +354,8 @@ export function WaitingRoomBoard({
               const items = grouped.get(status) ?? [];
               const colors = VISIT_STATUS_COLORS[status];
               const columnLabel = isDoctor
-                ? VISIT_STATUS_LABELS[status]
-                : secretaryStatusLabel(status);
+                ? visitStatusLabel(status, t)
+                : secretaryColumnLabel(status, t);
 
               return (
                 <div
@@ -371,6 +430,7 @@ function QueueCard({
   onSelectPatient?: (patientId: number) => void;
   advancing: boolean;
 }) {
+  const { t, locale } = useLocale();
   const isDoctor = role === "doctor";
   const rawStatus = isVisitStatus(appointment.visitStatus)
     ? appointment.visitStatus
@@ -380,14 +440,11 @@ function QueueCard({
   const nextMap = isDoctor
     ? DOCTOR_VISIT_STATUS_NEXT
     : SECRETARY_VISIT_STATUS_NEXT;
-  const actionLabels = isDoctor
-    ? DOCTOR_ACTION_LABELS
-    : SECRETARY_ACTION_LABELS;
 
   const next = nextMap[status];
-  const actionLabel = next ? actionLabels[status] : null;
+  const actionLabel = next ? actionLabelFor(status, role, t) : null;
   const colors = VISIT_STATUS_COLORS[status];
-  const wait = formatWaitTime(appointment.checkedInAt);
+  const wait = formatWaitTime(appointment.checkedInAt, t);
   const called = status === "with_doctor";
 
   return (
@@ -409,15 +466,18 @@ function QueueCard({
               }
             }}
           >
-            {appointment.patient?.name ?? "مريض"}
+            {appointment.patient?.name ?? t("waitingRoom.patient")}
           </button>
           <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-rx-muted">
             <Clock size={10} />
-            {formatTime(appointment.appointmentDatetime)}
+            {formatTime(appointment.appointmentDatetime, locale)}
             {appointment.patient ? (
               <>
                 <span>·</span>
-                {genderLabel(appointment.patient.gender as "male" | "female")}
+                {genderLabel(
+                  appointment.patient.gender as "male" | "female",
+                  locale
+                )}
               </>
             ) : null}
             {wait && status !== "scheduled" && status !== "done" ? (
@@ -430,7 +490,7 @@ function QueueCard({
         </div>
         {called && !isDoctor ? (
           <Badge className="shrink-0 bg-violet-600 text-[10px] hover:bg-violet-600">
-            تم الاستدعاء
+            {t("waitingRoom.calledBadge")}
           </Badge>
         ) : null}
       </div>
@@ -443,7 +503,7 @@ function QueueCard({
           onClick={onCall}
         >
           <UserCheck size={12} />
-          استدعاء
+          {t("waitingRoom.call")}
         </Button>
       ) : null}
 

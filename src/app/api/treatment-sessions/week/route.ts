@@ -78,6 +78,7 @@ export async function GET(request: Request) {
           patientName: s.patient.name,
           sessionNumber: s.sessionNumber,
           toothFdi: s.plan.toothFdi,
+          treatmentType: s.plan.treatmentType,
           treatmentLabel: treatmentTypeLabel(s.plan.treatmentType),
           totalSessions: s.plan.totalSessions,
         })),

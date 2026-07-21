@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { rxApi, type RecipeSettingsDto } from "@/lib/api/rx-client";
 import { normalizeRecipeSettingsDto, defaultRecipeSettingsForDoctor } from "@/lib/recipe-settings";
+import { useLocale } from "@/i18n/locale-provider";
 
 type CoreFieldKeys =
   | "showGender"
@@ -25,22 +26,23 @@ export function CorePatientFieldsTable({
   onPatch: <K extends CoreFieldKeys>(key: K, value: RecipeSettingsDto[K]) => void;
   showPositionHint?: boolean;
 }) {
+  const { t } = useLocale();
+
   return (
     <div className="space-y-3">
       {showPositionHint ? (
         <p className="text-sm text-rx-muted">
-          تحكّم بظهور الحقول عند إضافة مريض جديد وطباعتها على الوصفة.{" "}
+          {t("settings.coreHintWithLink")}{" "}
           <Link href="/recipe-settings" className="text-rx-primary hover:underline">
-            اسحب موضع كل حقل من تصميم الوصفة
+            {t("settings.dragFromDesign")}
           </Link>
           .
         </p>
       ) : (
         <p className="text-sm text-rx-muted">
-          الحقول الأساسية (الاسم، الجنس، العمر، الهاتف) عند إضافة مريض أو طباعة
-          الوصفة.{" "}
+          {t("settings.coreHintBasic")}{" "}
           <Link href="/recipe-settings" className="text-rx-primary hover:underline">
-            ضبط مواقع الطباعة ←
+            {t("settings.setPrintPositions")}
           </Link>
         </p>
       )}
@@ -48,14 +50,20 @@ export function CorePatientFieldsTable({
         <table className="w-full min-w-[320px] text-sm">
           <thead>
             <tr className="border-b border-rx-border bg-rx-bg-subtle text-rx-muted">
-              <th className="px-3 py-2 text-right font-medium">الحقل</th>
-              <th className="px-3 py-2 text-center font-medium">يظهر عند الإضافة</th>
-              <th className="px-3 py-2 text-center font-medium">يُطبَع على الوصفة</th>
+              <th className="px-3 py-2 text-right font-medium">
+                {t("settings.fieldCol")}
+              </th>
+              <th className="px-3 py-2 text-center font-medium">
+                {t("settings.showOnAdd")}
+              </th>
+              <th className="px-3 py-2 text-center font-medium">
+                {t("settings.printOnRx")}
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-b border-rx-border/60">
-              <td className="px-3 py-2">اسم المريض</td>
+              <td className="px-3 py-2">{t("settings.patientName")}</td>
               <td className="px-3 py-2 text-center">
                 <input type="checkbox" checked disabled />
               </td>
@@ -68,7 +76,7 @@ export function CorePatientFieldsTable({
               </td>
             </tr>
             <tr className="border-b border-rx-border/60">
-              <td className="px-3 py-2">الجنس</td>
+              <td className="px-3 py-2">{t("settings.gender")}</td>
               <td className="px-3 py-2 text-center">
                 <input
                   type="checkbox"
@@ -85,7 +93,7 @@ export function CorePatientFieldsTable({
               </td>
             </tr>
             <tr className="border-b border-rx-border/60">
-              <td className="px-3 py-2">العمر</td>
+              <td className="px-3 py-2">{t("settings.age")}</td>
               <td className="px-3 py-2 text-center">
                 <input
                   type="checkbox"
@@ -102,7 +110,7 @@ export function CorePatientFieldsTable({
               </td>
             </tr>
             <tr>
-              <td className="px-3 py-2">الهاتف</td>
+              <td className="px-3 py-2">{t("settings.phone")}</td>
               <td className="px-3 py-2 text-center">
                 <input
                   type="checkbox"
@@ -126,6 +134,7 @@ export function CorePatientFieldsTable({
 }
 
 export function CorePatientFieldsSettings() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [settings, setSettings] = useState<RecipeSettingsDto>(() =>
     defaultRecipeSettingsForDoctor(0)
@@ -148,7 +157,7 @@ export function CorePatientFieldsSettings() {
     mutationFn: (next: RecipeSettingsDto) => rxApi.recipeSettings.update(next),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipe-settings"] });
-      toast.success("تم حفظ إعدادات الحقول");
+      toast.success(t("settings.coreFieldsSaved"));
     },
     onError: (e: Error) => toast.error(e.message),
   });

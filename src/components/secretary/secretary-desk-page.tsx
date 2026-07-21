@@ -23,6 +23,7 @@ import {
   paymentMethodLabel,
 } from "@/lib/finance/constants";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 function todayKey() {
   const d = new Date();
@@ -30,27 +31,29 @@ function todayKey() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("ar-SY", {
-    hour: "2-digit",
-    minute: "2-digit",
-    numberingSystem: "latn",
-  });
-}
-
-function formatTodayLabel() {
-  return new Date().toLocaleDateString("ar-SY", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    numberingSystem: "latn",
-  });
-}
-
 export function SecretaryDeskPage() {
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
   const today = todayKey();
+  const dateLocale = locale === "en" ? "en-GB" : "ar-IQ";
+
+  function formatTime(iso: string) {
+    return new Date(iso).toLocaleTimeString(dateLocale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      numberingSystem: "latn",
+    });
+  }
+
+  function formatTodayLabel() {
+    return new Date().toLocaleDateString(dateLocale, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      numberingSystem: "latn",
+    });
+  }
 
   const invalidateDesk = () => {
     queryClient.invalidateQueries({ queryKey: ["secretary-desk"] });
@@ -97,26 +100,26 @@ export function SecretaryDeskPage() {
   return (
     <>
       <AppHeader
-        title="واجهة الاستقبال"
-        subtitle={`تسجيل الكشفيات — ${formatTodayLabel()}`}
+        title={t("secretary.deskTitle")}
+        subtitle={t("secretary.deskSubtitle", { date: formatTodayLabel() })}
       />
       <PageContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
           <StatCard
             icon={Stethoscope}
-            label="كشفيات اليوم"
+            label={t("secretary.consultationsToday")}
             value={String(consultations.length)}
             tone="primary"
           />
           <StatCard
             icon={Wallet}
-            label="إيراد اليوم"
+            label={t("secretary.incomeToday")}
             value={formatMoney(summary?.totalIncome ?? 0, settings?.currency)}
             tone="income"
           />
           <StatCard
             icon={CalendarDays}
-            label="مواعيد اليوم"
+            label={t("secretary.appointmentsToday")}
             value={String(appointments.length)}
             tone="neutral"
           />
@@ -128,7 +131,7 @@ export function SecretaryDeskPage() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Stethoscope size={18} className="text-rx-primary" />
-              تسجيل كشفية / استشارة
+              {t("secretary.recordConsultation")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -141,17 +144,17 @@ export function SecretaryDeskPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base">كشفيات اليوم المسجّلة</CardTitle>
+            <CardTitle className="text-base">{t("secretary.recordedToday")}</CardTitle>
             <Button variant="outline" size="sm" asChild>
-              <Link href="/secretary/finances">المالية الكاملة</Link>
+              <Link href="/secretary/finances">{t("secretary.fullFinances")}</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-2">
             {txLoading ? (
-              <p className="text-sm text-rx-muted">جاري التحميل...</p>
+              <p className="text-sm text-rx-muted">{t("common.loading")}</p>
             ) : consultations.length === 0 ? (
               <p className="py-6 text-center text-sm text-rx-muted">
-                لم تُسجَّل أي كشفية اليوم بعد.
+                {t("secretary.noConsultationsToday")}
               </p>
             ) : (
               consultations.map((tx) => (
@@ -159,10 +162,10 @@ export function SecretaryDeskPage() {
                   key={tx.id}
                   className="flex flex-wrap items-center gap-2 rounded-xl border border-rx-border/80 px-3 py-2.5"
                 >
-                  <Badge variant="default">كشفية</Badge>
+                  <Badge variant="default">{t("secretary.consultationBadge")}</Badge>
                   <div className="min-w-0 flex-1 text-right">
                     <p className="text-sm font-semibold">
-                      {tx.patient?.name ?? "مريض"}
+                      {tx.patient?.name ?? t("secretary.patient")}
                       {" — "}
                       {financeCategoryLabel(tx.type, tx.category)}
                     </p>
@@ -187,7 +190,7 @@ export function SecretaryDeskPage() {
           <Button variant="outline" size="sm" asChild>
             <Link href="/secretary/patients">
               <Users size={14} />
-              المرضى
+              {t("nav.patients")}
             </Link>
           </Button>
         </div>

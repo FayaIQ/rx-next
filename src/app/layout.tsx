@@ -1,18 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Tajawal } from "next/font/google";
+import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 import "@/styles/recipe-fonts.css";
 
-const tajawal = Tajawal({
+const ibmPlexArabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic", "latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-tajawal",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-ibm-arabic",
 });
 
 export const metadata: Metadata = {
-  title: "RX Clinic — نظام الوصفات الطبية",
-  description: "نظام إدارة العيادات والوصفات الطبية",
+  title: "RX Clinic",
+  description: "Clinic & prescription management — إدارة العيادات والوصفات الطبية",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -33,7 +33,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" className={`${tajawal.variable} h-full`}>
+    <html lang="ar" dir="rtl" className={`${ibmPlexArabic.variable} h-full`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var l=localStorage.getItem('rx-locale');if(l==='en'){document.documentElement.lang='en';document.documentElement.dir='ltr';}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full antialiased">
         <Providers>{children}</Providers>
       </body>

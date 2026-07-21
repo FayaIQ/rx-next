@@ -1,15 +1,17 @@
+"use client";
+
 import { AuthSignInPage } from "@/components/auth/auth-page-layout";
 
 export default function DoctorSignInPage() {
   return (
     <AuthSignInPage
       role="doctor"
-      title="مرحباً بعودتك"
-      subtitle="سجّل دخولك للوصول إلى لوحة الطبيب"
+      titleKey="auth.doctorSignInTitle"
+      subtitleKey="auth.doctorSignInSubtitle"
       alternateHref="/auth/signup"
-      alternateLabel="ليس لديك حساب؟ أنشئ حساباً مجاناً"
+      alternateLabelKey="auth.doctorAlternateSignUp"
       footerLinks={[
-        { href: "/auth/login/secretary", label: "دخول السكرتير" },
+        { href: "/auth/login/secretary", labelKey: "auth.secretaryLogin" },
       ]}
     />
   );

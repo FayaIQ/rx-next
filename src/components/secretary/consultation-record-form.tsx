@@ -22,6 +22,7 @@ import {
 import { fetchPatientsOfflineFirst } from "@/lib/data/offline-api";
 import { useSyncStore } from "@/stores/sync-store";
 import { genderLabel } from "@/lib/patient-utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 function todayKey() {
   const d = new Date();
@@ -48,8 +49,10 @@ export function ConsultationRecordForm({
   defaultAppointmentId = null,
   defaultCategory = "consultation",
   onSuccess,
-  submitLabel = "تسجيل الكشفية",
+  submitLabel,
 }: Props) {
+  const { t, locale } = useLocale();
+  const resolvedSubmitLabel = submitLabel ?? t("secretary.submitConsultation");
   const [patientSearch, setPatientSearch] = useState(defaultPatient?.name ?? "");
   const [selectedPatient, setSelectedPatient] = useState<PatientDto | null>(
     defaultPatient
@@ -141,7 +144,7 @@ export function ConsultationRecordForm({
         appointmentId: defaultAppointmentId ?? null,
       }),
     onSuccess: () => {
-      toast.success("تم تسجيل الكشفية");
+      toast.success(t("secretary.consultationSaved"));
       setDescription("");
       if (!defaultPatient) {
         setSelectedPatient(null);
@@ -158,24 +161,24 @@ export function ConsultationRecordForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (!online) {
-          toast.error("تسجيل الكشفية يحتاج اتصالاً — الطابور والمواعيد تعمل أوفلاين");
+          toast.error(t("secretary.needsOnline"));
           return;
         }
         if (!selectedPatient) {
-          toast.error("اختر المريض من نتائج البحث");
+          toast.error(t("secretary.selectPatient"));
           return;
         }
         if (!amount || Number(amount) <= 0) {
-          toast.error("أدخل المبلغ");
+          toast.error(t("secretary.enterAmount"));
           return;
         }
         saveMutation.mutate();
       }}
     >
       <div className="space-y-2">
-        <Label>المريض *</Label>
+        <Label>{t("secretary.patientRequired")}</Label>
         <SearchInput
-          placeholder="ابحث بالاسم أو رقم الهاتف..."
+          placeholder={t("secretary.searchPatientPlaceholder")}
           value={patientSearch}
           onChange={(v) => {
             setPatientSearch(v);
@@ -192,10 +195,10 @@ export function ConsultationRecordForm({
         {searchQuery && !selectedPatient ? (
           <p className="text-xs text-rx-muted">
             {isFetching
-              ? "جاري البحث..."
+              ? t("secretary.searching")
               : suggestions.length > 0
-                ? "اضغط على المريض أو Enter للاختيار"
-                : "لا توجد نتائج — تأكد من الاسم أو أضف المريض من قائمة المرضى"}
+                ? t("secretary.pressToSelect")
+                : t("secretary.noSearchResults")}
           </p>
         ) : null}
 
@@ -210,7 +213,7 @@ export function ConsultationRecordForm({
                 >
                   <span className="font-medium text-rx-text">{p.name}</span>
                   <span className="text-xs text-rx-muted">
-                    {genderLabel(p.gender)}
+                    {genderLabel(p.gender, locale)}
                     {p.phone ? (
                       <>
                         {" · "}
@@ -231,7 +234,7 @@ export function ConsultationRecordForm({
             </span>
             <span className="text-emerald-800/80">
               {" "}
-              · {genderLabel(selectedPatient.gender)}
+              · {genderLabel(selectedPatient.gender, locale)}
               {selectedPatient.phone ? (
                 <>
                   {" · "}
@@ -245,7 +248,7 @@ export function ConsultationRecordForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label>نوع الزيارة</Label>
+          <Label>{t("secretary.visitType")}</Label>
           <select
             className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
             value={category}
@@ -268,7 +271,7 @@ export function ConsultationRecordForm({
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label>المبلغ (ل.س)</Label>
+          <Label>{t("secretary.amountSyp")}</Label>
           <Input
             type="number"
             min={1}
@@ -280,7 +283,7 @@ export function ConsultationRecordForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label>طريقة الدفع</Label>
+        <Label>{t("secretary.paymentMethod")}</Label>
         <select
           className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
           value={paymentMethod}
@@ -295,12 +298,12 @@ export function ConsultationRecordForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label>ملاحظات (اختياري)</Label>
+        <Label>{t("secretary.notesOptional")}</Label>
         <Textarea
           rows={2}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="مثال: كشفية أولى، متابعة حشوة..."
+          placeholder={t("secretary.notesPlaceholder")}
         />
       </div>
 
@@ -310,11 +313,11 @@ export function ConsultationRecordForm({
         disabled={saveMutation.isPending}
       >
         {saveMutation.isPending ? (
-          "جاري التسجيل..."
+          t("secretary.recording")
         ) : (
           <>
             <Save size={16} />
-            {submitLabel}
+            {resolvedSubmitLabel}
           </>
         )}
       </Button>

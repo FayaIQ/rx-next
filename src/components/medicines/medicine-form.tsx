@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { MedicineDto } from "@/lib/api/rx-client";
+import { useLocale } from "@/i18n/locale-provider";
 
 export type MedicineFormValues = {
   name: string;
@@ -14,19 +15,45 @@ export type MedicineFormValues = {
   timeOfUse: string;
 };
 
-const FIELDS: Array<{
+const FIELD_KEYS: Array<{
   key: keyof MedicineFormValues;
-  label: string;
-  placeholder: string;
+  labelKey: string;
+  placeholderKey: string;
   required?: boolean;
   span?: "full";
 }> = [
-  { key: "name", label: "اسم الدواء", placeholder: "مثال: Augmentin 1g", required: true, span: "full" },
-  { key: "type", label: "النوع", placeholder: "أقراص، شراب، حقن..." },
-  { key: "dosage", label: "الجرعة", placeholder: "قرص كل 8 ساعات" },
-  { key: "quantity", label: "الكمية", placeholder: "21 قرص" },
-  { key: "period", label: "المدة", placeholder: "7 أيام" },
-  { key: "timeOfUse", label: "وقت الاستخدام", placeholder: "بعد الأكل" },
+  {
+    key: "name",
+    labelKey: "medicines.fieldName",
+    placeholderKey: "medicines.phName",
+    required: true,
+    span: "full",
+  },
+  {
+    key: "type",
+    labelKey: "medicines.fieldType",
+    placeholderKey: "medicines.phType",
+  },
+  {
+    key: "dosage",
+    labelKey: "medicines.fieldDosage",
+    placeholderKey: "medicines.phDosage",
+  },
+  {
+    key: "quantity",
+    labelKey: "medicines.fieldQuantity",
+    placeholderKey: "medicines.phQuantity",
+  },
+  {
+    key: "period",
+    labelKey: "medicines.fieldPeriod",
+    placeholderKey: "medicines.phPeriod",
+  },
+  {
+    key: "timeOfUse",
+    labelKey: "medicines.fieldTimeOfUse",
+    placeholderKey: "medicines.phTimeOfUse",
+  },
 ];
 
 type Props = {
@@ -46,6 +73,8 @@ export function MedicineForm({
   editing,
   pending,
 }: Props) {
+  const { t } = useLocale();
+
   function setField(key: keyof MedicineFormValues, value: string) {
     onChange({ ...values, [key]: value });
   }
@@ -59,16 +88,18 @@ export function MedicineForm({
       }}
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        {FIELDS.map(({ key, label, placeholder, required, span }) => (
+        {FIELD_KEYS.map(({ key, labelKey, placeholderKey, required, span }) => (
           <div
             key={key}
-            className={span === "full" ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"}
+            className={
+              span === "full" ? "space-y-1.5 sm:col-span-2" : "space-y-1.5"
+            }
           >
-            <Label className="text-xs text-rx-muted">{label}</Label>
+            <Label className="text-xs text-rx-muted">{t(labelKey)}</Label>
             <Input
               value={values[key]}
               onChange={(e) => setField(key, e.target.value)}
-              placeholder={placeholder}
+              placeholder={t(placeholderKey)}
               required={required}
               autoFocus={key === "name" && !editing}
             />
@@ -77,10 +108,19 @@ export function MedicineForm({
       </div>
       <div className="flex gap-2 border-t border-rx-border/80 pt-4">
         <Button type="submit" disabled={pending || !values.name.trim()}>
-          {pending ? "جاري الحفظ..." : editing ? "حفظ التعديلات" : "إضافة الدواء"}
+          {pending
+            ? t("common.saving")
+            : editing
+              ? t("medicines.saveEdits")
+              : t("medicines.submitAdd")}
         </Button>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
-          إلغاء
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={pending}
+        >
+          {t("common.cancel")}
         </Button>
       </div>
     </form>

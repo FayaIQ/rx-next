@@ -11,6 +11,7 @@ let busy = false;
 let offlineNotified = false;
 let subscriptionNotified = false;
 
+/** Silent background sync — no snackbars (status shows in the header). */
 export async function reconnectAndSync(): Promise<boolean> {
   if (busy || isSubscriptionBlocked()) return false;
   busy = true;
@@ -30,24 +31,16 @@ export async function reconnectAndSync(): Promise<boolean> {
     }
 
     offlineNotified = false;
-    toast.loading("جاري المزامنة...", { id: "rx-sync", duration: Infinity });
-
     await processSyncQueue();
 
     if (isSubscriptionBlocked()) {
-      toast.dismiss("rx-sync");
       notifySubscriptionBlocked();
       await activateLocalCacheMode();
       return false;
     }
 
-    toast.success("تمت المزامنة", { id: "rx-sync", duration: 2500 });
     return true;
   } catch {
-    toast.error("تعذّرت المزامنة — ستُعاد المحاولة تلقائياً", {
-      id: "rx-sync",
-      duration: 4000,
-    });
     return false;
   } finally {
     busy = false;

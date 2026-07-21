@@ -10,6 +10,7 @@ import { dispatchSyncComplete } from "@/lib/sync/sync-events";
 import {
   activateLocalCacheMode,
   classifySyncResponse,
+  clearSubscriptionBlocked,
   isSubscriptionBlocked,
 } from "@/lib/sync/sync-local";
 import { useSyncStore } from "@/stores/sync-store";
@@ -30,11 +31,15 @@ export async function hydrateFromServer(): Promise<boolean> {
   try {
     useSyncStore.getState().setHydrating(true);
     const res = await fetch("/api/sync/hydrate");
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     const issue = classifySyncResponse(res, data);
 
     if (issue === "subscription_expired") {
       warnSubscriptionOnce();
+      await activateLocalCacheMode();
+      return false;
+    }
+    if (issue === "unauthorized") {
       await activateLocalCacheMode();
       return false;
     }
@@ -45,6 +50,7 @@ export async function hydrateFromServer(): Promise<boolean> {
     }
 
     await persistHydration(data);
+    clearSubscriptionBlocked();
     useSyncStore.getState().setLastSync(data.syncedAt);
     useSyncStore.getState().setHydrated(true);
     await refreshPendingCount();
@@ -71,12 +77,15 @@ export async function pullRemoteChanges(): Promise<boolean> {
     const res = await fetch(
       `/api/sync/changes?since=${encodeURIComponent(since)}`
     );
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     const issue = classifySyncResponse(res, data);
 
     if (issue === "subscription_expired") {
       warnSubscriptionOnce();
       await activateLocalCacheMode();
+      return false;
+    }
+    if (issue === "unauthorized") {
       return false;
     }
     if (issue === "error") {
@@ -85,6 +94,7 @@ export async function pullRemoteChanges(): Promise<boolean> {
     }
 
     await mergePartialHydration(data);
+    clearSubscriptionBlocked();
     useSyncStore.getState().setLastSync(data.syncedAt);
     useSyncStore.getState().setHydrated(true);
     return true;
@@ -102,64 +112,105 @@ export async function refreshPendingCount() {
   useSyncStore.getState().setPendingCount(count);
 }
 
+const MAX_SYNC_RETRIES = 12;
+
+async function recoverStuckSyncingItems() {
+  const db = getRxDb();
+  const stuck = await db.sync_queue.where("status").equals("syncing").toArray();
+  for (const item of stuck) {
+    await db.sync_queue.update(item.id, { status: "pending" });
+  }
+}
+
+async function resetReadyItems(
+  ready: Array<{ id: string }>,
+  status: "pending" | "failed" = "pending"
+) {
+  const db = getRxDb();
+  for (const item of ready) {
+    await db.sync_queue.update(item.id, { status });
+  }
+}
+
 export async function processSyncQueue(): Promise<void> {
   if (syncing || !navigator.onLine || isSubscriptionBlocked()) return;
   syncing = true;
   useSyncStore.getState().setSyncing(true);
 
+  let readyBatch: Array<{ id: string }> = [];
+
   try {
     const db = getRxDb();
+    await recoverStuckSyncingItems();
     let progress = true;
 
     while (progress && navigator.onLine && !isSubscriptionBlocked()) {
       progress = false;
 
-      const pending = await db.sync_queue
-        .where("status")
-        .anyOf(["pending", "failed"])
-        .sortBy("createdAt");
+      const pending = (
+        await db.sync_queue
+          .where("status")
+          .anyOf(["pending", "failed"])
+          .sortBy("createdAt")
+      ).filter((item) => item.retryCount < MAX_SYNC_RETRIES);
 
       if (pending.length === 0) break;
 
       const ready = await collectReadyQueueItems(pending);
       if (ready.length === 0) break;
+      readyBatch = ready;
 
       for (const item of ready) {
         await db.sync_queue.update(item.id, { status: "syncing" });
       }
 
-      const res = await fetch("/api/sync/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: ready }),
-      });
-      const data = await res.json();
+      let res: Response;
+      let data: {
+        error?: string;
+        results?: Array<{
+          queueId: string;
+          localId: string;
+          ok: boolean;
+          serverId?: number;
+          error?: string;
+          data?: Record<string, unknown>;
+        }>;
+      };
+      try {
+        res = await fetch("/api/sync/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: ready }),
+        });
+        data = await res.json().catch(() => ({}));
+      } catch (networkError) {
+        console.warn("sync queue network failed", networkError);
+        await resetReadyItems(ready, "pending");
+        readyBatch = [];
+        break;
+      }
+
       const issue = classifySyncResponse(res, data);
 
-      if (issue === "subscription_expired") {
-        warnSubscriptionOnce();
-        for (const item of ready) {
-          await db.sync_queue.update(item.id, { status: "pending" });
+      if (
+        issue === "subscription_expired" ||
+        issue === "unauthorized" ||
+        issue === "error"
+      ) {
+        if (issue === "subscription_expired") {
+          warnSubscriptionOnce();
+          await activateLocalCacheMode();
+        } else if (issue === "error") {
+          console.warn("sync queue failed:", data.error ?? "فشلت المزامنة");
         }
-        await activateLocalCacheMode();
-        break;
-      }
-      if (issue === "error") {
-        console.warn("sync queue failed:", data.error ?? "فشلت المزامنة");
-        for (const item of ready) {
-          await db.sync_queue.update(item.id, { status: "pending" });
-        }
+        await resetReadyItems(ready, "pending");
+        readyBatch = [];
         break;
       }
 
-      for (const result of data.results as Array<{
-        queueId: string;
-        localId: string;
-        ok: boolean;
-        serverId?: number;
-        error?: string;
-        data?: Record<string, unknown>;
-      }>) {
+      clearSubscriptionBlocked();
+
+      for (const result of data.results ?? []) {
         const item = ready.find((p) => p.id === result.queueId);
         if (!item) continue;
 
@@ -178,6 +229,7 @@ export async function processSyncQueue(): Promise<void> {
           });
         }
       }
+      readyBatch = [];
     }
 
     if (!isSubscriptionBlocked()) {
@@ -187,6 +239,10 @@ export async function processSyncQueue(): Promise<void> {
     await refreshPendingCount();
   } catch (error) {
     console.warn("sync queue failed", error);
+    if (readyBatch.length > 0) {
+      await resetReadyItems(readyBatch, "pending");
+    }
+    await recoverStuckSyncingItems();
     await refreshPendingCount();
   } finally {
     syncing = false;
@@ -260,7 +316,12 @@ async function applySyncedItem(
   }
 
   if (item.entity === "prescription" && item.action !== "delete" && data) {
-    await syncLocalPrescriptionFromDto(data as PrescriptionDto);
+    const rx = data as PrescriptionDto;
+    await syncLocalPrescriptionFromDto(rx);
+    // Drop the offline-created row so we don't keep a duplicate alongside srv-{id}.
+    if (rx.id && item.localId !== `srv-${rx.id}`) {
+      await db.prescriptions.delete(item.localId);
+    }
   }
 
   if (item.entity === "prescription" && item.action === "delete") {
@@ -306,7 +367,9 @@ async function applySyncedItem(
       "@/lib/data/dental-offline-api"
     );
     const cached = await db.treatment_cache.get(plan.patientId);
-    const existing = (cached?.plans ?? []) as unknown as import("@/lib/api/rx-client").TreatmentPlanDto[];
+    const existing = (
+      (cached?.plans ?? []) as unknown as import("@/lib/api/rx-client").TreatmentPlanDto[]
+    ).filter((p) => p.id > 0);
     await cacheTreatmentPlansLocally(plan.patientId, [...existing, plan]);
   }
 }

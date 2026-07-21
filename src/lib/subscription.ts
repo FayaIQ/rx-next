@@ -48,30 +48,48 @@ export function addDuration(
   return end;
 }
 
+const DEFAULT_TRIAL_DAYS = 14;
+
 export async function activateTrialForDoctor(userId: number) {
   const uid = toDbId(userId);
-  const trialPackage = await prisma.package.findFirst({
+  let trialPackage = await prisma.package.findFirst({
     where: { isTrial: true, isActive: true },
   });
-  if (!trialPackage) return null;
+
+  // Shared DB may have no seeded packages — create a default trial pack once.
+  if (!trialPackage) {
+    trialPackage = await prisma.package.create({
+      data: {
+        name: "تجربة مجانية",
+        price: 0,
+        description: `تجربة مجانية لمدة ${DEFAULT_TRIAL_DAYS} يوماً`,
+        duration: DEFAULT_TRIAL_DAYS,
+        durationUnit: "days",
+        planType: "trial",
+        isTrial: true,
+        isActive: true,
+      },
+    });
+  }
 
   await supersedeActiveSubscriptions(userId);
 
   const startsAt = new Date();
   const endsAt = addDuration(
     startsAt,
-    trialPackage.duration,
-    trialPackage.durationUnit as "days" | "months"
+    trialPackage.duration || DEFAULT_TRIAL_DAYS,
+    (trialPackage.durationUnit as "days" | "months") || "days"
   );
 
   return prisma.subscription.create({
     data: {
       userId: uid,
       packageId: trialPackage.id,
-      planType: trialPackage.planType,
+      planType: trialPackage.planType || "trial",
       status: "active",
       startsAt,
       endsAt,
+      notes: "تجربة تلقائية عند التسجيل",
     },
   });
 }

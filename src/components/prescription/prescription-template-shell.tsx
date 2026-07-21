@@ -3,6 +3,7 @@
 import type { RecipeSettingsDto } from "@/lib/api/rx-client";
 import { getRecipeTemplate, type RecipeTemplateId } from "@/lib/recipe-templates";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
   settings: RecipeSettingsDto;
@@ -19,6 +20,7 @@ function DoctorBlock({
   logoUrl?: string | null;
   light?: boolean;
 }) {
+  const { t } = useLocale();
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0 space-y-0.5">
@@ -63,7 +65,11 @@ function DoctorBlock({
       </div>
       {logoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt="شعار" className="h-12 w-12 shrink-0 object-contain sm:h-14 sm:w-14" />
+        <img
+          src={logoUrl}
+          alt={t("home.logoAlt")}
+          className="h-12 w-12 shrink-0 object-contain sm:h-14 sm:w-14"
+        />
       )}
     </div>
   );
@@ -122,6 +128,7 @@ function ModernShell({ settings, logoUrl }: Props) {
 }
 
 function ElegantShell({ settings, logoUrl }: Props) {
+  const { t } = useLocale();
   const color = settings.color;
   return (
     <>
@@ -149,7 +156,7 @@ function ElegantShell({ settings, logoUrl }: Props) {
         <p className="text-xs opacity-80 sm:text-sm">{settings.doctorSpecialty}</p>
         {logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="شعار" className="mx-auto mt-2 h-10 object-contain" />
+          <img src={logoUrl} alt={t("home.logoAlt")} className="mx-auto mt-2 h-10 object-contain" />
         )}
       </div>
     </>
@@ -157,6 +164,7 @@ function ElegantShell({ settings, logoUrl }: Props) {
 }
 
 function MedicalShell({ settings, logoUrl }: Props) {
+  const { t } = useLocale();
   const color = settings.color;
   return (
     <>
@@ -174,7 +182,7 @@ function MedicalShell({ settings, logoUrl }: Props) {
           <span className="text-2xl font-light opacity-90">✚</span>
           {logoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="شعار" className="h-10 w-10 object-contain" />
+            <img src={logoUrl} alt={t("home.logoAlt")} className="h-10 w-10 object-contain" />
           )}
         </div>
       </div>

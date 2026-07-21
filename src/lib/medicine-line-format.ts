@@ -33,13 +33,15 @@ export function splitMedicineLineSegments(item: MedicineLineItem): {
   return { latin, arabic };
 }
 
+const FIELD_SEP = " ";
+
 export function formatMedicineLinePlain(item: MedicineLineItem): string {
   const { latin, arabic } = splitMedicineLineSegments(item);
-  const latinText = latin.join(" — ");
-  const arabicText = arabic.join(" — ");
+  const latinText = latin.join(FIELD_SEP);
+  const arabicText = arabic.join(FIELD_SEP);
   if (!arabicText) return latinText;
   if (!latinText) return arabicText;
-  return `${latinText} — ${arabicText}`;
+  return `${latinText}${FIELD_SEP}${arabicText}`;
 }
 
 export function formatMedicineLineHtml(
@@ -47,15 +49,15 @@ export function formatMedicineLineHtml(
   escapeHtml: (text: string) => string
 ): string {
   const { latin, arabic } = splitMedicineLineSegments(item);
-  const latinHtml = latin.map(escapeHtml).join(" — ");
-  const arabicHtml = arabic.map(escapeHtml).join(" — ");
+  const latinHtml = latin.map(escapeHtml).join(FIELD_SEP);
+  const arabicHtml = arabic.map(escapeHtml).join(FIELD_SEP);
 
   if (!latinHtml) return arabicHtml;
   if (!arabicHtml) {
     return `<bdi dir="ltr" class="med-latin">${latinHtml}</bdi>`;
   }
 
-  return `<bdi dir="ltr" class="med-latin">${latinHtml}</bdi><span class="med-arabic"> — ${arabicHtml}</span>`;
+  return `<bdi dir="ltr" class="med-latin">${latinHtml}</bdi><span class="med-arabic">${FIELD_SEP}${arabicHtml}</span>`;
 }
 
 export const MEDICINE_LINE_STYLES = `

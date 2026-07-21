@@ -13,25 +13,28 @@ import {
   BarChart3,
 } from "lucide-react";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
-
-const navItems = [
-  { href: "/home", label: "كتابة الوصفة", icon: Home },
-  { href: "/dates", label: "المواعيد", icon: Calendar },
-  { href: "/pharmaceutical", label: "مكتبة الأدوية", icon: Pill },
-  { href: "/patients", label: "المرضى", icon: Users },
-  { href: "/dental", label: "طبلة الأسنان", icon: Smile },
-  { href: "/finances", label: "المالية", icon: Wallet },
-  { href: "/reports", label: "التقارير", icon: BarChart3 },
-  { href: "/prescriptions", label: "سجل الوصفات", icon: FileText },
-  { href: "/recipe-settings", label: "تصميم الوصفة", icon: ClipboardList },
-  { href: "/setting", label: "الإعدادات", icon: Settings },
-];
+import { useLocale } from "@/i18n/locale-provider";
 
 export function DoctorSidebar() {
+  const { t } = useLocale();
+
+  const navItems = [
+    { href: "/home", label: t("nav.writePrescription"), icon: Home },
+    { href: "/dates", label: t("nav.appointments"), icon: Calendar },
+    { href: "/pharmaceutical", label: t("nav.medicines"), icon: Pill },
+    { href: "/patients", label: t("nav.patients"), icon: Users },
+    { href: "/dental", label: t("nav.dental"), icon: Smile },
+    { href: "/finances", label: t("nav.finances"), icon: Wallet },
+    { href: "/reports", label: t("nav.reports"), icon: BarChart3 },
+    { href: "/prescriptions", label: t("nav.prescriptions"), icon: FileText },
+    { href: "/recipe-settings", label: t("nav.recipeSettings"), icon: ClipboardList },
+    { href: "/setting", label: t("nav.settings"), icon: Settings },
+  ];
+
   return (
     <SidebarShell
       theme="doctor"
-      brandSubtitle="لوحة الطبيب"
+      brandSubtitle={t("nav.doctorPanel")}
       items={navItems}
     />
   );

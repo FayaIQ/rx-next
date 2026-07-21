@@ -29,14 +29,17 @@ import {
   getFieldValue,
 } from "@/lib/patient-field-display";
 import { usePatientFields } from "@/hooks/use-patient-fields";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function PatientsPageClient({
-  title = "المرضى",
+  title,
   showRecordLink = true,
 }: {
   title?: string;
   showRecordLink?: boolean;
 }) {
+  const { t, locale } = useLocale();
+  const pageTitle = title ?? t("patients.title");
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<PatientDto | null>(null);
@@ -63,7 +66,7 @@ export function PatientsPageClient({
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["patients"] });
       await refreshPendingCount();
-      toast.success("تم حذف المريض");
+      toast.success(t("patients.deleted"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -78,13 +81,13 @@ export function PatientsPageClient({
   return (
     <>
       <AppHeader
-        title={title}
-        subtitle={`${pagination?.total ?? patients.length} مريض مسجّل`}
+        title={pageTitle}
+        subtitle={`${pagination?.total ?? patients.length} ${t("patients.title")}`}
       />
       <PageContent>
         <PageHeader
-          title="قائمة المرضى"
-          description="ابحث، أضف، وعدّل بيانات المرضى"
+          title={pageTitle}
+          description={t("patients.subtitle")}
           actions={
             <Button
               onClick={() => {
@@ -93,7 +96,7 @@ export function PatientsPageClient({
               }}
             >
               <Plus size={16} />
-              مريض جديد
+              {t("patients.newPatient")}
             </Button>
           }
         />
@@ -101,14 +104,16 @@ export function PatientsPageClient({
         <SearchInput
           value={q}
           onChange={setQ}
-          placeholder="بحث بالاسم أو الهاتف..."
+          placeholder={t("patients.searchPlaceholder")}
           className="mb-6 max-w-md"
         />
 
         {(showForm || editing) && (
           <Card hover className="mb-6">
             <CardHeader>
-              <CardTitle>{editing ? "تعديل بيانات المريض" : "مريض جديد"}</CardTitle>
+              <CardTitle>
+                {editing ? t("patients.editPatient") : t("patients.newPatient")}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <PatientForm
@@ -138,12 +143,12 @@ export function PatientsPageClient({
             ) : patients.length === 0 ? (
               <EmptyState
                 icon={Users}
-                title="لا يوجد مرضى"
-                description="ابدأ بإضافة أول مريض لعيادتك"
+                title={t("patients.empty")}
+                description={t("patients.emptyDescription")}
                 action={
                   <Button onClick={() => setShowForm(true)}>
                     <Plus size={16} />
-                    إضافة مريض
+                    {t("patients.add")}
                   </Button>
                 }
               />
@@ -152,10 +157,18 @@ export function PatientsPageClient({
                 <table className="rx-table w-full text-sm">
                   <thead>
                     <tr className="border-b border-rx-border text-rx-muted">
-                      <th className="px-5 py-3.5 text-right font-medium">الاسم</th>
-                      <th className="px-5 py-3.5 text-right font-medium">الجنس</th>
-                      <th className="px-5 py-3.5 text-right font-medium">العمر</th>
-                      <th className="px-5 py-3.5 text-right font-medium">الزيارات</th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("patients.name")}
+                      </th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("patients.gender")}
+                      </th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("patients.age")}
+                      </th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("patients.visits")}
+                      </th>
                       {personalFields.map((field) => (
                         <th
                           key={field.id}
@@ -164,8 +177,12 @@ export function PatientsPageClient({
                           {field.name}
                         </th>
                       ))}
-                      <th className="px-5 py-3.5 text-right font-medium">الهاتف</th>
-                      <th className="px-5 py-3.5 text-right font-medium">إجراءات</th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("patients.phone")}
+                      </th>
+                      <th className="px-5 py-3.5 text-right font-medium">
+                        {t("common.actions")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-rx-border/60">
@@ -175,7 +192,7 @@ export function PatientsPageClient({
                           <p className="font-semibold text-rx-text">{patient.name}</p>
                         </td>
                         <td className="px-5 py-4 text-rx-text-secondary">
-                          {genderLabel(patient.gender)}
+                          {genderLabel(patient.gender, locale)}
                         </td>
                         <td className="px-5 py-4 text-rx-text-secondary">{patient.age}</td>
                         <td className="px-5 py-4">
@@ -198,7 +215,7 @@ export function PatientsPageClient({
                               <Button variant="ghost" size="sm" asChild>
                                 <Link href={`/dental/${patient.id}`}>
                                   <Smile size={14} />
-                                  الطبلة
+                                  {t("patients.dental")}
                                 </Link>
                               </Button>
                             )}
@@ -206,7 +223,7 @@ export function PatientsPageClient({
                               <Button variant="ghost" size="sm" asChild>
                                 <Link href={`/patients/${patient.id}/record`}>
                                   <FileText size={14} />
-                                  السجل
+                                  {t("patients.record")}
                                 </Link>
                               </Button>
                             )}
@@ -224,7 +241,7 @@ export function PatientsPageClient({
                               variant="ghost"
                               size="icon"
                               onClick={() => {
-                                if (confirm("حذف هذا المريض؟")) {
+                                if (confirm(t("patients.confirmDelete"))) {
                                   deleteMutation.mutate(patient.id);
                                 }
                               }}

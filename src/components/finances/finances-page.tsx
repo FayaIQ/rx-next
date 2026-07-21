@@ -45,11 +45,14 @@ import {
   FINANCE_INCOME_CATEGORIES,
   PAYMENT_METHODS,
   defaultAmountForCategory,
-  financeCategoryLabel,
   formatMoney,
-  paymentMethodLabel,
 } from "@/lib/finance/constants";
 import { cn } from "@/lib/utils";
+import {
+  useLocale,
+  type Locale,
+  type TranslateFn,
+} from "@/i18n/locale-provider";
 
 type FilterType = "all" | "income" | "expense";
 type PeriodPreset = "today" | "week" | "month" | "last_month" | "year" | "custom";
@@ -124,9 +127,13 @@ function emptyForm(type: "income" | "expense"): TransactionFormState {
   };
 }
 
-function formatShortDate(iso: string) {
+function dateLocaleTag(locale: Locale) {
+  return locale === "en" ? "en-GB" : "ar-IQ";
+}
+
+function formatShortDate(iso: string, locale: Locale) {
   try {
-    return new Date(iso + "T12:00:00").toLocaleDateString("ar-SY", {
+    return new Date(iso + "T12:00:00").toLocaleDateString(dateLocaleTag(locale), {
       day: "numeric",
       month: "short",
       numberingSystem: "latn",
@@ -136,25 +143,29 @@ function formatShortDate(iso: string) {
   }
 }
 
-const PRESETS: Array<{ id: PeriodPreset; label: string }> = [
-  { id: "today", label: "اليوم" },
-  { id: "week", label: "آخر 7 أيام" },
-  { id: "month", label: "هذا الشهر" },
-  { id: "last_month", label: "الشهر الماضي" },
-  { id: "year", label: "هذه السنة" },
-  { id: "custom", label: "مخصص" },
-];
+function categoryLabel(t: TranslateFn, category: string) {
+  const key = `finances.categories.${category}`;
+  const translated = t(key);
+  return translated === key ? category : translated;
+}
+
+function methodLabel(t: TranslateFn, method: string | null | undefined) {
+  if (!method) return "—";
+  const key = `finances.methods.${method}`;
+  const translated = t(key);
+  return translated === key ? method : translated;
+}
 
 type Props = {
   title?: string;
   subtitle?: string;
 };
 
-export function FinancesPage({
-  title = "المالية",
-  subtitle = "لوحة تحكم مالية للعيادة — إيرادات، مصاريف، وتحليل الفترة",
-}: Props) {
+export function FinancesPage({ title, subtitle }: Props) {
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
+  const pageTitle = title ?? t("finances.title");
+  const pageSubtitle = subtitle ?? t("finances.subtitle");
   const initial = rangeForPreset("month");
   const [preset, setPreset] = useState<PeriodPreset>("month");
   const [periodFrom, setPeriodFrom] = useState(initial.from);
@@ -175,6 +186,19 @@ export function FinancesPage({
   });
   const [breakdownTab, setBreakdownTab] = useState<"income" | "expense">(
     "income"
+  );
+
+  const presets = useMemo(
+    () =>
+      [
+        { id: "today" as const, label: t("finances.presetToday") },
+        { id: "week" as const, label: t("finances.presetWeek") },
+        { id: "month" as const, label: t("finances.presetMonth") },
+        { id: "last_month" as const, label: t("finances.presetLastMonth") },
+        { id: "year" as const, label: t("finances.presetYear") },
+        { id: "custom" as const, label: t("finances.presetCustom") },
+      ] satisfies Array<{ id: PeriodPreset; label: string }>,
+    [t]
   );
 
   const { data: settingsData } = useQuery({
@@ -224,23 +248,23 @@ export function FinancesPage({
     if (!q) return transactions;
     return transactions.filter((tx) => {
       const hay = [
-        financeCategoryLabel(tx.type, tx.category),
+        categoryLabel(t, tx.category),
         tx.description ?? "",
         tx.patient?.name ?? "",
-        paymentMethodLabel(tx.paymentMethod),
+        methodLabel(t, tx.paymentMethod),
       ]
         .join(" ")
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [transactions, search]);
+  }, [transactions, search, t]);
 
   const saveSettingsMutation = useMutation({
     mutationFn: (body: Partial<FinanceSettingsDto>) =>
       rxApi.finances.saveSettings(body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["finance-settings"] });
-      toast.success("تم حفظ أسعار الكشفية");
+      toast.success(t("finances.settingsSaved"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -266,7 +290,7 @@ export function FinancesPage({
       queryClient.invalidateQueries({ queryKey: ["finance-summary"] });
       setDialogOpen(false);
       setEditing(null);
-      toast.success(editing ? "تم تحديث الحركة" : "تم تسجيل الحركة");
+      toast.success(editing ? t("finances.txUpdated") : t("finances.txCreated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -276,17 +300,18 @@ export function FinancesPage({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["finance-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["finance-summary"] });
-      toast.success("تم حذف الحركة");
+      toast.success(t("finances.txDeleted"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const categoryOptions = useMemo(
     () =>
-      form.type === "income"
+      (form.type === "income"
         ? FINANCE_INCOME_CATEGORIES
-        : FINANCE_EXPENSE_CATEGORIES,
-    [form.type]
+        : FINANCE_EXPENSE_CATEGORIES
+      ).map((c) => ({ id: c.id, label: categoryLabel(t, c.id) })),
+    [form.type, t]
   );
 
   const categoryBreakdown = useMemo(() => {
@@ -343,25 +368,25 @@ export function FinancesPage({
   function exportCsv() {
     const rows = filteredTransactions;
     if (rows.length === 0) {
-      toast.error("لا توجد حركات للتصدير في هذه الصفحة");
+      toast.error(t("finances.exportEmpty"));
       return;
     }
     const header = [
-      "التاريخ",
-      "النوع",
-      "التصنيف",
-      "المبلغ",
-      "طريقة الدفع",
-      "المريض",
-      "ملاحظات",
+      t("finances.csvDate"),
+      t("finances.csvType"),
+      t("finances.csvCategory"),
+      t("finances.csvAmount"),
+      t("finances.csvPayment"),
+      t("finances.csvPatient"),
+      t("finances.csvNotes"),
     ];
     const lines = rows.map((tx) =>
       [
         tx.transactionDate,
-        tx.type === "income" ? "إيراد" : "مصروف",
-        financeCategoryLabel(tx.type, tx.category),
+        tx.type === "income" ? t("finances.income") : t("finances.expense"),
+        categoryLabel(t, tx.category),
         tx.amount,
-        paymentMethodLabel(tx.paymentMethod),
+        methodLabel(t, tx.paymentMethod),
         tx.patient?.name ?? "",
         (tx.description ?? "").replace(/"/g, '""'),
       ]
@@ -378,22 +403,21 @@ export function FinancesPage({
     a.download = `finances-${periodFrom}-${periodTo}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("تم تصدير الحركات");
+    toast.success(t("finances.exportDone"));
   }
 
-  const currency = settings?.currency ?? "SYP";
+  const currency = settings?.currency ?? "IQD";
   const balance = summary?.balance ?? 0;
 
   return (
     <>
-      <AppHeader title={title} subtitle={subtitle} />
+      <AppHeader title={pageTitle} subtitle={pageSubtitle} />
       <PageContent className="space-y-5 pb-10">
-        {/* Toolbar */}
         <div className="flex flex-col gap-3 rounded-2xl border border-rx-border/80 bg-gradient-to-l from-slate-50 via-white to-teal-50/40 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => openCreate("income")}>
               <Plus size={14} />
-              إيراد جديد
+              {t("finances.newIncome")}
             </Button>
             <Button
               size="sm"
@@ -402,13 +426,13 @@ export function FinancesPage({
               onClick={() => openCreate("expense")}
             >
               <Plus size={14} />
-              مصروف جديد
+              {t("finances.newExpense")}
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={exportCsv}>
               <Download size={14} />
-              تصدير CSV
+              {t("finances.exportCsv")}
             </Button>
             <Button
               size="sm"
@@ -419,19 +443,18 @@ export function FinancesPage({
               }}
             >
               <Settings2 size={14} />
-              أسعار الكشفية
+              {t("finances.consultationFees")}
             </Button>
           </div>
         </div>
 
-        {/* Period */}
         <section className="rounded-2xl border border-rx-border/80 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-rx-text">
             <CalendarRange size={16} className="text-rx-primary" />
-            فترة التقرير
+            {t("finances.reportPeriod")}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {PRESETS.map((p) => (
+            {presets.map((p) => (
               <button
                 key={p.id}
                 type="button"
@@ -450,7 +473,7 @@ export function FinancesPage({
           {preset === "custom" ? (
             <div className="mt-3 flex flex-wrap items-end gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">من</Label>
+                <Label className="text-xs">{t("finances.from")}</Label>
                 <Input
                   type="date"
                   value={periodFrom}
@@ -459,7 +482,7 @@ export function FinancesPage({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">إلى</Label>
+                <Label className="text-xs">{t("finances.to")}</Label>
                 <Input
                   type="date"
                   value={periodTo}
@@ -470,96 +493,110 @@ export function FinancesPage({
             </div>
           ) : (
             <p className="mt-2 text-xs text-rx-muted">
-              {formatShortDate(periodFrom)} — {formatShortDate(periodTo)}
+              {formatShortDate(periodFrom, locale)} —{" "}
+              {formatShortDate(periodTo, locale)}
             </p>
           )}
         </section>
 
-        {/* KPIs */}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard
-            label="إجمالي الإيرادات"
+            label={t("finances.totalIncome")}
             value={summary?.totalIncome ?? 0}
             currency={currency}
+            locale={locale}
             loading={summaryLoading}
-            hint={`${summary?.incomeCount ?? 0} حركة · متوسط ${formatMoney(summary?.avgIncome ?? 0, currency)}`}
+            hint={t("finances.kpiMovementsHint", {
+              count: summary?.incomeCount ?? 0,
+              avg: formatMoney(summary?.avgIncome ?? 0, currency, locale),
+            })}
             tone="income"
             icon={<ArrowUpRight size={20} />}
           />
           <KpiCard
-            label="إجمالي المصاريف"
+            label={t("finances.totalExpenses")}
             value={summary?.totalExpenses ?? 0}
             currency={currency}
+            locale={locale}
             loading={summaryLoading}
-            hint={`${summary?.expenseCount ?? 0} حركة · متوسط ${formatMoney(summary?.avgExpense ?? 0, currency)}`}
+            hint={t("finances.kpiMovementsHint", {
+              count: summary?.expenseCount ?? 0,
+              avg: formatMoney(summary?.avgExpense ?? 0, currency, locale),
+            })}
             tone="expense"
             icon={<ArrowDownRight size={20} />}
           />
           <KpiCard
-            label="صافي الرصيد"
+            label={t("finances.netBalance")}
             value={balance}
             currency={currency}
+            locale={locale}
             loading={summaryLoading}
             hint={
-              balance >= 0 ? "الفترة رابحة" : "المصروف أعلى من الإيراد"
+              balance >= 0
+                ? t("finances.periodProfit")
+                : t("finances.periodLoss")
             }
             tone="balance"
             icon={<Wallet size={20} />}
           />
           <KpiCard
-            label="عدد الحركات"
+            label={t("finances.transactionCount")}
             value={summary?.transactionCount ?? 0}
             currency={currency}
+            locale={locale}
             loading={summaryLoading}
-            hint="إيرادات + مصاريف"
+            hint={t("finances.incomePlusExpense")}
             tone="count"
             icon={<TrendingUp size={20} />}
             raw
           />
         </div>
 
-        {/* Analytics row */}
         <div className="grid gap-4 lg:grid-cols-5">
           <div className="rounded-2xl border border-rx-border/80 bg-white p-4 shadow-sm lg:col-span-3">
             <div className="mb-4 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">اتجاه يومي</h3>
+              <h3 className="text-sm font-semibold">{t("finances.dailyTrend")}</h3>
               <div className="flex items-center gap-3 text-[11px] text-rx-muted">
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" /> إيراد
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />{" "}
+                  {t("finances.income")}
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-rose-400" /> مصروف
+                  <span className="h-2 w-2 rounded-full bg-rose-400" />{" "}
+                  {t("finances.expense")}
                 </span>
               </div>
             </div>
             <DailyChart
               daily={summary?.daily ?? []}
               loading={summaryLoading}
+              t={t}
             />
           </div>
 
           <div className="rounded-2xl border border-rx-border/80 bg-white p-4 shadow-sm lg:col-span-2">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">حسب التصنيف</h3>
+              <h3 className="text-sm font-semibold">{t("finances.byCategory")}</h3>
               <div className="flex gap-1 rounded-lg bg-rx-bg-subtle p-0.5">
                 {(
                   [
-                    { id: "income", label: "إيراد" },
-                    { id: "expense", label: "مصروف" },
-                  ] as const
-                ).map((t) => (
+                    { id: "income" as const, label: t("finances.income") },
+                    { id: "expense" as const, label: t("finances.expense") },
+                  ]
+                ).map((tab) => (
                   <button
-                    key={t.id}
+                    key={tab.id}
                     type="button"
-                    onClick={() => setBreakdownTab(t.id)}
+                    onClick={() => setBreakdownTab(tab.id)}
                     className={cn(
                       "rounded-md px-2.5 py-1 text-[11px] font-medium transition",
-                      breakdownTab === t.id
+                      breakdownTab === tab.id
                         ? "bg-white text-rx-text shadow-sm"
                         : "text-rx-muted"
                     )}
                   >
-                    {t.label}
+                    {tab.label}
                   </button>
                 ))}
               </div>
@@ -575,7 +612,7 @@ export function FinancesPage({
               </div>
             ) : categoryBreakdown.length === 0 ? (
               <p className="py-8 text-center text-xs text-rx-muted">
-                لا بيانات لهذا التصنيف في الفترة
+                {t("finances.noCategoryData")}
               </p>
             ) : (
               <ul className="space-y-3">
@@ -583,13 +620,10 @@ export function FinancesPage({
                   <li key={`${c.type}-${c.category}`}>
                     <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                       <span className="font-medium text-rx-text">
-                        {financeCategoryLabel(
-                          c.type as "income" | "expense",
-                          c.category
-                        )}
+                        {categoryLabel(t, c.category)}
                       </span>
                       <span className="text-rx-muted">
-                        {formatMoney(c.amount, currency)} · {c.count}
+                        {formatMoney(c.amount, currency, locale)} · {c.count}
                       </span>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-rx-bg-subtle">
@@ -613,7 +647,7 @@ export function FinancesPage({
             {summary?.byPaymentMethod && summary.byPaymentMethod.length > 0 ? (
               <div className="mt-5 border-t border-rx-border/70 pt-4">
                 <p className="mb-2 text-xs font-semibold text-rx-muted">
-                  طرق الدفع
+                  {t("finances.paymentMethodsTitle")}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {summary.byPaymentMethod.map((m) => (
@@ -622,10 +656,10 @@ export function FinancesPage({
                       className="inline-flex items-center gap-1.5 rounded-full border border-rx-border bg-rx-bg-subtle/60 px-2.5 py-1 text-[11px]"
                     >
                       <span className="font-medium">
-                        {paymentMethodLabel(m.method)}
+                        {methodLabel(t, m.method)}
                       </span>
                       <span className="text-rx-muted">
-                        {formatMoney(m.amount, currency)}
+                        {formatMoney(m.amount, currency, locale)}
                       </span>
                     </span>
                   ))}
@@ -635,17 +669,16 @@ export function FinancesPage({
           </div>
         </div>
 
-        {/* Settings */}
         {showSettings && (
           <section className="rounded-2xl border border-rx-border/80 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
                   <Wallet size={16} className="text-rx-primary" />
-                  أسعار الخدمات الافتراضية
+                  {t("finances.defaultServicePrices")}
                 </h3>
                 <p className="mt-1 text-xs text-rx-muted">
-                  تُقترح تلقائياً عند تسجيل إيراد جديد
+                  {t("finances.defaultServicePricesHint")}
                 </p>
               </div>
               <Button
@@ -660,15 +693,23 @@ export function FinancesPage({
               {(
                 [
                   {
-                    key: "consultationFee",
-                    label: "كشفية / استشارة",
+                    key: "consultationFee" as const,
+                    label: t("finances.feeConsultation"),
                   },
-                  { key: "followUpFee", label: "متابعة" },
-                  { key: "procedureFee", label: "إجراء طبي" },
-                ] as const
+                  {
+                    key: "followUpFee" as const,
+                    label: t("finances.feeFollowUp"),
+                  },
+                  {
+                    key: "procedureFee" as const,
+                    label: t("finances.feeProcedure"),
+                  },
+                ]
               ).map((field) => (
                 <div key={field.key} className="space-y-1.5">
-                  <Label>{field.label} (ل.س)</Label>
+                  <Label>
+                    {t("finances.feeLabelSyp", { label: field.label })}
+                  </Label>
                   <Input
                     type="number"
                     min={0}
@@ -692,46 +733,55 @@ export function FinancesPage({
                     consultationFee: Number(feeForm.consultationFee) || 0,
                     followUpFee: Number(feeForm.followUpFee) || 0,
                     procedureFee: Number(feeForm.procedureFee) || 0,
-                    currency: settings?.currency ?? "SYP",
+                    currency: settings?.currency ?? "IQD",
                   })
                 }
               >
                 <Save size={14} />
-                {saveSettingsMutation.isPending ? "جاري الحفظ..." : "حفظ الأسعار"}
+                {saveSettingsMutation.isPending
+                  ? t("common.saving")
+                  : t("finances.savePrices")}
               </Button>
             </div>
           </section>
         )}
 
-        {/* Ledger */}
         <section className="overflow-hidden rounded-2xl border border-rx-border/80 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-rx-border/70 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-sm font-semibold">سجل الحركات</h3>
+              <h3 className="text-sm font-semibold">{t("finances.ledger")}</h3>
               <p className="text-xs text-rx-muted">
-                {pagination?.total ?? filteredTransactions.length} حركة في الفترة
+                {t("finances.ledgerCount", {
+                  count: pagination?.total ?? filteredTransactions.length,
+                })}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative min-w-[180px] flex-1 sm:flex-none">
                 <Search
                   size={14}
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-rx-muted"
+                  className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-rx-muted"
                 />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="بحث في الحركات..."
-                  className="h-9 pr-9"
+                  placeholder={t("finances.searchPlaceholder")}
+                  className="h-9 pe-9"
                 />
               </div>
               <div className="flex gap-1 rounded-lg bg-rx-bg-subtle p-0.5">
                 {(
                   [
-                    { key: "all", label: "الكل" },
-                    { key: "income", label: "إيرادات" },
-                    { key: "expense", label: "مصاريف" },
-                  ] as const
+                    { key: "all" as const, label: t("finances.filterAll") },
+                    {
+                      key: "income" as const,
+                      label: t("finances.filterIncome"),
+                    },
+                    {
+                      key: "expense" as const,
+                      label: t("finances.filterExpense"),
+                    },
+                  ]
                 ).map((f) => (
                   <button
                     key={f.key}
@@ -764,50 +814,49 @@ export function FinancesPage({
             ) : filteredTransactions.length === 0 ? (
               <EmptyState
                 icon={Wallet}
-                title="لا توجد حركات مالية"
-                description="سجّل أول إيراد أو مصروف لهذه الفترة لبدء التحليل."
+                title={t("finances.emptyTitle")}
+                description={t("finances.emptyDescription")}
                 action={
                   <div className="flex gap-2">
                     <Button size="sm" onClick={() => openCreate("income")}>
-                      <Plus size={14} /> إيراد
+                      <Plus size={14} /> {t("finances.income")}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => openCreate("expense")}
                     >
-                      <Plus size={14} /> مصروف
+                      <Plus size={14} /> {t("finances.expense")}
                     </Button>
                   </div>
                 }
               />
             ) : (
               <>
-                {/* Desktop table */}
                 <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[720px] text-sm">
                     <thead>
                       <tr className="border-b border-rx-border/70 text-xs text-rx-muted">
-                        <th className="px-3 py-2 text-right font-medium">
-                          التاريخ
+                        <th className="px-3 py-2 text-start font-medium">
+                          {t("finances.colDate")}
                         </th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          النوع
+                        <th className="px-3 py-2 text-start font-medium">
+                          {t("finances.colType")}
                         </th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          التصنيف
+                        <th className="px-3 py-2 text-start font-medium">
+                          {t("finances.colCategory")}
                         </th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          التفاصيل
+                        <th className="px-3 py-2 text-start font-medium">
+                          {t("finances.colDetails")}
                         </th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          الدفع
+                        <th className="px-3 py-2 text-start font-medium">
+                          {t("finances.colPayment")}
                         </th>
-                        <th className="px-3 py-2 text-left font-medium">
-                          المبلغ
+                        <th className="px-3 py-2 text-end font-medium">
+                          {t("finances.colAmount")}
                         </th>
-                        <th className="px-3 py-2 text-left font-medium">
-                          إجراءات
+                        <th className="px-3 py-2 text-end font-medium">
+                          {t("finances.colActions")}
                         </th>
                       </tr>
                     </thead>
@@ -818,7 +867,7 @@ export function FinancesPage({
                           className="border-b border-rx-border/40 last:border-0 hover:bg-rx-bg-subtle/40"
                         >
                           <td className="whitespace-nowrap px-3 py-3 text-rx-muted">
-                            {formatShortDate(tx.transactionDate)}
+                            {formatShortDate(tx.transactionDate, locale)}
                           </td>
                           <td className="px-3 py-3">
                             <Badge
@@ -826,11 +875,13 @@ export function FinancesPage({
                                 tx.type === "income" ? "default" : "secondary"
                               }
                             >
-                              {tx.type === "income" ? "إيراد" : "مصروف"}
+                              {tx.type === "income"
+                                ? t("finances.income")
+                                : t("finances.expense")}
                             </Badge>
                           </td>
                           <td className="px-3 py-3 font-medium">
-                            {financeCategoryLabel(tx.type, tx.category)}
+                            {categoryLabel(t, tx.category)}
                           </td>
                           <td className="max-w-[220px] truncate px-3 py-3 text-rx-muted">
                             {tx.patient?.name
@@ -841,18 +892,18 @@ export function FinancesPage({
                               : ""}
                           </td>
                           <td className="whitespace-nowrap px-3 py-3 text-rx-muted">
-                            {paymentMethodLabel(tx.paymentMethod)}
+                            {methodLabel(t, tx.paymentMethod)}
                           </td>
                           <td
                             className={cn(
-                              "whitespace-nowrap px-3 py-3 text-left font-bold tabular-nums",
+                              "whitespace-nowrap px-3 py-3 text-end font-bold tabular-nums",
                               tx.type === "income"
                                 ? "text-emerald-600"
                                 : "text-rose-600"
                             )}
                           >
                             {tx.type === "income" ? "+" : "−"}
-                            {formatMoney(tx.amount, currency)}
+                            {formatMoney(tx.amount, currency, locale)}
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex justify-end gap-1">
@@ -868,11 +919,7 @@ export function FinancesPage({
                                 variant="ghost"
                                 className="text-rose-600"
                                 onClick={() => {
-                                  if (
-                                    confirm(
-                                      "حذف هذه الحركة المالية؟ لا يمكن التراجع."
-                                    )
-                                  ) {
+                                  if (confirm(t("finances.deleteConfirm"))) {
                                     deleteMutation.mutate(tx.id);
                                   }
                                 }}
@@ -887,18 +934,17 @@ export function FinancesPage({
                   </table>
                 </div>
 
-                {/* Mobile cards */}
                 <div className="space-y-2 md:hidden">
                   {filteredTransactions.map((tx) => (
                     <TransactionCard
                       key={tx.id}
                       tx={tx}
                       currency={currency}
+                      locale={locale}
+                      t={t}
                       onEdit={() => openEdit(tx)}
                       onDelete={() => {
-                        if (
-                          confirm("حذف هذه الحركة المالية؟ لا يمكن التراجع.")
-                        ) {
+                        if (confirm(t("finances.deleteConfirm"))) {
                           deleteMutation.mutate(tx.id);
                         }
                       }}
@@ -930,6 +976,7 @@ export function FinancesPage({
           patients={patients}
           settings={settings}
           saving={saveTxMutation.isPending}
+          t={t}
           onSave={() => saveTxMutation.mutate()}
           onClose={() => {
             setDialogOpen(false);
@@ -945,6 +992,7 @@ function KpiCard({
   label,
   value,
   currency,
+  locale,
   loading,
   hint,
   tone,
@@ -954,6 +1002,7 @@ function KpiCard({
   label: string;
   value: number;
   currency: string;
+  locale: Locale;
   loading?: boolean;
   hint?: string;
   tone: "income" | "expense" | "balance" | "count";
@@ -1005,8 +1054,10 @@ function KpiCard({
             {loading
               ? "…"
               : raw
-                ? value.toLocaleString("ar-SY", { numberingSystem: "latn" })
-                : formatMoney(value, currency)}
+                ? value.toLocaleString(dateLocaleTag(locale), {
+                    numberingSystem: "latn",
+                  })
+                : formatMoney(value, currency, locale)}
           </p>
           {hint ? (
             <p className="mt-1.5 truncate text-[11px] text-rx-muted">{hint}</p>
@@ -1028,9 +1079,11 @@ function KpiCard({
 function DailyChart({
   daily,
   loading,
+  t,
 }: {
   daily: FinanceSummaryDto["daily"];
   loading?: boolean;
+  t: TranslateFn;
 }) {
   if (loading) {
     return (
@@ -1049,7 +1102,7 @@ function DailyChart({
   if (!daily.length) {
     return (
       <div className="flex h-40 items-center justify-center text-xs text-rx-muted">
-        لا يوجد نشاط يومي في هذه الفترة
+        {t("finances.noDailyActivity")}
       </div>
     );
   }
@@ -1069,9 +1122,16 @@ function DailyChart({
         <div
           key={d.date}
           className="group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5"
-          title={`${d.date}\nإيراد: ${d.income}\nمصروف: ${d.expense}`}
+          title={t("finances.chartTooltip", {
+            date: d.date,
+            income: d.income,
+            expense: d.expense,
+          })}
         >
-          <div className="flex w-full items-end justify-center gap-0.5" style={{ height: "100%" }}>
+          <div
+            className="flex w-full items-end justify-center gap-0.5"
+            style={{ height: "100%" }}
+          >
             <div
               className="w-[42%] rounded-t bg-emerald-500/85 transition group-hover:bg-emerald-500"
               style={{ height: `${Math.max(2, (d.income / max) * 100)}%` }}
@@ -1090,11 +1150,15 @@ function DailyChart({
 function TransactionCard({
   tx,
   currency,
+  locale,
+  t,
   onEdit,
   onDelete,
 }: {
   tx: FinanceTransactionDto;
   currency: string;
+  locale: Locale;
+  t: TranslateFn;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -1105,18 +1169,18 @@ function TransactionCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant={isIncome ? "default" : "secondary"}>
-              {isIncome ? "إيراد" : "مصروف"}
+              {isIncome ? t("finances.income") : t("finances.expense")}
             </Badge>
             <span className="text-xs text-rx-muted">
-              {formatShortDate(tx.transactionDate)}
+              {formatShortDate(tx.transactionDate, locale)}
             </span>
           </div>
           <p className="mt-1.5 text-sm font-semibold">
-            {financeCategoryLabel(tx.type, tx.category)}
+            {categoryLabel(t, tx.category)}
             {tx.patient ? ` — ${tx.patient.name}` : ""}
           </p>
           <p className="mt-0.5 text-xs text-rx-muted">
-            {paymentMethodLabel(tx.paymentMethod)}
+            {methodLabel(t, tx.paymentMethod)}
             {tx.description ? ` · ${tx.description}` : ""}
           </p>
         </div>
@@ -1127,7 +1191,7 @@ function TransactionCard({
           )}
         >
           {isIncome ? "+" : "−"}
-          {formatMoney(tx.amount, currency)}
+          {formatMoney(tx.amount, currency, locale)}
         </p>
       </div>
       <div className="mt-2 flex justify-end gap-1">
@@ -1155,6 +1219,7 @@ function TransactionDialog({
   patients,
   settings,
   saving,
+  t,
   onSave,
   onClose,
 }: {
@@ -1165,6 +1230,7 @@ function TransactionDialog({
   patients: Array<{ id: number; name: string }>;
   settings?: FinanceSettingsDto;
   saving: boolean;
+  t: TranslateFn;
   onSave: () => void;
   onClose: () => void;
 }) {
@@ -1175,13 +1241,13 @@ function TransactionDialog({
           <div>
             <h3 className="text-lg font-bold">
               {editing
-                ? "تعديل حركة مالية"
+                ? t("finances.dialogEdit")
                 : form.type === "income"
-                  ? "تسجيل إيراد"
-                  : "تسجيل مصروف"}
+                  ? t("finances.dialogIncome")
+                  : t("finances.dialogExpense")}
             </h3>
             <p className="mt-1 text-xs text-rx-muted">
-              أدخل التفاصيل بدقة لمتابعة التقرير المالي
+              {t("finances.dialogHint")}
             </p>
           </div>
           <Button size="icon" variant="ghost" onClick={onClose}>
@@ -1193,18 +1259,18 @@ function TransactionDialog({
           <div className="mb-4 flex gap-1 rounded-xl bg-rx-bg-subtle p-1">
             {(
               [
-                { id: "income", label: "إيراد" },
-                { id: "expense", label: "مصروف" },
-              ] as const
-            ).map((t) => (
+                { id: "income" as const, label: t("finances.income") },
+                { id: "expense" as const, label: t("finances.expense") },
+              ]
+            ).map((tab) => (
               <button
-                key={t.id}
+                key={tab.id}
                 type="button"
                 onClick={() =>
                   setForm((f) => {
-                    const next = emptyForm(t.id);
+                    const next = emptyForm(tab.id);
                     next.transactionDate = f.transactionDate;
-                    if (settings && t.id === "income") {
+                    if (settings && tab.id === "income") {
                       const suggested = defaultAmountForCategory(
                         next.category,
                         settings
@@ -1218,14 +1284,14 @@ function TransactionDialog({
                 }
                 className={cn(
                   "flex-1 rounded-lg py-2 text-sm font-medium transition",
-                  form.type === t.id
-                    ? t.id === "income"
+                  form.type === tab.id
+                    ? tab.id === "income"
                       ? "bg-emerald-600 text-white shadow"
                       : "bg-rose-600 text-white shadow"
                     : "text-rx-muted hover:text-rx-text"
                 )}
               >
-                {t.label}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -1233,7 +1299,7 @@ function TransactionDialog({
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label>التصنيف</Label>
+            <Label>{t("finances.category")}</Label>
             <select
               className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
               value={form.category}
@@ -1264,7 +1330,7 @@ function TransactionDialog({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>المبلغ (ل.س)</Label>
+              <Label>{t("finances.amountSyp")}</Label>
               <Input
                 type="number"
                 min={1}
@@ -1276,7 +1342,7 @@ function TransactionDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>التاريخ</Label>
+              <Label>{t("finances.date")}</Label>
               <Input
                 type="date"
                 value={form.transactionDate}
@@ -1291,7 +1357,7 @@ function TransactionDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>طريقة الدفع</Label>
+            <Label>{t("finances.paymentMethod")}</Label>
             <div className="grid grid-cols-3 gap-2">
               {PAYMENT_METHODS.map((m) => (
                 <button
@@ -1307,7 +1373,7 @@ function TransactionDialog({
                       : "border-rx-border text-rx-muted hover:border-rx-primary/40"
                   )}
                 >
-                  {m.label}
+                  {methodLabel(t, m.id)}
                 </button>
               ))}
             </div>
@@ -1315,7 +1381,7 @@ function TransactionDialog({
 
           {form.type === "income" ? (
             <div className="space-y-1.5">
-              <Label>المريض (اختياري)</Label>
+              <Label>{t("finances.patientOptional")}</Label>
               <select
                 className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
                 value={form.patientId}
@@ -1323,7 +1389,7 @@ function TransactionDialog({
                   setForm((f) => ({ ...f, patientId: e.target.value }))
                 }
               >
-                <option value="">— بدون مريض —</option>
+                <option value="">{t("finances.noPatient")}</option>
                 {patients.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -1334,14 +1400,14 @@ function TransactionDialog({
           ) : null}
 
           <div className="space-y-1.5">
-            <Label>ملاحظات</Label>
+            <Label>{t("finances.notes")}</Label>
             <Textarea
               rows={2}
               value={form.description}
               onChange={(e) =>
                 setForm((f) => ({ ...f, description: e.target.value }))
               }
-              placeholder="تفاصيل إضافية..."
+              placeholder={t("finances.notesPlaceholder")}
             />
           </div>
 
@@ -1351,10 +1417,10 @@ function TransactionDialog({
               disabled={saving || !form.amount}
               onClick={onSave}
             >
-              {saving ? "جاري الحفظ..." : "حفظ الحركة"}
+              {saving ? t("common.saving") : t("finances.saveTx")}
             </Button>
             <Button variant="outline" onClick={onClose}>
-              إلغاء
+              {t("common.cancel")}
             </Button>
           </div>
         </div>

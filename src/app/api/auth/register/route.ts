@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { registerDoctor, authenticateUser } from "@/lib/auth-credentials";
 import { fromDbId } from "@/lib/bigint";
@@ -8,6 +7,9 @@ const schema = z.object({
   name: z.string().min(2, "الاسم مطلوب"),
   phone: z.string().min(8, "رقم الهاتف غير صالح"),
   password: z.string().min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل"),
+  practiceType: z.enum(["general", "dental"], {
+    message: "اختر نوع العيادة",
+  }),
 });
 
 export async function POST(request: Request) {
@@ -28,6 +30,7 @@ export async function POST(request: Request) {
           id: fromDbId(user.id),
           name: user.name,
           phoneNumber: user.phoneNumber,
+          practiceType: data.practiceType,
         },
       },
       201

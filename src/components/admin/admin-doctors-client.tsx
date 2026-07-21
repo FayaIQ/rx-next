@@ -19,8 +19,10 @@ import { adminApi, type AdminUserDto } from "@/lib/api/admin-client";
 import { SubscriptionBadge } from "@/components/admin/subscription-badge";
 import { ActivateSubscriptionDialog } from "@/components/admin/activate-subscription-dialog";
 import Link from "next/link";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function AdminDoctorsClient() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState("all");
   const [showForm, setShowForm] = useState(false);
@@ -47,13 +49,14 @@ export function AdminDoctorsClient() {
       queryClient.invalidateQueries({ queryKey: ["admin-doctors"] });
       setShowForm(false);
       setForm({ name: "", phone: "", password: "", specialty: "" });
-      toast.success("تم إضافة الطبيب");
+      toast.success(t("admin.doctorAdded"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const doctors = data?.doctors ?? [];
   const pagination = data?.pagination;
+  const total = pagination?.total ?? doctors.length;
 
   if (isLoading && !data) {
     return <CardsPageLoading />;
@@ -62,34 +65,36 @@ export function AdminDoctorsClient() {
   return (
     <>
       <AppHeader
-        title="الأطباء"
-        subtitle={`${pagination?.total ?? doctors.length} طبيب`}
+        title={t("admin.doctorsTitle")}
+        subtitle={t("admin.doctorCount", { count: total })}
       />
       <PageContent className="space-y-6">
         <PageHeader
-          title="إدارة الأطباء"
-          description="عرض، إضافة، وتفعيل اشتراكات الأطباء"
+          title={t("admin.manageDoctors")}
+          description={t("admin.manageDoctorsDesc")}
           actions={
             <Button onClick={() => setShowForm(!showForm)}>
               <Plus size={16} />
-              طبيب جديد
+              {t("admin.newDoctor")}
             </Button>
           }
         />
 
         <div className="flex flex-wrap gap-2">
-          {[
-            ["all", "الكل"],
-            ["today", "مواعيد اليوم"],
-            ["new", "جدد هذا الأسبوع"],
-          ].map(([key, label]) => (
+          {(
+            [
+              ["all", "admin.filterAll"],
+              ["today", "admin.filterToday"],
+              ["new", "admin.filterNewWeek"],
+            ] as const
+          ).map(([key, labelKey]) => (
             <Button
               key={key}
               size="sm"
               variant={tab === key ? "default" : "outline"}
               onClick={() => setTab(key)}
             >
-              {label}
+              {t(labelKey)}
             </Button>
           ))}
         </div>
@@ -97,19 +102,19 @@ export function AdminDoctorsClient() {
         {showForm && (
           <Card hover>
             <CardHeader>
-              <CardTitle>إضافة طبيب</CardTitle>
+              <CardTitle>{t("admin.addDoctor")}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               {(
                 [
-                  ["name", "الاسم"],
-                  ["phone", "الهاتف"],
-                  ["password", "كلمة المرور"],
-                  ["specialty", "التخصص"],
+                  ["name", "admin.name"],
+                  ["phone", "admin.phone"],
+                  ["password", "admin.password"],
+                  ["specialty", "admin.specialty"],
                 ] as const
-              ).map(([key, label]) => (
+              ).map(([key, labelKey]) => (
                 <div key={key} className="space-y-2">
-                  <Label>{label}</Label>
+                  <Label>{t(labelKey)}</Label>
                   <Input
                     type={key === "password" ? "password" : "text"}
                     value={form[key]}
@@ -124,10 +129,10 @@ export function AdminDoctorsClient() {
                   onClick={() => createMutation.mutate()}
                   disabled={createMutation.isPending}
                 >
-                  حفظ
+                  {t("common.save")}
                 </Button>
                 <Button variant="outline" onClick={() => setShowForm(false)}>
-                  إلغاء
+                  {t("common.cancel")}
                 </Button>
               </div>
             </CardContent>
@@ -145,8 +150,8 @@ export function AdminDoctorsClient() {
             ) : doctors.length === 0 ? (
               <EmptyState
                 icon={Stethoscope}
-                title="لا يوجد أطباء"
-                description="أضف طبيباً جديداً للبدء"
+                title={t("admin.noDoctors")}
+                description={t("admin.noDoctorsDesc")}
               />
             ) : (
               <div className="divide-y divide-rx-border/60">
@@ -161,16 +166,21 @@ export function AdminDoctorsClient() {
                         {d.phoneNumber}
                       </p>
                       <p className="text-xs text-rx-text-secondary">
-                        {d.patientsCount} مريض — {d.secretariesCount} سكرتير
+                        {t("admin.doctorMeta", {
+                          patients: d.patientsCount,
+                          secretaries: d.secretariesCount,
+                        })}
                       </p>
                       <SubscriptionBadge subscription={d.subscription} />
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => setActivateUser(d)}>
-                        تفعيل اشتراك
+                        {t("admin.activateSubscription")}
                       </Button>
                       <Button asChild size="sm" variant="outline">
-                        <Link href={`/dashboard/users/${d.id}`}>تفاصيل</Link>
+                        <Link href={`/dashboard/users/${d.id}`}>
+                          {t("admin.details")}
+                        </Link>
                       </Button>
                     </div>
                   </div>

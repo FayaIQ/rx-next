@@ -227,28 +227,43 @@ export async function fetchDoctorHydration(doctorId: number) {
 export async function fetchDoctorChanges(doctorId: number, since: Date) {
   const doctorDbId = toDbId(doctorId);
 
-  const [patients, medicines, prescriptions, appointments, fields] =
-    await Promise.all([
-      prisma.patient.findMany({
-        where: { doctorId: doctorDbId, updatedAt: { gt: since } },
-        include: {
-          fieldValues: true,
-        },
-      }),
-      prisma.medicine.findMany({
-        where: { doctorId: doctorDbId, updatedAt: { gt: since } },
-      }),
-      prisma.prescription.findMany({
-        where: { doctorId: doctorDbId, updatedAt: { gt: since } },
-        include: { items: true, fieldValues: true },
-      }),
-      prisma.appointment.findMany({
-        where: { doctorId: doctorDbId, updatedAt: { gt: since } },
-      }),
-      prisma.patientField.findMany({
-        where: { doctorId: doctorDbId, updatedAt: { gt: since } },
-      }),
-    ]);
+  const [
+    patients,
+    medicines,
+    prescriptions,
+    appointments,
+    fields,
+    dentalCharts,
+    treatmentPlans,
+  ] = await Promise.all([
+    prisma.patient.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+      include: {
+        fieldValues: true,
+      },
+    }),
+    prisma.medicine.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+    }),
+    prisma.prescription.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+      include: { items: true, fieldValues: true },
+    }),
+    prisma.appointment.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+    }),
+    prisma.patientField.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+    }),
+    prisma.dentalChart.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+      include: { teeth: true, patient: { select: { id: true, name: true } } },
+    }),
+    prisma.treatmentPlan.findMany({
+      where: { doctorId: doctorDbId, updatedAt: { gt: since } },
+      include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+    }),
+  ]);
 
   const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
 
@@ -292,5 +307,11 @@ export async function fetchDoctorChanges(doctorId: number, since: Date) {
       isPersonal: f.isPersonal,
       updatedAt: f.updatedAt?.toISOString() ?? new Date().toISOString(),
     })),
+    dentalCharts: dentalCharts.map((c) => ({
+      patientId: fromDbId(c.patientId),
+      patientName: c.patient.name,
+      chart: serializeDentalChart(c),
+    })),
+    treatmentPlans: treatmentPlans.map(serializeTreatmentPlan),
   };
 }

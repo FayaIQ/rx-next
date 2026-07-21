@@ -4,8 +4,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AppointmentDto } from "@/lib/api/rx-client";
 import { cn } from "@/lib/utils";
+import { useLocale, type Locale, type TranslateFn } from "@/i18n/locale-provider";
 
-const WEEKDAYS = ["أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
 const MAX_VISIBLE = 3;
 
 type Props = {
@@ -38,16 +38,20 @@ function buildMonthGrid(month: Date): (string | null)[] {
   return cells;
 }
 
-function formatMonthLabel(month: Date): string {
-  return month.toLocaleDateString("ar-SY", {
+function dateLocale(locale: Locale) {
+  return locale === "en" ? "en-GB" : "ar-IQ";
+}
+
+function formatMonthLabel(month: Date, locale: Locale): string {
+  return month.toLocaleDateString(dateLocale(locale), {
     month: "long",
     year: "numeric",
     numberingSystem: "latn",
   });
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("ar-SY", {
+function formatTime(iso: string, locale: Locale): string {
+  return new Date(iso).toLocaleTimeString(dateLocale(locale), {
     hour: "2-digit",
     minute: "2-digit",
     numberingSystem: "latn",
@@ -66,6 +70,8 @@ type DayCellProps = {
   isSelected: boolean;
   isToday: boolean;
   onSelect: () => void;
+  t: TranslateFn;
+  locale: Locale;
 };
 
 function DayCell({
@@ -74,6 +80,8 @@ function DayCell({
   isSelected,
   isToday,
   onSelect,
+  t,
+  locale,
 }: DayCellProps) {
   const visible = appointments.slice(0, MAX_VISIBLE);
   const hiddenCount = appointments.length - visible.length;
@@ -132,7 +140,7 @@ function DayCell({
                 )}
                 dir="ltr"
               >
-                {formatTime(ap.appointmentDatetime)}
+                {formatTime(ap.appointmentDatetime, locale)}
               </span>
               <span
                 className={cn(
@@ -140,7 +148,7 @@ function DayCell({
                   !ap.status && "line-through opacity-70"
                 )}
               >
-                {firstName(ap.patient?.name ?? "مريض")}
+                {firstName(ap.patient?.name ?? t("appointments.patient"))}
               </span>
             </div>
           ))}
@@ -152,7 +160,7 @@ function DayCell({
                 isSelected ? "text-white/80" : "text-rx-muted"
               )}
             >
-              +{hiddenCount} أخرى
+              {t("appointments.moreHidden", { count: hiddenCount })}
             </span>
           )}
         </div>
@@ -174,12 +182,23 @@ export function AppointmentCalendar({
   onMonthChange,
   onToday,
 }: Props) {
+  const { t, locale } = useLocale();
   const cells = buildMonthGrid(month);
   const monthKey = `${month.getFullYear()}-${month.getMonth()}`;
   const isCurrentMonth =
     todayKey.startsWith(
       `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`
     );
+
+  const weekdays = [
+    t("appointments.weekdaySun"),
+    t("appointments.weekdayMon"),
+    t("appointments.weekdayTue"),
+    t("appointments.weekdayWed"),
+    t("appointments.weekdayThu"),
+    t("appointments.weekdayFri"),
+    t("appointments.weekdaySat"),
+  ];
 
   function shiftMonth(delta: number) {
     const next = new Date(month.getFullYear(), month.getMonth() + delta, 1);
@@ -195,7 +214,7 @@ export function AppointmentCalendar({
             size="icon"
             className="size-8"
             onClick={() => shiftMonth(-1)}
-            aria-label="الشهر السابق"
+            aria-label={t("appointments.prevMonth")}
           >
             <ChevronRight size={16} />
           </Button>
@@ -204,14 +223,14 @@ export function AppointmentCalendar({
             size="icon"
             className="size-8"
             onClick={() => shiftMonth(1)}
-            aria-label="الشهر التالي"
+            aria-label={t("appointments.nextMonth")}
           >
             <ChevronLeft size={16} />
           </Button>
         </div>
 
         <h2 className="text-sm font-semibold text-rx-text sm:text-base">
-          {formatMonthLabel(month)}
+          {formatMonthLabel(month, locale)}
         </h2>
 
         <Button
@@ -220,7 +239,7 @@ export function AppointmentCalendar({
           className="h-8 shrink-0 px-2.5 text-xs"
           onClick={onToday}
         >
-          اليوم
+          {t("appointments.today")}
         </Button>
       </div>
 
@@ -228,7 +247,7 @@ export function AppointmentCalendar({
         className="grid grid-cols-7 gap-1 sm:gap-1.5"
         key={monthKey}
       >
-        {WEEKDAYS.map((name) => (
+        {weekdays.map((name) => (
           <div
             key={name}
             className="py-1 text-center text-[10px] font-semibold text-rx-muted sm:text-xs"
@@ -258,6 +277,8 @@ export function AppointmentCalendar({
               isSelected={dateKey === selectedDate}
               isToday={dateKey === todayKey}
               onSelect={() => onSelectDate(dateKey)}
+              t={t}
+              locale={locale}
             />
           );
         })}

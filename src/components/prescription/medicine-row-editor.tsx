@@ -16,6 +16,7 @@ import {
   type MedicineGroup,
 } from "@/lib/medicine-utils";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 export type MedicineRowData = {
   id?: number;
@@ -47,11 +48,11 @@ type Props = {
 };
 
 const USAGE_FIELDS = [
-  ["type", "النوع"],
-  ["dosage", "الجرعة"],
-  ["quantity", "الكمية"],
-  ["period", "المدة"],
-  ["timeOfUse", "وقت الاستخدام"],
+  ["type", "composer.medType"],
+  ["dosage", "composer.medDosage"],
+  ["quantity", "composer.medQuantity"],
+  ["period", "composer.medPeriod"],
+  ["timeOfUse", "composer.medTimeOfUse"],
 ] as const;
 
 function emptyUsageFields() {
@@ -132,6 +133,7 @@ export function MedicineRowEditor({
   isLastRow = false,
   onAddRow,
 }: Props) {
+  const { t } = useLocale();
   const [focusedField, setFocusedField] = useState<MedicineFillField | null>(
     null
   );
@@ -317,7 +319,9 @@ export function MedicineRowEditor({
   const nameInput = (
     <div className={mockup ? "relative min-w-0" : "relative space-y-0.5 lg:col-span-2"}>
       {!mockup && (
-        <Label className={compact ? "rx-label" : undefined}>الاسم</Label>
+        <Label className={compact ? "rx-label" : undefined}>
+          {t("composer.medName")}
+        </Label>
       )}
       <Input
         fieldSize={mockup || compact ? "compact" : "default"}
@@ -334,7 +338,7 @@ export function MedicineRowEditor({
         role="combobox"
         aria-expanded={isOpen && suggestions.length > 0}
         aria-autocomplete="list"
-        aria-label={mockup ? "اسم الدواء" : undefined}
+        aria-label={mockup ? t("composer.medNameAria") : undefined}
         aria-activedescendant={
           nameHighlight >= 0
             ? `${rowKey}-name-suggestion-${nameHighlight}`
@@ -410,7 +414,7 @@ export function MedicineRowEditor({
                 <span className="font-medium">{g.name}</span>
                 {g.variants.length > 1 && (
                   <span className="mr-2 text-xs text-rx-muted">
-                    ({g.variants.length} أنواع)
+                    ({t("composer.typesCount", { count: g.variants.length })})
                   </span>
                 )}
               </button>
@@ -441,7 +445,9 @@ export function MedicineRowEditor({
       <div className="space-y-0.5">
         <div className="grid grid-cols-[minmax(0,1.5fr)_repeat(5,minmax(0,0.75fr))_auto] items-center gap-0.5">
           {nameInput}
-          {USAGE_FIELDS.map(([field, label]) => renderUsageField(field, label))}
+          {USAGE_FIELDS.map(([field, labelKey]) =>
+            renderUsageField(field, t(labelKey))
+          )}
           {removeButton}
         </div>
       </div>
@@ -458,7 +464,9 @@ export function MedicineRowEditor({
         }
       >
         {nameInput}
-        {USAGE_FIELDS.map(([field, label]) => renderUsageField(field, label))}
+        {USAGE_FIELDS.map(([field, labelKey]) =>
+          renderUsageField(field, t(labelKey))
+        )}
         {removeButton}
       </div>
     </div>

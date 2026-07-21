@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -31,42 +31,22 @@ import { queryKeys } from "@/lib/query-keys";
 import { sampleFieldValue } from "@/lib/patient-field-layout";
 import { applyRecipeTemplate } from "@/lib/recipe-templates";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 const DEFAULT_FORM = defaultRecipeSettingsForDoctor(0);
 
-const DEFAULT_PREVIEW: PrescriptionDocumentData = {
-  prescriptionNumber: 1,
-  prescriptionDate: new Date().toISOString(),
-  diagnosis: "التهاب حلق حاد",
-  patientName: "أحمد محمد",
-  patientGender: "male",
-  patientBirthdate: new Date(1990, 0, 1).toISOString(),
-  patientPhone: "0991234567",
-  items: [
-    {
-      id: 1,
-      name: "Amoxicillin",
-      dosage: "500mg",
-      quantity: "1",
-      period: "7 أيام",
-      timeOfUse: "بعد الأكل",
-    },
-  ],
-  settings: DEFAULT_FORM,
-};
-
 type SettingsTab = "preview" | "doctor" | "style" | "template" | "fields";
 
-const TABS: Array<{
+const TAB_DEFS: Array<{
   id: SettingsTab;
-  label: string;
+  labelKey: string;
   icon: typeof Eye;
 }> = [
-  { id: "preview", label: "المعاينة", icon: Eye },
-  { id: "template", label: "التصميم", icon: LayoutTemplate },
-  { id: "doctor", label: "الطبيب", icon: UserRound },
-  { id: "style", label: "المظهر", icon: Palette },
-  { id: "fields", label: "الحقول", icon: ListChecks },
+  { id: "preview", labelKey: "recipe.tabPreview", icon: Eye },
+  { id: "template", labelKey: "recipe.tabTemplate", icon: LayoutTemplate },
+  { id: "doctor", labelKey: "recipe.tabDoctor", icon: UserRound },
+  { id: "style", labelKey: "recipe.tabStyle", icon: Palette },
+  { id: "fields", labelKey: "recipe.tabFields", icon: ListChecks },
 ];
 
 function positionPatch(
@@ -89,10 +69,35 @@ function positionPatch(
 }
 
 export function RecipeSettingsForm() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<RecipeSettingsDto>(() => DEFAULT_FORM);
   const [activeTab, setActiveTab] = useState<SettingsTab>("template");
   const hydratedRef = useRef(false);
+
+  const defaultPreview = useMemo<PrescriptionDocumentData>(
+    () => ({
+      prescriptionNumber: 1,
+      prescriptionDate: new Date().toISOString(),
+      diagnosis: t("recipe.sampleDiagnosis"),
+      patientName: t("recipe.samplePatient"),
+      patientGender: "male",
+      patientBirthdate: new Date(1990, 0, 1).toISOString(),
+      patientPhone: "0991234567",
+      items: [
+        {
+          id: 1,
+          name: "Amoxicillin",
+          dosage: "500mg",
+          quantity: "1",
+          period: t("recipe.samplePeriod"),
+          timeOfUse: t("recipe.sampleTimeOfUse"),
+        },
+      ],
+      settings: DEFAULT_FORM,
+    }),
+    [t]
+  );
 
   const { data } = useQuery({
     queryKey: queryKeys.recipeSettings.all,
@@ -126,7 +131,7 @@ export function RecipeSettingsForm() {
       const next = normalizeRecipeSettingsDto(res.settings);
       setForm(next);
       queryClient.setQueryData(queryKeys.recipeSettings.all, { settings: next });
-      toast.success("تم حفظ إعدادات الوصفة");
+      toast.success(t("recipe.saved"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -138,7 +143,7 @@ export function RecipeSettingsForm() {
       const next = normalizeRecipeSettingsDto(res.settings);
       setForm(next);
       queryClient.setQueryData(queryKeys.recipeSettings.all, { settings: next });
-      toast.success("تم رفع الصورة");
+      toast.success(t("recipe.imageUploaded"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -181,7 +186,7 @@ export function RecipeSettingsForm() {
           delete next[fieldId];
           return next;
         });
-        toast.error(e.message || "تعذّر حفظ موضع الحقل");
+        toast.error(e.message || t("recipe.positionSaveFailed"));
       });
   }
 
@@ -190,7 +195,7 @@ export function RecipeSettingsForm() {
   );
 
   const previewData: PrescriptionDocumentData = {
-    ...DEFAULT_PREVIEW,
+    ...defaultPreview,
     settings: form,
     printableFields: printableRecipeFields.map((field) => {
       const override = fieldPositions[field.id];
@@ -208,8 +213,8 @@ export function RecipeSettingsForm() {
   return (
     <>
       <AppHeader
-        title="تصميم الوصفة"
-        subtitle="خصّص القالب، الحقول، وشكل الطباعة"
+        title={t("recipe.title")}
+        subtitle={t("recipe.subtitle")}
         actions={
           <Button
             size="sm"
@@ -217,7 +222,7 @@ export function RecipeSettingsForm() {
             disabled={saveMutation.isPending}
           >
             <Save size={15} />
-            {saveMutation.isPending ? "جاري الحفظ..." : "حفظ التصميم"}
+            {saveMutation.isPending ? t("common.saving") : t("recipe.saveDesign")}
           </Button>
         }
       />
@@ -225,7 +230,7 @@ export function RecipeSettingsForm() {
       <PageContent wide className="space-y-4 pb-24 xl:pb-8">
         <div className="sticky top-[var(--rx-header-height)] z-20 -mx-1 overflow-x-auto px-1 pb-1">
           <div className="flex min-w-max gap-1.5 rounded-2xl border border-rx-border bg-rx-surface p-1.5 shadow-sm">
-            {TABS.map(({ id, label, icon: Icon }) => (
+            {TAB_DEFS.map(({ id, labelKey, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
@@ -238,7 +243,7 @@ export function RecipeSettingsForm() {
                 )}
               >
                 <Icon size={15} />
-                {label}
+                {t(labelKey)}
               </button>
             ))}
           </div>
@@ -255,8 +260,7 @@ export function RecipeSettingsForm() {
             <Card className="overflow-hidden">
               <CardContent className="space-y-3 p-4">
                 <div className="rounded-xl bg-rx-primary-light/60 px-3 py-2 text-xs leading-relaxed text-rx-text-secondary">
-                  اسحب الشريط العلوي لأي صندوق لتحريكه، والزاوية السفلية لتغيير
-                  حجم صندوق الأدوية.
+                  {t("recipe.dragHint")}
                 </div>
                 <RecipePreviewEditor
                   data={previewData}
@@ -284,6 +288,7 @@ export function RecipeSettingsForm() {
             {activeTab === "template" && (
               <DesignTemplateSection
                 form={form}
+                onPatch={patch}
                 onTemplateSelect={(id) =>
                   setForm((prev) =>
                     prev ? applyRecipeTemplate(prev, id) : prev
@@ -308,7 +313,7 @@ export function RecipeSettingsForm() {
               disabled={saveMutation.isPending}
             >
               <Save size={16} />
-              {saveMutation.isPending ? "جاري الحفظ..." : "حفظ التصميم"}
+              {saveMutation.isPending ? t("common.saving") : t("recipe.saveDesign")}
             </Button>
           </div>
         )}

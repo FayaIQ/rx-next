@@ -7,11 +7,11 @@ export function MedicineLineText({ item }: { item: MedicineLineItem }) {
   return (
     <span dir="ltr" className="inline-block text-left">
       {latin.length > 0 && (
-        <span className="font-medium">{latin.join(" — ")}</span>
+        <span className="font-medium">{latin.join(" ")}</span>
       )}
-      {latin.length > 0 && arabic.length > 0 && <span> — </span>}
+      {latin.length > 0 && arabic.length > 0 && <span> </span>}
       {arabic.length > 0 && (
-        <span className="[unicode-bidi:plaintext]">{arabic.join(" — ")}</span>
+        <span className="[unicode-bidi:plaintext]">{arabic.join(" ")}</span>
       )}
     </span>
   );

@@ -18,6 +18,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContent } from "@/components/ui/page-shell";
 import { TablePageLoading } from "@/components/ui/page-loading";
+import { useLocale } from "@/i18n/locale-provider";
 import { Pagination } from "@/components/ui/pagination";
 import { usePaginationState } from "@/hooks/use-pagination-state";
 import { fetchPrescriptionsPaginated } from "@/lib/data/offline-api";
@@ -30,25 +31,42 @@ import {
 } from "@/lib/patient-field-display";
 
 function PrescriptionActions({ rx }: { rx: PrescriptionDto }) {
+  const { t } = useLocale();
+
   return (
     <div className="flex flex-wrap gap-1">
-      <Button variant="ghost" size="icon" asChild title="تعديل">
+      <Button variant="ghost" size="icon" asChild title={t("prescriptions.edit")}>
         <Link href={`/home?id=${rx.id}`}>
           <Pencil size={15} />
         </Link>
       </Button>
-      <Button variant="ghost" size="icon" asChild title="معاينة">
+      <Button
+        variant="ghost"
+        size="icon"
+        asChild
+        title={t("prescriptions.preview")}
+      >
         <Link href={`/prescriptions/${rx.id}/preview`}>
           <Eye size={15} />
         </Link>
       </Button>
-      <Button variant="ghost" size="icon" asChild title="طباعة">
+      <Button
+        variant="ghost"
+        size="icon"
+        asChild
+        title={t("prescriptions.print")}
+      >
         <Link href={`/prescriptions/${rx.id}/print`}>
           <Printer size={15} />
         </Link>
       </Button>
       {rx.patientId > 0 && (
-        <Button variant="ghost" size="icon" asChild title="سجل المريض">
+        <Button
+          variant="ghost"
+          size="icon"
+          asChild
+          title={t("prescriptions.patientRecord")}
+        >
           <Link href={`/patients/${rx.patientId}/record`}>
             <UserRound size={15} />
           </Link>
@@ -59,6 +77,7 @@ function PrescriptionActions({ rx }: { rx: PrescriptionDto }) {
 }
 
 export function PrescriptionsLogPage() {
+  const { t, locale } = useLocale();
   const [q, setQ] = useState("");
   const { page, pageSize, onPageChange, onPageSizeChange } =
     usePaginationState(q);
@@ -83,8 +102,8 @@ export function PrescriptionsLogPage() {
   const total = pagination?.total ?? prescriptions.length;
 
   const subtitle = useMemo(() => {
-    if (q.trim()) return `${total} نتيجة للبحث`;
-    return `${total} وصفة محفوظة`;
+    if (q.trim()) return `${total}`;
+    return `${total}`;
   }, [q, total]);
 
   if (isLoading && !data) {
@@ -93,7 +112,7 @@ export function PrescriptionsLogPage() {
 
   return (
     <>
-      <AppHeader title="سجل الوصفات" subtitle={subtitle} />
+      <AppHeader title={t("prescriptions.title")} subtitle={subtitle} />
 
       <PageContent>
         <Card className="overflow-hidden">
@@ -102,13 +121,13 @@ export function PrescriptionsLogPage() {
               <SearchInput
                 value={q}
                 onChange={setQ}
-                placeholder="بحث بالمريض، التشخيص، أو رقم الوصفة..."
+                placeholder={t("prescriptions.searchPlaceholder")}
                 className="w-full sm:max-w-md sm:flex-1"
               />
               <Button size="sm" asChild className="shrink-0">
                 <Link href="/home">
                   <Plus size={15} />
-                  وصفة جديدة
+                  {t("prescriptions.new")}
                 </Link>
               </Button>
             </div>
@@ -124,17 +143,21 @@ export function PrescriptionsLogPage() {
             {prescriptions.length === 0 ? (
               <EmptyState
                 icon={FileText}
-                title={q.trim() ? "لا توجد نتائج" : "لا توجد وصفات بعد"}
+                title={
+                  q.trim()
+                    ? t("prescriptions.noResults")
+                    : t("prescriptions.emptyYet")
+                }
                 description={
                   q.trim()
-                    ? "جرّب اسم مريض أو رقم وصفة مختلف"
-                    : "ابدأ بكتابة أول وصفة من الصفحة الرئيسية"
+                    ? t("prescriptions.noResultsHint")
+                    : t("prescriptions.emptyHint")
                 }
                 action={
                   <Button asChild>
                     <Link href="/home">
                       <Plus size={16} />
-                      كتابة وصفة جديدة
+                      {t("prescriptions.writeNew")}
                     </Link>
                   </Button>
                 }
@@ -146,9 +169,15 @@ export function PrescriptionsLogPage() {
                     <thead>
                       <tr className="border-b border-rx-border text-rx-muted">
                         <th className="px-4 py-3.5 text-right font-medium">#</th>
-                        <th className="px-4 py-3.5 text-right font-medium">المريض</th>
-                        <th className="px-4 py-3.5 text-right font-medium">التاريخ</th>
-                        <th className="px-4 py-3.5 text-right font-medium">التشخيص</th>
+                        <th className="px-4 py-3.5 text-right font-medium">
+                          {t("prescriptions.patient")}
+                        </th>
+                        <th className="px-4 py-3.5 text-right font-medium">
+                          {t("prescriptions.date")}
+                        </th>
+                        <th className="px-4 py-3.5 text-right font-medium">
+                          {t("prescriptions.diagnosis")}
+                        </th>
                         {recipeFields.map((field) => (
                           <th
                             key={field.id}
@@ -157,14 +186,20 @@ export function PrescriptionsLogPage() {
                             {field.name}
                           </th>
                         ))}
-                        <th className="px-4 py-3.5 text-right font-medium">الأدوية</th>
-                        <th className="px-4 py-3.5 text-right font-medium">إجراءات</th>
+                        <th className="px-4 py-3.5 text-right font-medium">
+                          {t("prescriptions.medicines")}
+                        </th>
+                        <th className="px-4 py-3.5 text-right font-medium">
+                          {t("prescriptions.actions")}
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-rx-border/60">
                       {prescriptions.map((rx, index) => {
                         const patientName =
-                          rx.patientName ?? rx.patient?.name ?? "مريض غير معروف";
+                          rx.patientName ??
+                          rx.patient?.name ??
+                          t("prescriptions.unknownPatient");
                         const medicinePreview = rx.items
                           .slice(0, 3)
                           .map((item) => item.name)
@@ -186,7 +221,10 @@ export function PrescriptionsLogPage() {
                               {patientName}
                             </td>
                             <td className="px-4 py-3.5 whitespace-nowrap text-rx-text-secondary">
-                              {formatPrescriptionDateTime(rx.prescriptionDate)}
+                              {formatPrescriptionDateTime(
+                                rx.prescriptionDate,
+                                locale
+                              )}
                             </td>
                             <td className="max-w-[12rem] px-4 py-3.5 text-rx-text-secondary">
                               {rx.diagnosis?.trim() || "—"}

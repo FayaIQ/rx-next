@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useLocale } from "@/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,6 +75,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
     },
     ref
   ) {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const nameRef = useRef<HTMLInputElement>(null);
   const genderRef = useRef<HTMLSelectElement>(null);
@@ -151,11 +153,11 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
   const notifyPhoneDuplicate = useCallback(
     (duplicateName?: string | null) => {
       const hint = duplicateName
-        ? `هذا الرقم مسجّل سابقاً (${duplicateName})`
-        : "هذا الرقم مسجّل سابقاً";
+        ? t("patients.formPhoneDuplicateNamed", { name: duplicateName })
+        : t("patients.formPhoneDuplicate");
       toast.warning(hint, { duration: 5000 });
     },
-    []
+    [t]
   );
 
   const validatePhone = useCallback(
@@ -196,8 +198,8 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
         setPhoneDuplicateHint(
           res.exists
             ? res.patientName
-              ? `هذا الرقم مسجّل سابقاً (${res.patientName})`
-              : "هذا الرقم مسجّل سابقاً"
+              ? t("patients.formPhoneDuplicateNamed", { name: res.patientName })
+              : t("patients.formPhoneDuplicate")
             : null
         );
       } catch {
@@ -230,13 +232,13 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
 
   async function submitPatient(options?: { quiet?: boolean }): Promise<PatientDto | null> {
     if (!name.trim()) {
-      toast.error("أدخل اسم المريض");
+      toast.error(t("patients.formNameRequired"));
       nameRef.current?.focus();
       return null;
     }
 
     if (!validatePhone(phone, { focusOnError: true })) {
-      toast.error(phoneError ?? "رقم الهاتف غير صالح");
+      toast.error(phoneError ?? t("patients.formPhoneInvalid"));
       return null;
     }
 
@@ -259,8 +261,8 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
             setPhoneDuplicateName(duplicateName);
             setPhoneDuplicateHint(
               duplicateName
-                ? `هذا الرقم مسجّل سابقاً (${duplicateName})`
-                : "هذا الرقم مسجّل سابقاً"
+                ? t("patients.formPhoneDuplicateNamed", { name: duplicateName })
+                : t("patients.formPhoneDuplicate")
             );
           }
         } catch {
@@ -290,7 +292,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
           notifyPhoneDuplicate(duplicateName);
         }
         onSuccess(optimistic);
-        if (!quiet) toast.success("تم إضافة المريض");
+        if (!quiet) toast.success(t("patients.formAdded"));
 
         const syncPromise = createPatientOffline(body);
         onSyncStart?.(syncPromise.then((result) => result.patient));
@@ -322,7 +324,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
       finishPatientSave(result.patient, result);
       return result.patient;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "فشل حفظ المريض");
+      toast.error(e instanceof Error ? e.message : t("patients.formSaveFailed"));
       return null;
     } finally {
       setIsSaving(false);
@@ -345,7 +347,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
         queryKey: ["patient-record", savedPatient.id],
       });
     }
-    toast.success(patient ? "تم تحديث المريض" : "تم إضافة المريض");
+    toast.success(patient ? t("patients.formUpdated") : t("patients.formAdded"));
     onSuccess(savedPatient);
   }
 
@@ -411,7 +413,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
         : {})}
     >
       <div className={compact ? "space-y-0.5 sm:col-span-2" : "space-y-2 sm:col-span-2"}>
-        <Label className={compact ? "rx-label" : undefined}>اسم المريض</Label>
+        <Label className={compact ? "rx-label" : undefined}>{t("patients.formName")}</Label>
         <Input
           ref={nameRef}
           fieldSize={compact ? "compact" : "default"}
@@ -423,7 +425,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
       </div>
       {visibility.showGender && (
         <div className={compact ? "space-y-0.5" : "space-y-2"}>
-          <Label className={compact ? "rx-label" : undefined}>الجنس</Label>
+          <Label className={compact ? "rx-label" : undefined}>{t("patients.gender")}</Label>
           <select
             ref={genderRef}
             className={compact ? "rx-select" : "flex h-10 w-full rounded-lg border border-rx-border bg-rx-surface px-3 text-sm"}
@@ -431,15 +433,15 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
             onChange={(e) => setGender(e.target.value as "male" | "female")}
             onKeyDown={handleGenderKeyDown}
           >
-            <option value="male">ذكر</option>
-            <option value="female">أنثى</option>
+            <option value="male">{t("patients.male")}</option>
+            <option value="female">{t("patients.female")}</option>
           </select>
         </div>
       )}
       {visibility.showAge && (
         <div className={compact ? "space-y-0.5" : "space-y-2"}>
           <Label className={compact ? "rx-label" : undefined}>
-            العمر أو تاريخ الميلاد
+            {t("patients.formAgeOrBirth")}
           </Label>
           <Input
             ref={ageRef}
@@ -447,13 +449,13 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
             value={birthdateInput}
             onChange={(e) => setBirthdateInput(e.target.value)}
             onKeyDown={(e) => handleFieldEnter(e, "age")}
-            placeholder="مثال: 35 أو 1990-05-12"
+            placeholder={t("patients.formAgePlaceholder")}
           />
         </div>
       )}
       {visibility.showPhone && (
         <div className={compact ? "space-y-0.5" : "space-y-2"}>
-          <Label className={compact ? "rx-label" : undefined}>الهاتف</Label>
+          <Label className={compact ? "rx-label" : undefined}>{t("patients.phone")}</Label>
           <Input
             ref={phoneRef}
             dir="ltr"
@@ -465,7 +467,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
             onChange={(e) => handlePhoneChange(e.target.value)}
             onBlur={handlePhoneBlur}
             onKeyDown={(e) => handleFieldEnter(e, "phone")}
-                    placeholder="09xxxxxxxx أو 07xxxxxxxxx"
+                    placeholder={t("patients.formPhonePlaceholder")}
             className={
               phoneError
                 ? "border-red-400 focus-visible:border-red-500 focus-visible:ring-red-500/20"
@@ -482,7 +484,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
       )}
       {!compact && (
         <div className="space-y-2 sm:col-span-2">
-          <Label>التشخيص</Label>
+          <Label>{t("patients.diagnosis")}</Label>
           <Textarea
             value={diagnosis}
             onChange={(e) => setDiagnosis(e.target.value)}
@@ -492,20 +494,20 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
       {!compact && (
         <>
           <div className="space-y-2 sm:col-span-2">
-            <Label>الحساسية</Label>
+            <Label>{t("patients.allergies")}</Label>
             <Textarea
               value={allergies}
               onChange={(e) => setAllergies(e.target.value)}
-              placeholder="مثال: بنسلين، لاتكس..."
+              placeholder={t("patients.formAllergiesPlaceholder")}
               rows={2}
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>الأدوية الحالية</Label>
+            <Label>{t("patients.formCurrentMeds")}</Label>
             <Textarea
               value={currentMedications}
               onChange={(e) => setCurrentMedications(e.target.value)}
-              placeholder="الأدوية التي يتناولها المريض حالياً"
+              placeholder={t("patients.formCurrentMedsPlaceholder")}
               rows={2}
             />
           </div>
@@ -534,7 +536,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
             tabIndex={compact ? -1 : undefined}
             disabled={isSaving}
           >
-            {isSaving ? "جاري الحفظ..." : patient ? "تحديث" : "إضافة"}
+            {isSaving ? t("patients.formSaving") : patient ? t("patients.formUpdate") : t("patients.formAdd")}
           </Button>
           {onCancel ? (
             <Button
@@ -544,7 +546,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
               tabIndex={compact ? -1 : undefined}
               onClick={onCancel}
             >
-              إلغاء
+              {t("patients.formCancel")}
             </Button>
           ) : null}
         </div>
@@ -557,7 +559,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
             tabIndex={compact ? -1 : undefined}
             onClick={onCancel}
           >
-            إلغاء
+            {t("patients.formCancel")}
           </Button>
         </div>
       ) : null}

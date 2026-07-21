@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 type ImageItem = {
   id: number;
@@ -13,6 +14,7 @@ type ImageItem = {
 };
 
 export function ToothImageCompare({ images }: { images: ImageItem[] }) {
+  const { t } = useLocale();
   const [toothFdi, setToothFdi] = useState<number | "all">("all");
   const [leftId, setLeftId] = useState<number | null>(null);
   const [rightId, setRightId] = useState<number | null>(null);
@@ -33,11 +35,12 @@ export function ToothImageCompare({ images }: { images: ImageItem[] }) {
     filtered.find((i) => i.id !== left?.id) ??
     filtered[1];
 
+  const typeLabel = (imageType: string) =>
+    imageType === "xray" ? t("patientFile.xray") : t("patientFile.photo");
+
   if (images.length < 2) {
     return (
-      <p className="text-sm text-rx-muted">
-        ارفع صورتين على الأقل لنفس السن لمقارنتهما.
-      </p>
+      <p className="text-sm text-rx-muted">{t("patientFile.compareNeedTwo")}</p>
     );
   }
 
@@ -54,10 +57,10 @@ export function ToothImageCompare({ images }: { images: ImageItem[] }) {
             setRightId(null);
           }}
         >
-          <option value="all">كل الأسنان</option>
+          <option value="all">{t("patientFile.allTeeth")}</option>
           {teeth.map((fdi) => (
             <option key={fdi} value={fdi}>
-              سن {fdi}
+              {t("patientFile.toothOption", { fdi })}
             </option>
           ))}
         </select>
@@ -68,7 +71,10 @@ export function ToothImageCompare({ images }: { images: ImageItem[] }) {
         >
           {filtered.map((img) => (
             <option key={img.id} value={img.id}>
-              قبل — سن {img.toothFdi} ({img.imageType})
+              {t("patientFile.beforeOption", {
+                fdi: img.toothFdi,
+                type: typeLabel(img.imageType),
+              })}
             </option>
           ))}
         </select>
@@ -79,7 +85,10 @@ export function ToothImageCompare({ images }: { images: ImageItem[] }) {
         >
           {filtered.map((img) => (
             <option key={img.id} value={img.id}>
-              بعد — سن {img.toothFdi} ({img.imageType})
+              {t("patientFile.afterOption", {
+                fdi: img.toothFdi,
+                type: typeLabel(img.imageType),
+              })}
             </option>
           ))}
         </select>
@@ -96,8 +105,11 @@ export function ToothImageCompare({ images }: { images: ImageItem[] }) {
               )}
             >
               <div className="border-b px-3 py-1.5 text-xs font-semibold text-slate-600">
-                {idx === 0 ? "قبل" : "بعد"} · سن {img.toothFdi} ·{" "}
-                {img.imageType === "xray" ? "أشعة" : "صورة"}
+                {t("patientFile.compareCaption", {
+                  side: idx === 0 ? t("patientFile.before") : t("patientFile.after"),
+                  fdi: img.toothFdi,
+                  type: typeLabel(img.imageType),
+                })}
               </div>
               <img
                 src={img.imageUrl}

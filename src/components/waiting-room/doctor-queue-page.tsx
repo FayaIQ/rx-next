@@ -7,9 +7,10 @@ import { SmartAlertsPanel } from "@/components/alerts/smart-alerts-panel";
 import { PageContent } from "@/components/ui/page-shell";
 import { WaitingRoomBoard } from "@/components/waiting-room/waiting-room-board";
 import { rxApi } from "@/lib/api/rx-client";
+import { useLocale } from "@/i18n/locale-provider";
 
-function formatTodayLabel() {
-  return new Date().toLocaleDateString("ar-SY", {
+function formatTodayLabel(locale: string) {
+  return new Date().toLocaleDateString(locale === "en" ? "en-GB" : "ar-IQ", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -20,21 +21,22 @@ function formatTodayLabel() {
 
 export function DoctorQueuePage() {
   const router = useRouter();
+  const { t, locale } = useLocale();
 
   async function handleSelectPatient(patientId: number) {
     try {
       await rxApi.patients.get(patientId);
       router.push(`/home?patientId=${patientId}`);
     } catch {
-      toast.error("تعذّر فتح ملف المريض");
+      toast.error(t("common.error"));
     }
   }
 
   return (
     <>
       <AppHeader
-        title="طابور الاستدعاء"
-        subtitle={formatTodayLabel()}
+        title={t("queue.title")}
+        subtitle={formatTodayLabel(locale)}
       />
       <PageContent className="space-y-4">
         <div className="xl:hidden">

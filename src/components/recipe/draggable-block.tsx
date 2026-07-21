@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GripVertical, MoveDiagonal2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
 
 export type PositionKey = "patient" | "ageGender" | "phone" | "date" | "items";
 
@@ -45,6 +46,7 @@ export function DraggableBlock({
   heightPct,
   onResize,
 }: Props) {
+  const { t } = useLocale();
   const blockRef = useRef<HTMLDivElement>(null);
   const modeRef = useRef<"idle" | "drag" | "resize">("idle");
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -299,7 +301,7 @@ export function DraggableBlock({
             <span className="min-w-0 flex-1 truncate text-[11px] font-medium">
               {label}
             </span>
-            <span className="text-[10px] opacity-75">اسحب للتحريك</span>
+            <span className="text-[10px] opacity-75">{t("recipe.dragToMove")}</span>
           </div>
         ) : (
           <div
@@ -326,7 +328,7 @@ export function DraggableBlock({
           <div
             data-resize-handle
             role="presentation"
-            title="اسحب لتكبير أو تصغير الصندوق"
+            title={t("recipe.dragToResize")}
             className={cn(
               "absolute bottom-0 left-0 z-20 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-tr bg-rx-primary text-white shadow",
               active ? "opacity-100" : "opacity-70 group-hover:opacity-100"

@@ -277,6 +277,12 @@ export async function mergePartialHydration(data: {
   prescriptions?: Array<Record<string, unknown>>;
   appointments?: Array<Record<string, unknown>>;
   fields?: Array<Record<string, unknown>>;
+  dentalCharts?: Array<{
+    patientId: number;
+    patientName: string;
+    chart: Record<string, unknown>;
+  }>;
+  treatmentPlans?: Array<Record<string, unknown>>;
   syncedAt: string;
 }) {
   if (data.patients?.length) {
@@ -432,6 +438,48 @@ export async function mergePartialHydration(data: {
         } satisfies LocalPatientField;
       })
     );
+  }
+
+  if (data.dentalCharts?.length) {
+    const db = getRxDb();
+    for (const entry of data.dentalCharts) {
+      await db.dental_charts.put({
+        patientServerId: entry.patientId,
+        patientName: entry.patientName,
+        chart: entry.chart as import("@/lib/dental/serializer").DentalChartDto,
+        synced: true,
+        updatedAt:
+          (entry.chart.updatedAt as string | null) ?? new Date().toISOString(),
+      });
+    }
+  }
+
+  if (data.treatmentPlans?.length) {
+    const db = getRxDb();
+    const byPatient = new Map<number, Array<Record<string, unknown>>>();
+    for (const plan of data.treatmentPlans) {
+      const patientId = plan.patientId as number;
+      const list = byPatient.get(patientId) ?? [];
+      list.push(plan);
+      byPatient.set(patientId, list);
+    }
+    for (const [patientServerId, incoming] of byPatient) {
+      const existing = await db.treatment_cache.get(patientServerId);
+      const byId = new Map<number, Record<string, unknown>>();
+      for (const plan of existing?.plans ?? []) {
+        const id = plan.id as number;
+        if (id > 0) byId.set(id, plan);
+      }
+      for (const plan of incoming) {
+        byId.set(plan.id as number, plan);
+      }
+      await db.treatment_cache.put({
+        patientServerId,
+        plans: [...byId.values()],
+        synced: true,
+        updatedAt: new Date().toISOString(),
+      });
+    }
   }
 
   await setMeta("last_full_sync", data.syncedAt);

@@ -10,22 +10,42 @@ import {
   ToggleLeft,
 } from "lucide-react";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
-
-const navItems = [
-  { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/users", label: "المستخدمون", icon: Users },
-  { href: "/dashboard/subscriptions", label: "الاشتراكات", icon: CreditCard },
-  { href: "/dashboard/doctors", label: "الأطباء", icon: Stethoscope },
-  { href: "/dashboard/secretaries", label: "السكرتارية", icon: UserCog },
-  { href: "/dashboard/packages", label: "الباقات", icon: Package },
-  { href: "/dashboard/features", label: "تحكم الصفحات", icon: ToggleLeft },
-];
+import { useLocale } from "@/i18n/locale-provider";
 
 export function AdminSidebar() {
+  const { t } = useLocale();
+
+  const navItems = [
+    {
+      href: "/dashboard",
+      label: t("nav.adminDashboard"),
+      icon: LayoutDashboard,
+      exact: true,
+    },
+    { href: "/dashboard/users", label: t("nav.users"), icon: Users },
+    {
+      href: "/dashboard/subscriptions",
+      label: t("nav.subscriptions"),
+      icon: CreditCard,
+    },
+    { href: "/dashboard/doctors", label: t("nav.doctors"), icon: Stethoscope },
+    {
+      href: "/dashboard/secretaries",
+      label: t("nav.secretaries"),
+      icon: UserCog,
+    },
+    { href: "/dashboard/packages", label: t("nav.packages"), icon: Package },
+    {
+      href: "/dashboard/features",
+      label: t("nav.features"),
+      icon: ToggleLeft,
+    },
+  ];
+
   return (
     <SidebarShell
       theme="admin"
-      brandSubtitle="إدارة النظام"
+      brandSubtitle={t("nav.adminPanel")}
       items={navItems}
     />
   );

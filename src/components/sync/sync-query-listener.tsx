@@ -15,6 +15,10 @@ const INVALIDATE_KEYS = [
   ["medicine-presets"],
   ["fields"],
   ["patient-fields"],
+  ["dental-chart"],
+  ["treatment-plans"],
+  ["treatment-sessions-today"],
+  ["treatment-sessions-week"],
 ];
 
 export function SyncQueryListener() {

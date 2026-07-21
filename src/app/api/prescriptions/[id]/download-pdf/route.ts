@@ -27,6 +27,10 @@ import {
   MEDICINE_LINE_STYLES,
   type MedicineLineItem,
 } from "@/lib/medicine-line-format";
+import {
+  PRESCRIPTION_SYSTEM_CREDIT_STYLES,
+  prescriptionSystemCreditHtml,
+} from "@/components/prescription/prescription-system-credit";
 
 export async function GET(req: Request, { params }: Params) {
   const ctx = await requireDoctorApi();
@@ -49,7 +53,15 @@ export async function GET(req: Request, { params }: Params) {
   const dims = paperDimensions(s.paperSize);
   const designUrl = resolveImageUrl(s.designImagePath, { origin });
   const logoUrl = resolveImageUrl(s.logoPath, { origin });
+  const blankParam = new URL(req.url).searchParams.get("blank");
+  const hideDesignBackground =
+    blankParam === "1" || blankParam === "true"
+      ? true
+      : blankParam === "0" || blankParam === "false"
+        ? false
+        : s.designMode === "image" && !!s.printWithoutDesignImage;
   const isImageMode = s.designMode === "image" && !!designUrl;
+  const showBackground = !hideDesignBackground;
   const templateId = s.designTemplate ?? "classic";
 
   const itemsHtml = data.items
@@ -84,15 +96,16 @@ export async function GET(req: Request, { params }: Params) {
       <div class="pos items-box" style="left:${s.designItemsX}%;top:${s.designItemsY}%;width:${itemsSize.width}%;height:${itemsSize.height}%">${s.printDiagnosis && data.diagnosis ? `<p><strong>التشخيص:</strong> ${escapeHtml(data.diagnosis)}</p>` : ""}<ol class="med-list">${itemsHtml}</ol></div>`;
 
   const classicExtras =
-    !isImageMode
+    showBackground && !isImageMode
       ? `
       ${data.xrayImage ? `<div style="position:relative;z-index:2;margin-top:16px;padding:0 24px"><p><strong>أشعة</strong></p><img class="attach" src="${resolveImageUrl(data.xrayImage, { origin })}" alt=""/></div>` : ""}
       ${data.analysisImage ? `<div style="position:relative;z-index:2;margin-top:16px;padding:0 24px"><p><strong>تحليل</strong></p><img class="attach" src="${resolveImageUrl(data.analysisImage, { origin })}" alt=""/></div>` : ""}`
       : "";
 
-  const templateShell = !isImageMode
-    ? templatePrintHeaderHtml(templateId, s, logoUrl, escapeHtml)
-    : "";
+  const templateShell =
+    showBackground && !isImageMode
+      ? templatePrintHeaderHtml(templateId, s, logoUrl, escapeHtml)
+      : "";
 
   const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -112,12 +125,13 @@ export async function GET(req: Request, { params }: Params) {
     ol { padding-right: 20px; margin: 0; }
     .med-num { font-family: ui-monospace, monospace; margin-left: 6px; }
     ${MEDICINE_LINE_STYLES}
+    ${PRESCRIPTION_SYSTEM_CREDIT_STYLES}
     .pos { position: absolute; }
     .pos.center { transform: translate(-50%, -50%); }
     .items-box { overflow: hidden; word-break: break-word; overflow-wrap: anywhere; }
     .age-row { display: flex; gap: 12px; }
     img.attach { max-height: 180px; max-width: 100%; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; }
-    ${!isImageMode ? templatePrintStyles(templateId, s.color) : ""}
+    ${!isImageMode && showBackground ? templatePrintStyles(templateId, s.color) : ""}
     @media print { .no-print { display: none; } }
   </style>
 </head>
@@ -126,9 +140,14 @@ export async function GET(req: Request, { params }: Params) {
     <button onclick="window.print()">طباعة / حفظ PDF</button>
   </div>
   <div class="wrap">
-    ${isImageMode ? `<div class="bg"><img src="${designUrl}" alt=""/></div>` : templateShell}
+    ${
+      showBackground && isImageMode
+        ? `<div class="bg"><img src="${designUrl}" alt=""/></div>`
+        : templateShell
+    }
     <div class="overlay">${positionedHtml}</div>
     ${classicExtras}
+    ${prescriptionSystemCreditHtml(s.color)}
   </div>
   <script>setTimeout(()=>window.print(),600)</script>
 </body>

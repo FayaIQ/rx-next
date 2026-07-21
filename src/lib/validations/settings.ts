@@ -74,6 +74,7 @@ export const recipeSettingsSchema = z.object({
   printGender: z.preprocess((v) => v ?? true, z.boolean()),
   printPhone: z.preprocess((v) => v ?? false, z.boolean()),
   printDiagnosis: z.preprocess((v) => v ?? true, z.boolean()),
+  printWithoutDesignImage: z.preprocess((v) => v ?? false, z.boolean()),
   designPhoneX: z.preprocess((v) => v ?? 88, z.number().min(0).max(100)),
   designPhoneY: z.preprocess((v) => v ?? 42, z.number().min(0).max(100)),
 });

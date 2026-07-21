@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
   open: boolean;
@@ -23,6 +24,7 @@ export function CompleteSessionNoteDialog({
   onClose,
   onConfirm,
 }: Props) {
+  const { t } = useLocale();
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -42,12 +44,12 @@ export function CompleteSessionNoteDialog({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label>ملاحظة (اختياري)</Label>
+            <Label>{t("treatment.noteOptional")}</Label>
             <Textarea
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="ماذا تم في هذه الجلسة؟"
+              placeholder={t("treatment.notePlaceholder")}
               autoFocus
             />
           </div>
@@ -58,7 +60,7 @@ export function CompleteSessionNoteDialog({
               onClick={onClose}
               disabled={isPending}
             >
-              إلغاء
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
@@ -66,7 +68,7 @@ export function CompleteSessionNoteDialog({
               onClick={() => onConfirm(notes.trim())}
               disabled={isPending}
             >
-              {isPending ? "جاري الحفظ..." : "تأكيد الإتمام"}
+              {isPending ? t("common.saving") : t("treatment.confirmComplete")}
             </Button>
           </div>
         </CardContent>

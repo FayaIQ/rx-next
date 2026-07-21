@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS clinic_finance_settings (
   consultation_fee DECIMAL(12, 2) NOT NULL DEFAULT 0,
   follow_up_fee DECIMAL(12, 2) NOT NULL DEFAULT 0,
   procedure_fee DECIMAL(12, 2) NOT NULL DEFAULT 0,
-  currency VARCHAR(8) NOT NULL DEFAULT 'SYP',
+  currency VARCHAR(8) NOT NULL DEFAULT 'IQD',
   created_at TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT clinic_finance_settings_doctor_id_foreign

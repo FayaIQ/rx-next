@@ -65,15 +65,20 @@ export function paymentMethodLabel(method: string | null | undefined): string {
 
 export function formatMoney(
   amount: number | string,
-  currency = "SYP"
+  currency = "IQD",
+  locale: "ar" | "en" = "ar"
 ): string {
   const value = Number(amount);
   if (Number.isNaN(value)) return "—";
-  const formatted = value.toLocaleString("ar-SY", {
+  const formatted = value.toLocaleString(locale === "en" ? "en-GB" : "ar-IQ", {
     maximumFractionDigits: 0,
     numberingSystem: "latn",
   });
-  return currency === "SYP" ? `${formatted} ل.س` : `${formatted} ${currency}`;
+  const code = currency === "SYP" ? "IQD" : currency;
+  if (code === "IQD") {
+    return locale === "en" ? `${formatted} IQD` : `${formatted} د.ع`;
+  }
+  return `${formatted} ${code}`;
 }
 
 export function defaultAmountForCategory(

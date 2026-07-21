@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { rxApi, type PatientFieldDto } from "@/lib/api/rx-client";
 import { CorePatientFieldsSettings } from "@/components/settings/core-patient-fields-settings";
+import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
 
 type FieldDraft = {
   name: string;
@@ -41,11 +42,13 @@ function FieldRow({
   onRefresh,
   allowPrint,
   allowMove,
+  t,
 }: {
   field: PatientFieldDto;
   onRefresh: () => void;
   allowPrint: boolean;
   allowMove: boolean;
+  t: TranslateFn;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
@@ -64,7 +67,7 @@ function FieldRow({
     onSuccess: () => {
       onRefresh();
       setEditing(false);
-      toast.success("تم تحديث الحقل");
+      toast.success(t("settings.fieldUpdated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -86,7 +89,11 @@ function FieldRow({
       }),
     onSuccess: () => {
       onRefresh();
-      toast.success(field.isPersonal ? "أصبح حقل وصفة" : "أصبح حقل مريض");
+      toast.success(
+        field.isPersonal
+          ? t("settings.becameRecipeField")
+          : t("settings.becamePatientField")
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -95,7 +102,7 @@ function FieldRow({
     mutationFn: () => rxApi.fields.delete(field.id),
     onSuccess: () => {
       onRefresh();
-      toast.success("تم حذف الحقل");
+      toast.success(t("settings.fieldDeleted"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -119,9 +126,9 @@ function FieldRow({
                 }))
               }
             >
-              <option value="small">صغير</option>
-              <option value="medium">متوسط</option>
-              <option value="larg">كبير</option>
+              <option value="small">{t("settings.sizeSmall")}</option>
+              <option value="medium">{t("settings.sizeMedium")}</option>
+              <option value="larg">{t("settings.sizeLarge")}</option>
             </select>
           </div>
         ) : (
@@ -131,12 +138,12 @@ function FieldRow({
               <span className="text-rx-muted">({field.size})</span>
               {field.isPrintable && (
                 <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-700">
-                  يُطبع
+                  {t("settings.printable")}
                 </span>
               )}
               {!field.isActive && (
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                  معطّل
+                  {t("settings.disabled")}
                 </span>
               )}
             </div>
@@ -145,7 +152,7 @@ function FieldRow({
                 href="/recipe-settings"
                 className="text-xs text-rx-primary hover:underline"
               >
-                ضبط موقع الحقل على الوصفة ←
+                {t("settings.positionOnRecipe")}
               </Link>
             )}
           </div>
@@ -159,7 +166,7 @@ function FieldRow({
                 onClick={() => updateField.mutate()}
                 disabled={!draft.name.trim() || updateField.isPending}
               >
-                حفظ
+                {t("common.save")}
               </Button>
               <Button
                 size="sm"
@@ -169,14 +176,14 @@ function FieldRow({
                   setEditing(false);
                 }}
               >
-                إلغاء
+                {t("common.cancel")}
               </Button>
             </>
           ) : (
             <>
               <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
                 <Pencil size={14} />
-                تعديل
+                {t("common.edit")}
               </Button>
               {allowPrint && (
                 <Button
@@ -185,7 +192,9 @@ function FieldRow({
                   onClick={() => toggleField.mutate("printable")}
                   disabled={toggleField.isPending}
                 >
-                  {field.isPrintable ? "إلغاء الطباعة" : "طباعة"}
+                  {field.isPrintable
+                    ? t("settings.cancelPrint")
+                    : t("settings.print")}
                 </Button>
               )}
               <Button
@@ -194,7 +203,9 @@ function FieldRow({
                 onClick={() => toggleField.mutate("active")}
                 disabled={toggleField.isPending}
               >
-                {field.isActive ? "تعطيل" : "تفعيل"}
+                {field.isActive
+                  ? t("settings.deactivate")
+                  : t("settings.activate")}
               </Button>
               {allowMove && (
                 <Button
@@ -203,7 +214,9 @@ function FieldRow({
                   onClick={() => moveField.mutate()}
                   disabled={moveField.isPending}
                 >
-                  {field.isPersonal ? "→ وصفة" : "→ مريض"}
+                  {field.isPersonal
+                    ? t("settings.moveToRecipe")
+                    : t("settings.moveToPatient")}
                 </Button>
               )}
               <Button
@@ -233,6 +246,7 @@ function FieldsSection({
   allowPrint = false,
   topContent,
 }: SectionProps) {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [draft, setDraft] = useState<FieldDraft>(() => emptyDraft(defaults));
@@ -249,7 +263,7 @@ function FieldsSection({
       refresh();
       setDraft(emptyDraft(defaults));
       setShowAddForm(false);
-      toast.success("تمت إضافة الحقل");
+      toast.success(t("settings.fieldAdded"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -268,10 +282,10 @@ function FieldsSection({
 
         {topContent && (
           <div className="space-y-2 border-t border-rx-border pt-4">
-            <p className="text-sm font-medium text-rx-text">حقول إضافية</p>
-            <p className="text-xs text-rx-muted">
-              بيانات اختيارية تظهر في بطاقة المريض (حساسية، ملاحظات...).
+            <p className="text-sm font-medium text-rx-text">
+              {t("settings.extraFields")}
             </p>
+            <p className="text-xs text-rx-muted">{t("settings.extraFieldsHint")}</p>
           </div>
         )}
 
@@ -305,21 +319,25 @@ function FieldsSection({
             onClick={() => setShowAddForm(true)}
           >
             <Plus size={15} />
-            إضافة حقل مخصص
+            {t("settings.addCustomField")}
           </Button>
         ) : (
           <div className="grid gap-3 rounded-xl border border-dashed border-rx-border bg-rx-bg-subtle/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1 lg:col-span-2">
-              <Label>اسم الحقل</Label>
+              <Label>{t("settings.fieldName")}</Label>
               <Input
                 value={draft.name}
                 onChange={(e) => setDraft((f) => ({ ...f, name: e.target.value }))}
-                placeholder={icon === "patient" ? "مثال: حساسية" : "مثال: PR"}
+                placeholder={
+                  icon === "patient"
+                    ? t("settings.fieldNamePatientPh")
+                    : t("settings.fieldNameRecipePh")
+                }
                 autoFocus
               />
             </div>
             <div className="space-y-1">
-              <Label>الحجم</Label>
+              <Label>{t("settings.size")}</Label>
               <select
                 className="h-10 w-full rounded-lg border border-rx-border bg-rx-surface px-3 text-sm"
                 value={draft.size}
@@ -330,9 +348,9 @@ function FieldsSection({
                   }))
                 }
               >
-                <option value="small">صغير</option>
-                <option value="medium">متوسط</option>
-                <option value="larg">كبير</option>
+                <option value="small">{t("settings.sizeSmall")}</option>
+                <option value="medium">{t("settings.sizeMedium")}</option>
+                <option value="larg">{t("settings.sizeLarge")}</option>
               </select>
             </div>
             <div className="flex flex-col justify-end gap-2 text-sm">
@@ -346,7 +364,7 @@ function FieldsSection({
                       setDraft((f) => ({ ...f, isPrintable: e.target.checked }))
                     }
                   />
-                  يُطبع على الوصفة
+                  {t("settings.printOnRecipe")}
                 </label>
               )}
             </div>
@@ -356,7 +374,7 @@ function FieldsSection({
                 disabled={!draft.name.trim() || addField.isPending}
               >
                 <Plus size={16} />
-                إضافة
+                {t("settings.add")}
               </Button>
               <Button
                 variant="outline"
@@ -365,7 +383,7 @@ function FieldsSection({
                   setDraft(emptyDraft(defaults));
                 }}
               >
-                إلغاء
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
@@ -373,11 +391,11 @@ function FieldsSection({
 
         {showPrintHint && fields.some((f) => f.isPrintable) && (
           <p className="rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800">
-            الحقول المفعّلة للطباعة تظهر في{" "}
+            {t("settings.printHintBefore")}{" "}
             <Link href="/recipe-settings" className="font-medium underline">
-              تصميم الوصفة
+              {t("settings.recipeDesign")}
             </Link>{" "}
-            — اسحبها لمكان PR / BP / TEMP على القالب.
+            {t("settings.printHintAfter")}
           </p>
         )}
 
@@ -389,10 +407,11 @@ function FieldsSection({
               onRefresh={refresh}
               allowPrint={allowPrint}
               allowMove
+              t={t}
             />
           ))}
           {fields.length === 0 && (
-            <p className="text-sm text-rx-muted">لا توجد حقول بعد — أضف حقلاً جديداً.</p>
+            <p className="text-sm text-rx-muted">{t("settings.noFieldsYet")}</p>
           )}
         </div>
       </CardContent>
@@ -401,14 +420,15 @@ function FieldsSection({
 }
 
 export function PatientFieldsManager({ fields }: { fields: PatientFieldDto[] }) {
+  const { t } = useLocale();
   const patientFields = fields.filter((f) => f.isPersonal);
   const recipeFields = fields.filter((f) => !f.isPersonal);
 
   return (
     <div className="space-y-6">
       <FieldsSection
-        title="حقول المريض"
-        description="حقول ثابتة تُسجَّل مع بيانات المريض (فصيلة الدم، حساسية...) — تُعبَّأ مرة واحدة عند إضافة أو تعديل المريض."
+        title={t("settings.patientFields")}
+        description={t("settings.patientFieldsDesc")}
         icon="patient"
         fields={patientFields}
         topContent={<CorePatientFieldsSettings />}
@@ -419,16 +439,16 @@ export function PatientFieldsManager({ fields }: { fields: PatientFieldDto[] }) 
           isPrintable: false,
         }}
         presets={[
-          { name: "حساسية" },
-          { name: "ملاحظات" },
-          { name: "فصيلة الدم" },
+          { name: t("settings.presetAllergy") },
+          { name: t("settings.presetNotes") },
+          { name: t("settings.presetBloodType") },
         ]}
         allowPrint={false}
       />
 
       <FieldsSection
-        title="حقول الوصفة"
-        description="تظهر في كل وصفة — للقياسات والبيانات السريرية (PR, BP, TEMP...). فعّل الطباعة لو تريدها على التصميم."
+        title={t("settings.recipeFields")}
+        description={t("settings.recipeFieldsDesc")}
         icon="recipe"
         fields={recipeFields}
         defaults={{
@@ -437,11 +457,7 @@ export function PatientFieldsManager({ fields }: { fields: PatientFieldDto[] }) 
           isPersonal: false,
           isPrintable: true,
         }}
-        presets={[
-          { name: "PR" },
-          { name: "BP" },
-          { name: "TEMP" },
-        ]}
+        presets={[{ name: "PR" }, { name: "BP" }, { name: "TEMP" }]}
         showPrintHint
         allowPrint
       />

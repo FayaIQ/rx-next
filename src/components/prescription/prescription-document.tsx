@@ -1,9 +1,13 @@
+"use client";
+
 import { PositionedPrescriptionBlocks } from "@/components/prescription/positioned-prescription-blocks";
+import { PrescriptionSystemCredit } from "@/components/prescription/prescription-system-credit";
 import { PrescriptionTemplateShell } from "@/components/prescription/prescription-template-shell";
 import type { RecipeSettingsDto } from "@/lib/recipe-settings";
 import { fontFamilyCss } from "@/lib/recipe-settings";
 import { paperDimensions } from "@/lib/recipe-paper";
 import { resolveImageUrl } from "@/lib/image-url";
+import { useLocale } from "@/i18n/locale-provider";
 
 export type PrescriptionDocumentData = {
   prescriptionNumber: number;
@@ -44,12 +48,16 @@ export function PrescriptionDocument({
   data,
   className = "",
   editorMode = false,
+  hideDesignBackground = false,
 }: {
   data: PrescriptionDocumentData;
   className?: string;
   /** Hide content blocks — recipe editor renders draggable overlays instead */
   editorMode?: boolean;
+  /** Omit background image / template chrome (pre-printed paper). */
+  hideDesignBackground?: boolean;
 }) {
+  const { t, dir } = useLocale();
   const s = data.settings;
   const fontCss = fontFamilyCss(s.fontFamily);
   const fontSize = `${s.fontSize}px`;
@@ -60,12 +68,14 @@ export function PrescriptionDocument({
   const xrayUrl = resolveImageUrl(data.xrayImage);
   const analysisUrl = resolveImageUrl(data.analysisImage);
   const isImageMode = s.designMode === "image" && !!designUrl;
+  const showBackground = !hideDesignBackground;
 
   return (
     <article
       className={`prescription-doc relative mx-auto overflow-hidden bg-white shadow-sm ${className}`}
-      dir="rtl"
+      dir={dir}
       data-paper-size={s.paperSize}
+      data-hide-design-bg={hideDesignBackground ? "1" : undefined}
       style={{
         width: dims.width,
         height: dims.height,
@@ -75,7 +85,7 @@ export function PrescriptionDocument({
         fontSize,
       }}
     >
-      {isImageMode && (
+      {showBackground && isImageMode && (
         <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -87,7 +97,7 @@ export function PrescriptionDocument({
         </div>
       )}
 
-      {!isImageMode && (
+      {showBackground && !isImageMode && (
         <PrescriptionTemplateShell settings={s} logoUrl={logoUrl} />
       )}
 
@@ -97,27 +107,29 @@ export function PrescriptionDocument({
         </div>
       )}
 
-      {!isImageMode && !editorMode && (xrayUrl || analysisUrl) && (
+      {!editorMode && <PrescriptionSystemCredit color={color} />}
+
+      {showBackground && !isImageMode && !editorMode && (xrayUrl || analysisUrl) && (
         <div className="relative z-20 mt-auto flex h-full flex-col justify-end p-6">
           <section className="grid gap-4 border-t pt-4 sm:grid-cols-2" style={{ borderColor: `${color}33` }}>
             {xrayUrl && (
               <div>
-                <p className="mb-1 text-sm font-semibold">صورة الأشعة</p>
+                <p className="mb-1 text-sm font-semibold">{t("home.xrayImage")}</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={xrayUrl}
-                  alt="أشعة"
+                  alt={t("home.xray")}
                   className="max-h-48 rounded border object-contain"
                 />
               </div>
             )}
             {analysisUrl && (
               <div>
-                <p className="mb-1 text-sm font-semibold">صورة التحليل</p>
+                <p className="mb-1 text-sm font-semibold">{t("home.analysisImage")}</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={analysisUrl}
-                  alt="تحليل"
+                  alt={t("home.analysis")}
                   className="max-h-48 rounded border object-contain"
                 />
               </div>

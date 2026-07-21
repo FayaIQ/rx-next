@@ -75,6 +75,7 @@ export async function PUT(req: Request) {
       printGender: data.printGender,
       printPhone: data.printPhone,
       printDiagnosis: data.printDiagnosis,
+      printWithoutDesignImage: data.printWithoutDesignImage,
       designPhoneX: data.designPhoneX,
       designPhoneY: data.designPhoneY,
     },

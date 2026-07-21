@@ -204,6 +204,30 @@ export async function createTreatmentPlanOffline(
   }
 
   const localId = `plan-${patientId}-${Date.now()}`;
+  const tempId = -Date.now();
+  const now = new Date().toISOString();
+  const optimisticPlan: TreatmentPlanDto = {
+    id: tempId,
+    doctorId: 0,
+    patientId,
+    toothFdi: Number(body.toothFdi),
+    treatmentType: String(body.treatmentType),
+    title: typeof body.title === "string" ? body.title : null,
+    totalSessions:
+      body.totalSessions != null ? Number(body.totalSessions) : null,
+    status: "active",
+    notes: typeof body.notes === "string" ? body.notes : null,
+    createdAt: now,
+    updatedAt: now,
+    sessions: [],
+  };
+
+  const cached = await fetchTreatmentPlansOfflineFirst(patientId);
+  await cacheTreatmentPlansLocally(patientId, [
+    ...cached.plans.filter((p) => p.id > 0),
+    optimisticPlan,
+  ]);
+
   await enqueueSyncItem({
     entity: "treatment_plan",
     action: "create",
@@ -213,16 +237,7 @@ export async function createTreatmentPlanOffline(
   });
   void processSyncQueue();
 
-  return {
-    plan: {
-      id: 0,
-      patientId,
-      toothFdi: Number(body.toothFdi),
-      treatmentType: String(body.treatmentType),
-      status: "active",
-      sessions: [],
-    },
-  };
+  return { plan: optimisticPlan };
 }
 
 export async function updateTreatmentSessionOffline(

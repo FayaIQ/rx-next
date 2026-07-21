@@ -42,6 +42,8 @@ export type RecipeSettingsDto = {
   printGender: boolean;
   printPhone: boolean;
   printDiagnosis: boolean;
+  /** Hide design background image when printing (pre-printed paper). */
+  printWithoutDesignImage: boolean;
   designPhoneX: number;
   designPhoneY: number;
 };
@@ -123,6 +125,7 @@ export function normalizeRecipeSettingsDto(
     printGender: bool(input.printGender, true),
     printPhone: bool(input.printPhone, RECIPE_CORE_FIELD_DEFAULTS.printPhone),
     printDiagnosis: bool(input.printDiagnosis, true),
+    printWithoutDesignImage: bool(input.printWithoutDesignImage, false),
     designPhoneX: clampNum(
       Number(input.designPhoneX ?? RECIPE_CORE_FIELD_DEFAULTS.designPhoneX),
       0,
@@ -142,6 +145,7 @@ export function serializeRecipeSettings(rs: RecipeSettings): RecipeSettingsDto {
     showAge?: boolean | null;
     showPhone?: boolean | null;
     printPhone?: boolean | null;
+    printWithoutDesignImage?: boolean | null;
     designPhoneX?: Decimal | number | string | null;
     designPhoneY?: Decimal | number | string | null;
   };
@@ -183,6 +187,7 @@ export function serializeRecipeSettings(rs: RecipeSettings): RecipeSettingsDto {
     printGender: rs.printGender,
     printPhone: row.printPhone,
     printDiagnosis: rs.printDiagnosis,
+    printWithoutDesignImage: row.printWithoutDesignImage,
     designPhoneX: dec(row.designPhoneX, RECIPE_CORE_FIELD_DEFAULTS.designPhoneX),
     designPhoneY: dec(row.designPhoneY, RECIPE_CORE_FIELD_DEFAULTS.designPhoneY),
   });
@@ -244,6 +249,7 @@ export function defaultRecipeSettingsForDoctor(
     printGender: true,
     printPhone: false,
     printDiagnosis: true,
+    printWithoutDesignImage: false,
     designPhoneX: 88,
     designPhoneY: 42,
   });
@@ -300,6 +306,7 @@ export async function ensureRecipeSettings(doctorId: number) {
       printGender: defaults.printGender,
       printPhone: defaults.printPhone,
       printDiagnosis: defaults.printDiagnosis,
+      printWithoutDesignImage: defaults.printWithoutDesignImage,
       designPhoneX: defaults.designPhoneX,
       designPhoneY: defaults.designPhoneY,
     },

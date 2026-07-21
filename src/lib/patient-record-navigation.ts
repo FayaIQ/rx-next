@@ -9,6 +9,14 @@ const ALLOWED_RETURN_PREFIXES = [
   "/reports",
 ];
 
+export type PatientRecordReturnKey =
+  | "home"
+  | "queue"
+  | "dental"
+  | "dates"
+  | "back"
+  | "patients";
+
 export function isSafeInternalReturn(path: string | null | undefined): path is string {
   if (!path || !path.startsWith("/") || path.startsWith("//")) return false;
   return ALLOWED_RETURN_PREFIXES.some(
@@ -27,25 +35,25 @@ export function patientRecordHref(
 
 export function resolvePatientRecordReturn(
   returnToParam: string | null
-): { href: string; label: string } {
+): { href: string; labelKey: PatientRecordReturnKey } {
   if (isSafeInternalReturn(returnToParam)) {
     if (returnToParam.startsWith("/home")) {
-      return { href: returnToParam, label: "العودة لكتابة الوصفة" };
+      return { href: returnToParam, labelKey: "home" };
     }
     if (returnToParam.startsWith("/queue")) {
-      return { href: returnToParam, label: "العودة للطابور" };
+      return { href: returnToParam, labelKey: "queue" };
     }
     if (returnToParam.startsWith("/dental")) {
-      return { href: returnToParam, label: "العودة للطبلة" };
+      return { href: returnToParam, labelKey: "dental" };
     }
     if (returnToParam.startsWith("/dates")) {
-      return { href: returnToParam, label: "العودة للمواعيد" };
+      return { href: returnToParam, labelKey: "dates" };
     }
-    return { href: returnToParam, label: "رجوع" };
+    return { href: returnToParam, labelKey: "back" };
   }
 
   return {
     href: "/patients",
-    label: "العودة للمرضى",
+    labelKey: "patients",
   };
 }

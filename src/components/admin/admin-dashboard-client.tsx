@@ -19,8 +19,10 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageContent, PageHeader } from "@/components/ui/page-shell";
 import { DashboardPageLoading } from "@/components/ui/page-loading";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function AdminDashboardClient() {
+  const { t } = useLocale();
   const { data, isLoading } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: () => adminApi.stats(),
@@ -33,48 +35,48 @@ export function AdminDashboardClient() {
   const cards = stats
     ? [
         {
-          label: "الأطباء",
+          label: t("admin.doctors"),
           value: stats.doctorsCount,
           href: "/dashboard/doctors",
           icon: <Stethoscope size={20} />,
         },
         {
-          label: "السكرتارية",
+          label: t("admin.secretaries"),
           value: stats.secretariesCount,
           href: "/dashboard/secretaries",
           icon: <UserCog size={20} />,
         },
         {
-          label: "المرضى",
+          label: t("admin.patients"),
           value: stats.patientsCount,
           href: "/dashboard/users",
           icon: <Users size={20} />,
         },
         {
-          label: "اشتراكات نشطة",
+          label: t("admin.activeSubs"),
           value: stats.activeSubs,
           href: "/dashboard/subscriptions?filter=active",
           icon: <CreditCard size={20} />,
         },
         {
-          label: "تجارب مجانية",
+          label: t("admin.trialSubs"),
           value: stats.trialSubs,
           href: "/dashboard/subscriptions?filter=trial",
           icon: <Clock size={20} />,
         },
         {
-          label: "منتهية",
+          label: t("admin.expiredSubs"),
           value: stats.expiredSubs,
           href: "/dashboard/subscriptions?filter=expired",
           icon: <TrendingUp size={20} />,
         },
         {
-          label: "أطباء جدد (أسبوع)",
+          label: t("admin.newDoctorsWeek"),
           value: stats.newDoctorsWeek,
           icon: <Stethoscope size={20} />,
         },
         {
-          label: "مواعيد (أسبوع)",
+          label: t("admin.appointmentsWeek"),
           value: stats.appointmentsWeek,
           icon: <CalendarCheck size={20} />,
         },
@@ -87,11 +89,14 @@ export function AdminDashboardClient() {
 
   return (
     <>
-      <AppHeader title="لوحة التحكم" subtitle="نظرة عامة على النظام" />
+      <AppHeader
+        title={t("admin.dashboardTitle")}
+        subtitle={t("admin.dashboardSubtitle")}
+      />
       <PageContent className="space-y-6">
         <PageHeader
-          title="الإحصائيات"
-          description="ملخص سريع لأداء المنصة"
+          title={t("admin.statsTitle")}
+          description={t("admin.statsDescription")}
         />
 
         {isLoading ? (
@@ -117,7 +122,7 @@ export function AdminDashboardClient() {
                       size="sm"
                       className="absolute bottom-4 left-4 h-auto p-0 text-xs text-rx-primary"
                     >
-                      <Link href={card.href}>عرض التفاصيل ←</Link>
+                      <Link href={card.href}>{t("admin.viewDetails")}</Link>
                     </Button>
                   )}
                 </div>
@@ -127,7 +132,7 @@ export function AdminDashboardClient() {
             <div className="grid gap-4 lg:grid-cols-2">
               <Card hover>
                 <CardHeader>
-                  <CardTitle>المواعيد — آخر 7 أيام</CardTitle>
+                  <CardTitle>{t("admin.appointmentsLast7")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex h-44 items-end gap-2">
@@ -144,7 +149,9 @@ export function AdminDashboardClient() {
                           style={{
                             height: `${Math.max((item.count / maxCount) * 120, 8)}px`,
                           }}
-                          title={`${item.count} موعد`}
+                          title={t("admin.appointmentCount", {
+                            count: item.count,
+                          })}
                         />
                         <span className="text-[10px] text-rx-muted">
                           {item.date.slice(5)}
@@ -157,7 +164,7 @@ export function AdminDashboardClient() {
 
               <Card hover>
                 <CardHeader>
-                  <CardTitle>توزيع المرضى حسب الجنس</CardTitle>
+                  <CardTitle>{t("admin.genderDistribution")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {(data?.demographics ?? []).map((d) => {
@@ -170,7 +177,9 @@ export function AdminDashboardClient() {
                       <div key={d.gender}>
                         <div className="mb-2 flex justify-between text-sm">
                           <span className="font-medium">
-                            {d.gender === "male" ? "ذكر" : "أنثى"}
+                            {d.gender === "male"
+                              ? t("admin.male")
+                              : t("admin.female")}
                           </span>
                           <span className="text-rx-muted">{d.count}</span>
                         </div>

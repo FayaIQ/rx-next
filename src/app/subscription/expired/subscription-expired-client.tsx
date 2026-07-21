@@ -10,8 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function SubscriptionExpiredClient() {
+  const { t } = useLocale();
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-rx-bg-subtle p-6">
       <Card className="w-full max-w-md border-0 text-center shadow-xl">
@@ -19,24 +22,27 @@ export function SubscriptionExpiredClient() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-rx-danger">
             <AlertCircle size={32} />
           </div>
-          <CardTitle className="text-2xl text-rx-danger">انتهى الاشتراك</CardTitle>
+          <CardTitle className="text-2xl text-rx-danger">
+            {t("subscriptionExpired.title")}
+          </CardTitle>
           <CardDescription className="text-base">
-            انتهت صلاحية اشتراكك. يرجى تجديد الاشتراك للاستمرار في استخدام
-            النظام.
+            {t("subscriptionExpired.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-rx-muted">
-            تواصل مع الإدارة لتفعيل باقة جديدة.
+            {t("subscriptionExpired.contactAdmin")}
           </p>
           <Button
             variant="outline"
             className="w-full"
             onClick={() =>
-              signOut({ callbackUrl: "/auth/signin", redirect: true })
+              void signOut({ redirect: false }).then(() => {
+                window.location.href = "/auth/signin";
+              })
             }
           >
-            تسجيل الخروج والعودة
+            {t("subscriptionExpired.logoutReturn")}
           </Button>
         </CardContent>
       </Card>

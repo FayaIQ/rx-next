@@ -14,6 +14,23 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FormPageLoading } from "@/components/ui/page-loading";
 import { adminApi, type AdminFeatureDto } from "@/lib/api/admin-client";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/i18n/locale-provider";
+
+function featureCopy(
+  t: (key: string) => string,
+  key: string,
+  fallbackLabel: string,
+  fallbackDescription: string
+) {
+  const labelKey = `admin.feat_${key}`;
+  const descKey = `admin.feat_${key}Desc`;
+  const label = t(labelKey);
+  const description = t(descKey);
+  return {
+    label: label === labelKey ? fallbackLabel : label,
+    description: description === descKey ? fallbackDescription : description,
+  };
+}
 
 function FeatureToggleRow({
   feature,
@@ -24,16 +41,24 @@ function FeatureToggleRow({
   disabled?: boolean;
   onToggle: (enabled: boolean) => void;
 }) {
+  const { t } = useLocale();
+  const { label, description } = featureCopy(
+    t,
+    feature.key,
+    feature.label,
+    feature.description
+  );
+
   return (
     <div className="flex items-start justify-between gap-4 rounded-xl border border-rx-border bg-rx-surface p-4">
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-semibold text-rx-text">{feature.label}</p>
+          <p className="font-semibold text-rx-text">{label}</p>
           <Badge variant={feature.enabled ? "default" : "secondary"}>
-            {feature.enabled ? "مفتوحة" : "مغلقة"}
+            {feature.enabled ? t("admin.open") : t("admin.closed")}
           </Badge>
         </div>
-        <p className="text-sm text-rx-muted">{feature.description}</p>
+        <p className="text-sm text-rx-muted">{description}</p>
         {feature.navHref ? (
           <p className="text-xs text-rx-muted" dir="ltr">
             {feature.navHref}
@@ -50,7 +75,9 @@ function FeatureToggleRow({
           disabled && "opacity-60"
         )}
         aria-label={
-          feature.enabled ? `إغلاق ${feature.label}` : `فتح ${feature.label}`
+          feature.enabled
+            ? t("admin.closeFeature", { label })
+            : t("admin.openFeature", { label })
         }
       >
         <span
@@ -65,6 +92,7 @@ function FeatureToggleRow({
 }
 
 export function AdminFeaturesClient() {
+  const { t } = useLocale();
   const queryClient = useQueryClient();
   const [selectedDoctorId, setSelectedDoctorId] = useState<number | null>(null);
   const [q, setQ] = useState("");
@@ -92,7 +120,7 @@ export function AdminFeaturesClient() {
       queryClient.invalidateQueries({
         queryKey: ["admin-features", selectedDoctorId],
       });
-      toast.success("تم تحديث صفحات هذا الطبيب");
+      toast.success(t("admin.featuresUpdated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -120,11 +148,15 @@ export function AdminFeaturesClient() {
     return (
       <>
         <AppHeader
-          title="تحكم صفحات الطبيب"
+          title={t("admin.featuresDoctorTitle")}
           subtitle={
             selectedDoctor
-              ? `${selectedDoctor.name} · ${enabledCount} من ${features.length} مفعّلة`
-              : "تحميل…"
+              ? t("admin.featuresEnabledOf", {
+                  name: selectedDoctor.name,
+                  enabled: enabledCount,
+                  total: features.length,
+                })
+              : t("admin.loadingEllipsis")
           }
         />
         <PageContent className="space-y-6">
@@ -134,24 +166,24 @@ export function AdminFeaturesClient() {
             onClick={() => setSelectedDoctorId(null)}
           >
             <ArrowRight size={14} />
-            رجوع لقائمة الأطباء
+            {t("admin.backToDoctors")}
           </Button>
 
           <PageHeader
-            title={selectedDoctor?.name ?? "الطبيب"}
-            description="افتح أو أغلق الصفحات لهذا الطبيب فقط — باقي الأطباء لا يتأثرون."
+            title={selectedDoctor?.name ?? t("admin.doctorFallback")}
+            description={t("admin.featuresDoctorDesc")}
           />
 
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Shield size={18} />
-                صفحات هذا الطبيب
+                {t("admin.doctorPages")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {doctorFeaturesQuery.isLoading && features.length === 0 ? (
-                <p className="text-sm text-rx-muted">جاري التحميل…</p>
+                <p className="text-sm text-rx-muted">{t("common.loading")}</p>
               ) : (
                 features.map((feature) => (
                   <FeatureToggleRow
@@ -174,13 +206,13 @@ export function AdminFeaturesClient() {
   return (
     <>
       <AppHeader
-        title="تحكم الصفحات"
-        subtitle={`${doctors.length} طبيب`}
+        title={t("admin.featuresTitle")}
+        subtitle={t("admin.doctorCount", { count: doctors.length })}
       />
       <PageContent className="space-y-6">
         <PageHeader
-          title="فتح وإغلاق صفحات كل طبيب"
-          description="اختر طبيباً ثم عطّل أو فعّل الصفحات له فقط دون التأثير على بقية الأطباء."
+          title={t("admin.featuresListTitle")}
+          description={t("admin.featuresListDesc")}
         />
 
         <div className="relative">
@@ -190,7 +222,7 @@ export function AdminFeaturesClient() {
           />
           <Input
             className="pr-9"
-            placeholder="بحث بالاسم أو الهاتف…"
+            placeholder={t("admin.searchNamePhone")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -200,15 +232,15 @@ export function AdminFeaturesClient() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Stethoscope size={18} />
-              الأطباء
+              {t("admin.doctors")}
             </CardTitle>
           </CardHeader>
           <CardContent className="divide-y divide-rx-border/60 p-0">
             {filteredDoctors.length === 0 ? (
               <EmptyState
                 icon={ToggleLeft}
-                title="لا يوجد أطباء"
-                description="أضف طبيباً أولاً ثم عد لإدارة صفحاته"
+                title={t("admin.noDoctorsFeatures")}
+                description={t("admin.noDoctorsFeaturesDesc")}
               />
             ) : (
               filteredDoctors.map((doctor) => (
@@ -224,7 +256,7 @@ export function AdminFeaturesClient() {
                       {doctor.phoneNumber}
                     </p>
                   </div>
-                  <Badge variant="secondary">إدارة الصفحات</Badge>
+                  <Badge variant="secondary">{t("admin.managePages")}</Badge>
                 </button>
               ))
             )}

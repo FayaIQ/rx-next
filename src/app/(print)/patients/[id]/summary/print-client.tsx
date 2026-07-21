@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/i18n/locale-provider";
 
 type TimelineItem = {
   kind: string;
@@ -28,6 +29,8 @@ export function PatientSummaryPrintClient({
   timeline,
   autoPrint = true,
 }: Props) {
+  const { t, locale } = useLocale();
+
   useEffect(() => {
     if (!autoPrint) return;
     const timer = setTimeout(() => window.print(), 500);
@@ -39,24 +42,26 @@ export function PatientSummaryPrintClient({
       <div className="mb-6 flex items-center justify-between print:hidden">
         <Button onClick={() => window.print()}>
           <Printer size={14} />
-          طباعة / حفظ PDF
+          {t("print.printSavePdf")}
         </Button>
         <Button variant="outline" asChild>
-          <Link href={`/patients/${patientId}/record`}>رجوع</Link>
+          <Link href={`/patients/${patientId}/record`}>{t("common.back")}</Link>
         </Button>
       </div>
 
-      <h1 className="text-xl font-bold">ملخص المريض — {patientName}</h1>
+      <h1 className="text-xl font-bold">
+        {t("print.summaryTitle", { name: patientName })}
+      </h1>
       <p className="text-sm text-slate-600">
         {phone ?? ""}
         {phone ? " · " : ""}
-        {new Date().toLocaleDateString("ar-SY")}
+        {new Date().toLocaleDateString(locale === "en" ? "en-GB" : "ar-IQ")}
       </p>
 
       <section className="mt-6">
-        <h2 className="font-bold">آخر النشاطات</h2>
+        <h2 className="font-bold">{t("print.recentActivity")}</h2>
         {timeline.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-500">لا يوجد نشاط مسجّل.</p>
+          <p className="mt-2 text-sm text-slate-500">{t("print.noActivity")}</p>
         ) : (
           <ul className="mt-2 space-y-2 text-sm">
             {timeline.slice(0, 12).map((item) => (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +8,7 @@ import {
   type PrescriptionDocumentData,
 } from "@/components/prescription/prescription-document";
 import { paperPageSizeCss } from "@/lib/recipe-paper";
+import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
   data: PrescriptionDocumentData;
@@ -20,7 +21,20 @@ export default function PrescriptionPrintClient({
   prescriptionId,
   autoPrint = true,
 }: Props) {
+  const { t, dir } = useLocale();
   const paperSize = data.settings.paperSize;
+  const canHideBackground =
+    data.settings.designMode === "image" && !!data.settings.designImagePath;
+
+  const [hideDesignBackground, setHideDesignBackground] = useState(
+    () => canHideBackground && data.settings.printWithoutDesignImage
+  );
+
+  const pdfHref = useMemo(() => {
+    const base = `/api/prescriptions/${prescriptionId}/download-pdf`;
+    if (!canHideBackground) return base;
+    return `${base}?blank=${hideDesignBackground ? "1" : "0"}`;
+  }, [canHideBackground, hideDesignBackground, prescriptionId]);
 
   useEffect(() => {
     document.body.classList.add("prescription-print-page");
@@ -44,23 +58,45 @@ export default function PrescriptionPrintClient({
         }
       `}</style>
 
-      <div className="prescription-print-root min-h-screen bg-gray-100 p-4 print:bg-white print:p-0" dir="rtl">
-        <div className="mx-auto mb-4 flex max-w-[210mm] flex-wrap gap-2 print:hidden">
+      <div
+        className="prescription-print-root min-h-screen bg-gray-100 p-4 print:bg-white print:p-0"
+        dir={dir}
+      >
+        <div className="mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center gap-2 print:hidden">
           <Button asChild variant="secondary">
-            <Link href="/home">رجوع</Link>
+            <Link href="/home">{t("common.back")}</Link>
           </Button>
-          <Button onClick={() => window.print()}>طباعة / حفظ PDF</Button>
+          <Button onClick={() => window.print()}>{t("print.printSavePdf")}</Button>
           <Button asChild variant="secondary">
-            <Link
-              href={`/api/prescriptions/${prescriptionId}/download-pdf`}
-              target="_blank"
-            >
-              تحميل PDF
+            <Link href={pdfHref} target="_blank">
+              {t("print.downloadPdf")}
             </Link>
           </Button>
+          {canHideBackground && (
+            <Button
+              type="button"
+              variant={hideDesignBackground ? "default" : "outline"}
+              onClick={() => setHideDesignBackground((v) => !v)}
+              title={t("print.blankPaperTitle")}
+            >
+              {hideDesignBackground
+                ? t("print.showBackground")
+                : t("print.hideBackground")}
+            </Button>
+          )}
         </div>
 
-        <PrescriptionDocument data={data} className="print:shadow-none" />
+        {canHideBackground && hideDesignBackground && (
+          <p className="mx-auto mb-3 max-w-[210mm] rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
+            {t("print.blankPaperHint")}
+          </p>
+        )}
+
+        <PrescriptionDocument
+          data={data}
+          className="print:shadow-none"
+          hideDesignBackground={hideDesignBackground}
+        />
       </div>
     </>
   );

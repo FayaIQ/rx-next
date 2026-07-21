@@ -35,6 +35,7 @@ import { refreshPendingCount } from "@/lib/sync/sync-engine";
 import { genderLabel } from "@/lib/patient-utils";
 import { monthBookingRange, paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
+import { useLocale, type Locale } from "@/i18n/locale-provider";
 
 type Props = {
   title?: string;
@@ -53,16 +54,20 @@ function appointmentDayKey(ap: AppointmentDto): string {
   return ap.bookingDate?.slice(0, 10) ?? ap.appointmentDatetime.slice(0, 10);
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("ar-SY", {
+function dateLocale(locale: Locale) {
+  return locale === "en" ? "en-GB" : "ar-IQ";
+}
+
+function formatTime(iso: string, locale: Locale): string {
+  return new Date(iso).toLocaleTimeString(dateLocale(locale), {
     hour: "2-digit",
     minute: "2-digit",
     numberingSystem: "latn",
   });
 }
 
-function formatDayLabel(dateKey: string): string {
-  return new Date(`${dateKey}T12:00:00`).toLocaleDateString("ar-SY", {
+function formatDayLabel(dateKey: string, locale: Locale): string {
+  return new Date(`${dateKey}T12:00:00`).toLocaleDateString(dateLocale(locale), {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -70,11 +75,7 @@ function formatDayLabel(dateKey: string): string {
   });
 }
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "الكل" },
-  { key: "active", label: "نشطة" },
-  { key: "cancelled", label: "ملغاة" },
-];
+const FILTER_KEYS: FilterKey[] = ["all", "active", "cancelled"];
 
 type AppointmentRowProps = {
   ap: AppointmentDto;
@@ -93,6 +94,8 @@ function AppointmentRow({
   togglePending,
   showTreatmentLinks = true,
 }: AppointmentRowProps) {
+  const { t, locale } = useLocale();
+
   return (
     <li
       className={cn(
@@ -102,23 +105,25 @@ function AppointmentRow({
     >
       <div className="w-14 shrink-0 pt-0.5 text-center">
         <p className="font-mono text-lg font-bold leading-none text-rx-primary">
-          {formatTime(ap.appointmentDatetime)}
+          {formatTime(ap.appointmentDatetime, locale)}
         </p>
       </div>
 
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-semibold text-rx-text">
-            {ap.patient?.name ?? "مريض"}
+            {ap.patient?.name ?? t("appointments.patient")}
           </p>
           <Badge variant={ap.status ? "success" : "danger"}>
-            {ap.status ? "نشط" : "ملغى"}
+            {ap.status
+              ? t("appointments.statusActive")
+              : t("appointments.statusCancelled")}
           </Badge>
         </div>
 
         {ap.patient && (
           <p className="text-xs text-rx-muted">
-            {genderLabel(ap.patient.gender as "male" | "female")}
+            {genderLabel(ap.patient.gender as "male" | "female", locale)}
             {" · "}
             {ap.patient.age}
             {ap.patient.phone && (
@@ -142,7 +147,9 @@ function AppointmentRow({
             className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 hover:underline"
           >
             <ExternalLink size={12} />
-            فتح سن {ap.treatmentToothFdi} في الطبلة
+            {t("appointments.openToothInChart", {
+              tooth: ap.treatmentToothFdi,
+            })}
           </Link>
         ) : null}
       </div>
@@ -154,7 +161,7 @@ function AppointmentRow({
               variant="ghost"
               size="icon"
               className="size-8"
-              title="فتح الطبلة"
+              title={t("appointments.openChart")}
               asChild
             >
               <Link href={`/dental/${ap.patientId}?tooth=${ap.treatmentToothFdi}`}>
@@ -166,7 +173,11 @@ function AppointmentRow({
             variant="ghost"
             size="icon"
             className="size-8"
-            title={ap.status ? "إلغاء الموعد" : "تفعيل الموعد"}
+            title={
+              ap.status
+                ? t("appointments.cancelAppointment")
+                : t("appointments.activateAppointment")
+            }
             onClick={() => onToggle(ap.id)}
             disabled={togglePending}
           >
@@ -180,7 +191,7 @@ function AppointmentRow({
             variant="ghost"
             size="icon"
             className="size-8"
-            title="تعديل"
+            title={t("common.edit")}
             onClick={() => onEdit(ap)}
           >
             <Pencil size={15} />
@@ -189,9 +200,9 @@ function AppointmentRow({
             variant="ghost"
             size="icon"
             className="size-8"
-            title="حذف"
+            title={t("common.delete")}
             onClick={() => {
-              if (confirm("حذف هذا الموعد؟")) onDelete(ap.id);
+              if (confirm(t("appointments.deleteConfirm"))) onDelete(ap.id);
             }}
           >
             <Trash2 size={15} className="text-rx-danger" />
@@ -203,10 +214,12 @@ function AppointmentRow({
 }
 
 export function AppointmentsPageClient({
-  title = "المواعيد",
+  title,
   offline = true,
   showTreatmentLinks = true,
 }: Props) {
+  const { t, locale } = useLocale();
+  const pageTitle = title ?? t("appointments.title");
   const queryClient = useQueryClient();
   const todayKey = toDateKey(new Date());
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -292,7 +305,7 @@ export function AppointmentsPageClient({
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       await refreshPendingCount();
-      toast.success("تم حذف الموعد");
+      toast.success(t("appointments.deleted"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -301,7 +314,7 @@ export function AppointmentsPageClient({
     mutationFn: (id: number) => rxApi.appointments.toggleStatus(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      toast.success("تم تحديث حالة الموعد");
+      toast.success(t("appointments.statusUpdated"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -344,6 +357,12 @@ export function AppointmentsPageClient({
 
   const formDefaultDate = editing ? appointmentDayKey(editing) : selectedDate;
 
+  const filterLabel = (key: FilterKey) => {
+    if (key === "all") return t("appointments.filterAll");
+    if (key === "active") return t("appointments.filterActive");
+    return t("appointments.filterCancelled");
+  };
+
   if (isLoading && !data) {
     return <CalendarPageLoading />;
   }
@@ -351,18 +370,20 @@ export function AppointmentsPageClient({
   return (
     <>
       <AppHeader
-        title={title}
-        subtitle={`${stats.total} موعد · ${formatDayLabel(selectedDate)}`}
+        title={pageTitle}
+        subtitle={`${stats.total} · ${formatDayLabel(selectedDate, locale)}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {showTreatmentLinks ? (
               <Button size="sm" variant="outline" asChild>
-                <Link href="/treatment/week">تقويم العلاج</Link>
+                <Link href="/treatment/week">
+                  {t("appointments.treatmentCalendar")}
+                </Link>
               </Button>
             ) : null}
             <Button size="sm" onClick={openCreateForm}>
               <Plus size={16} />
-              موعد جديد
+              {t("appointments.add")}
             </Button>
           </div>
         }
@@ -372,7 +393,7 @@ export function AppointmentsPageClient({
         <Card>
           <CardContent className="space-y-4 p-4">
             <div className="flex flex-wrap gap-1.5">
-              {FILTERS.map(({ key, label }) => {
+              {FILTER_KEYS.map((key) => {
                 const count =
                   key === "all"
                     ? stats.total
@@ -391,7 +412,7 @@ export function AppointmentsPageClient({
                         : "bg-rx-bg-subtle text-rx-muted hover:bg-rx-border/40 hover:text-rx-text"
                     )}
                   >
-                    {label}
+                    {filterLabel(key)}
                     <span className="mr-1 opacity-80">({count})</span>
                   </button>
                 );
@@ -417,10 +438,12 @@ export function AppointmentsPageClient({
         <Card className="overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-rx-border/80 px-4 py-3">
             <CardTitle className="text-sm font-semibold">
-              {formatDayLabel(selectedDate)}
+              {formatDayLabel(selectedDate, locale)}
             </CardTitle>
             <span className="text-xs text-rx-muted">
-              {selectedDayAppointments.length} موعد
+              {t("appointments.count", {
+                count: selectedDayAppointments.length,
+              })}
             </span>
           </CardHeader>
           <CardContent className="p-0">
@@ -433,17 +456,17 @@ export function AppointmentsPageClient({
             ) : selectedDayAppointments.length === 0 ? (
               <EmptyState
                 icon={CalendarDays}
-                title="لا توجد مواعيد"
+                title={t("appointments.empty")}
                 description={
                   filter === "all"
-                    ? "لا توجد مواعيد في هذا اليوم"
-                    : "لا توجد مواعيد بهذه الحالة في هذا اليوم"
+                    ? t("appointments.emptyDay")
+                    : t("appointments.emptyFiltered")
                 }
                 action={
                   filter === "all" ? (
                     <Button size="sm" onClick={openCreateForm}>
                       <Plus size={16} />
-                      موعد جديد
+                      {t("appointments.add")}
                     </Button>
                   ) : undefined
                 }
@@ -487,14 +510,14 @@ export function AppointmentsPageClient({
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-rx-border/80 pb-3">
               <CardTitle className="text-base">
-                {editing ? "تعديل موعد" : "موعد جديد"}
+                {editing ? t("appointments.edit") : t("appointments.add")}
               </CardTitle>
               <Button
                 variant="ghost"
                 size="icon"
                 className="size-8"
                 onClick={closeForm}
-                aria-label="إغلاق"
+                aria-label={t("common.close")}
               >
                 <X size={16} />
               </Button>

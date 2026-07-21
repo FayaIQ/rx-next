@@ -19,7 +19,7 @@ export async function GET() {
   const weekAgo = daysAgo(7);
   const twoWeeksAgo = daysAgo(14);
 
-  const [unscheduledSessions, stalledPlans, allergyPatients] = await Promise.all([
+  const [unscheduledSessions, stalledPlans] = await Promise.all([
     prisma.treatmentSession.findMany({
       where: {
         doctorId,
@@ -67,16 +67,6 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
       take: 10,
     }),
-    prisma.patient.findMany({
-      where: {
-        doctorId,
-        allergies: { not: null },
-        NOT: { allergies: "" },
-      },
-      select: { id: true, name: true, allergies: true },
-      orderBy: { updatedAt: "desc" },
-      take: 8,
-    }),
   ]);
 
   const alerts = [
@@ -103,15 +93,6 @@ export async function GET() {
       planId: Number(p.id),
       href: `/dental/${Number(p.patient.id)}?tooth=${p.toothFdi}`,
     })),
-    ...allergyPatients.map((p) => ({
-      id: `allergy-${p.id}`,
-      type: "patient_allergy" as const,
-      severity: "danger" as const,
-      title: "حساسية دوائية",
-      message: `${p.name}: ${p.allergies}`,
-      patientId: Number(p.id),
-      href: `/patients/${Number(p.id)}/record`,
-    })),
   ];
 
   return apiOk({
@@ -120,7 +101,7 @@ export async function GET() {
     summary: {
       unscheduledSessions: unscheduledSessions.length,
       incompletePlans: stalledPlans.length,
-      allergyPatients: allergyPatients.length,
+      allergyPatients: 0,
     },
   });
 }
