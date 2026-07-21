@@ -76,7 +76,7 @@ export async function GET(
     try {
       const data = await readFile(absPath);
       const ext = path.extname(absPath).toLowerCase();
-      return new Response(data, {
+      return new Response(new Uint8Array(data), {
         headers: {
           "Content-Type": contentTypeFor(ext),
           "Cache-Control":
@@ -98,7 +98,7 @@ export async function GET(
 
   const fromS3 = await getS3ObjectBuffer(`/uploads/${relative}`);
   if (fromS3) {
-    return new Response(fromS3.body, {
+    return new Response(new Uint8Array(fromS3.body), {
       headers: {
         "Content-Type": fromS3.contentType,
         "Cache-Control":
