@@ -77,6 +77,8 @@ export interface LocalPrescription {
   doctorId: number;
   prescriptionDate: string;
   diagnosis?: string;
+  consultationFee: number;
+  consultationFeeWaived: boolean;
   xrayImage?: string;
   analysisImage?: string;
   additionalInfo?: Record<string, unknown>;

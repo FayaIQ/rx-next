@@ -1,7 +1,7 @@
 "use client";
 
 import { v4 as uuidv4 } from "uuid";
-import { rxApi, type PatientDto, type MedicineDto, type MedicinePresetDto, type AppointmentDto, type PrescriptionDto, type PatientFieldDto } from "@/lib/api/rx-client";
+import { rxApi, type PatientDto, type MedicineDto, type MedicinePresetDto, type AppointmentDto, type PrescriptionDto, type PatientFieldDto, type FinanceSettingsDto } from "@/lib/api/rx-client";
 import {
   getLocalPatients,
   getLocalMedicines,
@@ -32,6 +32,37 @@ export type PatientSaveResult = {
   phoneDuplicate?: boolean;
   duplicatePatientName?: string | null;
 };
+
+const FINANCE_SETTINGS_CACHE_KEY = "rx-finance-settings";
+
+export async function fetchFinanceSettingsOfflineFirst(): Promise<FinanceSettingsDto> {
+  if (navigator.onLine) {
+    try {
+      const { settings } = await rxApi.finances.getSettings();
+      localStorage.setItem(FINANCE_SETTINGS_CACHE_KEY, JSON.stringify(settings));
+      return settings;
+    } catch {
+      // Fall through to the last settings snapshot.
+    }
+  }
+
+  try {
+    const cached = localStorage.getItem(FINANCE_SETTINGS_CACHE_KEY);
+    if (cached) return JSON.parse(cached) as FinanceSettingsDto;
+  } catch {
+    // Storage may be unavailable; use safe zero defaults.
+  }
+
+  return {
+    id: 0,
+    doctorId: 0,
+    consultationFee: 0,
+    followUpFee: 0,
+    procedureFee: 0,
+    currency: "IQD",
+    updatedAt: null,
+  };
+}
 
 function normalizePatientBody(body: Record<string, unknown>) {
   const birthdate =
@@ -384,6 +415,8 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
       doctorId: 0,
       prescriptionDate: String(body.prescriptionDate),
       diagnosis: (body.diagnosis as string) ?? undefined,
+      consultationFee: Number(body.consultationFee ?? 0),
+      consultationFeeWaived: Boolean(body.consultationFeeWaived),
       items: ((body.items as Array<Record<string, unknown>>) ?? []).map((item) => ({
         id: uuidv4(),
         name: String(item.name),
@@ -452,6 +485,12 @@ export async function updatePrescriptionOffline(
       doctorId: existing?.doctorId ?? 0,
       prescriptionDate: String(body.prescriptionDate),
       diagnosis: (body.diagnosis as string) ?? undefined,
+      consultationFee: Number(
+        body.consultationFee ?? existing?.consultationFee ?? 0
+      ),
+      consultationFeeWaived: Boolean(
+        body.consultationFeeWaived ?? existing?.consultationFeeWaived
+      ),
       prescriptionNumber: existing?.prescriptionNumber,
       items: ((body.items as Array<Record<string, unknown>>) ?? []).map((item) => ({
         id: uuidv4(),

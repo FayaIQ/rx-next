@@ -89,6 +89,8 @@ export type PrescriptionDto = {
   doctorId: number;
   prescriptionDate: string;
   diagnosis: string | null;
+  consultationFee: number;
+  consultationFeeWaived: boolean;
   xrayImage: string | null;
   analysisImage: string | null;
   prescriptionNumber: number;

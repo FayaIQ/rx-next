@@ -109,6 +109,8 @@ export async function persistHydration(data: {
             doctorId: number;
             prescriptionDate: string;
             diagnosis?: string;
+            consultationFee?: number;
+            consultationFeeWaived?: boolean;
             prescriptionNumber?: number;
             items: Array<Record<string, unknown>>;
             fieldValues: Array<{ patientFieldId: number; value: string }>;
@@ -122,6 +124,8 @@ export async function persistHydration(data: {
             doctorId: r.doctorId,
             prescriptionDate: r.prescriptionDate,
             diagnosis: r.diagnosis,
+            consultationFee: r.consultationFee ?? 0,
+            consultationFeeWaived: r.consultationFeeWaived ?? false,
             prescriptionNumber: r.prescriptionNumber,
             items: (r.items ?? []).map((item) => {
               const i = item as { id: number; name: string; type?: string; dosage?: string; quantity?: string; period?: string; timeOfUse?: string };
@@ -334,6 +338,8 @@ export async function mergePartialHydration(data: {
           doctorId: number;
           prescriptionDate: string;
           diagnosis?: string;
+          consultationFee?: number;
+          consultationFeeWaived?: boolean;
           prescriptionNumber?: number;
           items: Array<Record<string, unknown>>;
           fieldValues: Array<{ patientFieldId: number; value: string }>;
@@ -347,6 +353,8 @@ export async function mergePartialHydration(data: {
           doctorId: r.doctorId,
           prescriptionDate: r.prescriptionDate,
           diagnosis: r.diagnosis,
+          consultationFee: r.consultationFee ?? 0,
+          consultationFeeWaived: r.consultationFeeWaived ?? false,
           prescriptionNumber: r.prescriptionNumber,
           items: (r.items ?? []).map((item) => {
             const i = item as {
@@ -875,6 +883,8 @@ function localPrescriptionToDto(
     doctorId: rx.doctorId,
     prescriptionDate: rx.prescriptionDate,
     diagnosis: rx.diagnosis ?? null,
+    consultationFee: rx.consultationFee ?? 0,
+    consultationFeeWaived: rx.consultationFeeWaived ?? false,
     xrayImage: rx.xrayImage ?? null,
     analysisImage: rx.analysisImage ?? null,
     prescriptionNumber: rx.prescriptionNumber ?? 0,
@@ -944,6 +954,8 @@ export async function syncLocalPrescriptionFromDto(
     doctorId: prescription.doctorId ?? 0,
     prescriptionDate: prescription.prescriptionDate ?? new Date().toISOString(),
     diagnosis: prescription.diagnosis ?? undefined,
+    consultationFee: prescription.consultationFee ?? 0,
+    consultationFeeWaived: prescription.consultationFeeWaived ?? false,
     xrayImage: prescription.xrayImage ?? undefined,
     analysisImage: prescription.analysisImage ?? undefined,
     prescriptionNumber: prescription.prescriptionNumber,

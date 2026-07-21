@@ -54,6 +54,8 @@ export const prescriptionSchema = z.object({
   patientId: z.number(),
   prescriptionDate: z.string(),
   diagnosis: z.string().nullable().optional(),
+  consultationFee: z.coerce.number().min(0).max(9999999999).optional(),
+  consultationFeeWaived: z.boolean().optional().default(false),
   additionalInfo: z.record(z.string(), z.unknown()).nullable().optional(),
   items: z.array(prescriptionItemSchema).min(1, "أضف دواءً واحداً على الأقل"),
   fieldValues: z.array(prescriptionFieldValueSchema).optional().default([]),

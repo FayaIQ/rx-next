@@ -36,6 +36,7 @@ import {
   fetchPatientsOfflineFirst,
   fetchMedicinesOfflineFirst,
   fetchMedicinePresetsOfflineFirst,
+  fetchFinanceSettingsOfflineFirst,
   createPrescriptionOffline,
   updatePrescriptionOffline,
 } from "@/lib/data/offline-api";
@@ -71,6 +72,7 @@ import { upsertLocalMedicinePresets, upsertLocalMedicinesFromPrescription, syncL
 import { queryKeys } from "@/lib/query-keys";
 import { useFieldsOnlyTab } from "@/lib/fields-only-tab";
 import { buildPrescriptionPreviewData } from "@/lib/prescription-preview-data";
+import { formatMoney } from "@/lib/finance/constants";
 import { PrescriptionLivePreview } from "@/components/prescription/prescription-live-preview";
 import { DoctorQueuePanel } from "@/components/waiting-room/doctor-queue-panel";
 import { TodayTreatmentSessionsPanel } from "@/components/treatment/today-sessions-panel";
@@ -191,6 +193,8 @@ export function PrescriptionComposer() {
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [newPatientInitialName, setNewPatientInitialName] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
+  const [consultationFee, setConsultationFee] = useState(0);
+  const [consultationFeeWaived, setConsultationFeeWaived] = useState(false);
   const [items, setItems] = useState<MedicineRowData[]>([emptyRow()]);
   const [activeMedicineRowKey, setActiveMedicineRowKey] = useState<string | null>(
     null
@@ -231,6 +235,16 @@ export function PrescriptionComposer() {
     queryKey: ["recipe-settings"],
     queryFn: () => rxApi.recipeSettings.get(),
   });
+
+  const { data: financeSettingsData } = useQuery({
+    queryKey: ["finance-settings", "prescription-snapshot"],
+    queryFn: fetchFinanceSettingsOfflineFirst,
+  });
+
+  useEffect(() => {
+    if (editId || !financeSettingsData) return;
+    setConsultationFee(financeSettingsData.consultationFee);
+  }, [editId, financeSettingsData]);
 
   const patientFieldVisibility = useMemo(
     () =>
@@ -282,6 +296,8 @@ export function PrescriptionComposer() {
     setPrescriptionNumber(p.prescriptionNumber);
     setPrescriptionDate(toDateInputValue(p.prescriptionDate));
     setDiagnosis(p.diagnosis ?? "");
+    setConsultationFee(p.consultationFee);
+    setConsultationFeeWaived(p.consultationFeeWaived);
     setItems(
       p.items.length
         ? p.items.map((item) => ({
@@ -378,6 +394,8 @@ export function PrescriptionComposer() {
         patientId,
         prescriptionDate: new Date(prescriptionDate).toISOString(),
         diagnosis: diagnosis || null,
+        consultationFee,
+        consultationFeeWaived,
         items: savedItems,
         fieldValues: Object.entries(fieldValues)
           .filter(([id, v]) => v.trim() && recipeFieldIds.has(Number(id)))
@@ -542,6 +560,8 @@ export function PrescriptionComposer() {
     setSelectedPatient(null);
     setPatientSearch("");
     setDiagnosis("");
+    setConsultationFee(financeSettingsData?.consultationFee ?? 0);
+    setConsultationFeeWaived(false);
     nextRowKeyRef.current = 1;
     setItems([emptyRow()]);
     setFieldValues({});
@@ -967,6 +987,30 @@ export function PrescriptionComposer() {
             </ComposerPanel>
 
             <ComposerPanel title={t("composer.prescription")}>
+              <section className="rounded-xl border border-rx-border bg-rx-bg-subtle/50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-rx-text">
+                    {t("composer.consultationFee")}
+                  </p>
+                  <span className="rounded-full bg-rx-surface px-3 py-1.5 text-sm font-bold text-rx-primary ring-1 ring-rx-border">
+                    {consultationFeeWaived
+                      ? t("composer.freeConsultation")
+                      : formatMoney(consultationFee, "IQD", locale)}
+                  </span>
+                </div>
+                <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-lg bg-rx-surface px-3 py-2.5 text-sm font-medium text-rx-text ring-1 ring-rx-border/70">
+                  <input
+                    type="checkbox"
+                    checked={consultationFeeWaived}
+                    onChange={(event) =>
+                      setConsultationFeeWaived(event.target.checked)
+                    }
+                    className="size-4 accent-rx-primary"
+                  />
+                  {t("composer.waiveConsultationFee")}
+                </label>
+              </section>
+
               {recipeFields.length > 0 && (
                 <section className="space-y-3">
                   <FieldLabel>{t("composer.recipeFields")}</FieldLabel>

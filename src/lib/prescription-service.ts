@@ -38,6 +38,7 @@ export async function createPrescription(
   if (!patient) throw new Error("المريض غير موجود");
 
   const prescriptionDate = new Date(data.prescriptionDate);
+  const consultationFeeWaived = data.consultationFeeWaived ?? false;
   const recipeFieldIds = await getRecipeFieldIdsForDoctor(doctorId);
   const recipeFieldValues = filterFieldValuesByIds(
     data.fieldValues ?? [],
@@ -45,12 +46,24 @@ export async function createPrescription(
   );
 
   const prescription = await prisma.$transaction(async (tx) => {
+    const financeSettings = await tx.clinicFinanceSettings.upsert({
+      where: { doctorId: doctorDbId },
+      update: {},
+      create: { doctorId: doctorDbId },
+      select: { consultationFee: true },
+    });
+    const consultationFee = consultationFeeWaived
+      ? 0
+      : (data.consultationFee ?? Number(financeSettings.consultationFee));
+
     const created = await tx.prescription.create({
       data: {
         patientId: toDbId(data.patientId),
         doctorId: doctorDbId,
         prescriptionDate,
         diagnosis: data.diagnosis ?? null,
+        consultationFee,
+        consultationFeeWaived,
         additionalInfo: (data.additionalInfo ?? undefined) as
           | Prisma.InputJsonValue
           | undefined,
@@ -76,6 +89,21 @@ export async function createPrescription(
         items: true,
         fieldValues: true,
         patient: true,
+      },
+    });
+
+    await tx.financeTransaction.create({
+      data: {
+        doctorId: doctorDbId,
+        patientId: toDbId(data.patientId),
+        prescriptionId: created.id,
+        type: "income",
+        category: "consultation",
+        amount: consultationFee,
+        paymentMethod: "cash",
+        description: `وصفة #${prescriptionNumber}`,
+        transactionDate: prescriptionDate,
+        createdById: doctorDbId,
       },
     });
 
@@ -117,15 +145,44 @@ export async function updatePrescription(
   );
 
   const result = await prisma.$transaction(async (tx) => {
+    const consultationFeeWaived =
+      data.consultationFeeWaived ?? existing.consultationFeeWaived;
+    const consultationFee = consultationFeeWaived
+      ? 0
+      : (data.consultationFee ?? Number(existing.consultationFee));
+
     await tx.prescription.update({
       where: { id: rxDbId },
       data: {
         patientId: toDbId(data.patientId),
         prescriptionDate: new Date(data.prescriptionDate),
         diagnosis: data.diagnosis ?? null,
+        consultationFee,
+        consultationFeeWaived,
         additionalInfo: (data.additionalInfo ?? undefined) as
           | Prisma.InputJsonValue
           | undefined,
+      },
+    });
+
+    await tx.financeTransaction.upsert({
+      where: { prescriptionId: rxDbId },
+      update: {
+        patientId: toDbId(data.patientId),
+        amount: consultationFee,
+        transactionDate: new Date(data.prescriptionDate),
+      },
+      create: {
+        doctorId: doctorDbId,
+        patientId: toDbId(data.patientId),
+        prescriptionId: rxDbId,
+        type: "income",
+        category: "consultation",
+        amount: consultationFee,
+        paymentMethod: "cash",
+        description: `وصفة #${existing.prescriptionNumber ?? prescriptionId}`,
+        transactionDate: new Date(data.prescriptionDate),
+        createdById: doctorDbId,
       },
     });
 
@@ -201,6 +258,8 @@ export function serializePrescription(prescription: {
   doctorId: bigint | number | null;
   prescriptionDate: Date | null;
   diagnosis: string | null;
+  consultationFee: unknown;
+  consultationFeeWaived: boolean;
   xrayImage?: string | null;
   analysisImage?: string | null;
   additionalInfo?: unknown;
@@ -237,6 +296,8 @@ export function serializePrescription(prescription: {
     doctorId: prescription.doctorId ? fromDbId(prescription.doctorId) : null,
     prescriptionDate: prescription.prescriptionDate?.toISOString() ?? null,
     diagnosis: prescription.diagnosis,
+    consultationFee: Number(prescription.consultationFee),
+    consultationFeeWaived: prescription.consultationFeeWaived,
     xrayImage: prescription.xrayImage ?? null,
     analysisImage: prescription.analysisImage ?? null,
     additionalInfo: prescription.additionalInfo ?? null,
