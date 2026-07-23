@@ -129,14 +129,15 @@ export async function verifyOtp(
 }
 
 // --- Proof tokens -----------------------------------------------------------
-// After CFlow confirms the code, we hand the client a short-lived HMAC token
-// bound to the phone. Register + NextAuth authorize accept this token instead
-// of re-verifying with CFlow (codes are single-use, so one flow may need the
-// proof in two places).
+// Short-lived HMAC tokens bound to a phone, e.g. "the OTP code checked out"
+// or "the captcha was solved". Register + NextAuth authorize accept these
+// instead of re-verifying with the upstream service (codes and captcha
+// tokens are single-use, so one flow may need the proof in several places).
 
 // Web Crypto (not node:crypto) so auth.ts stays bundleable for the edge
 // middleware runtime.
-async function signOtpToken(
+async function signProof(
+  scope: string,
   phoneKey: string,
   expiresAt: number
 ): Promise<string> {
@@ -151,7 +152,7 @@ async function signOtpToken(
   const signature = await crypto.subtle.sign(
     "HMAC",
     key,
-    encoder.encode(`otp:${phoneKey}:${expiresAt}`)
+    encoder.encode(`${scope}:${phoneKey}:${expiresAt}`)
   );
   return Array.from(new Uint8Array(signature))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -167,13 +168,18 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export async function createOtpToken(phone: string): Promise<string> {
+export async function createProofToken(
+  scope: string,
+  phone: string,
+  ttlMs = TOKEN_TTL_MS
+): Promise<string> {
   const phoneKey = otpPhoneKey(phone);
-  const expiresAt = Date.now() + TOKEN_TTL_MS;
-  return `${expiresAt}.${await signOtpToken(phoneKey, expiresAt)}`;
+  const expiresAt = Date.now() + ttlMs;
+  return `${expiresAt}.${await signProof(scope, phoneKey, expiresAt)}`;
 }
 
-export async function verifyOtpToken(
+export async function verifyProofToken(
+  scope: string,
   phone: string,
   token: string | null | undefined
 ): Promise<boolean> {
@@ -190,6 +196,17 @@ export async function verifyOtpToken(
     return false;
   }
 
-  const expected = await signOtpToken(phoneKey, expiresAt);
+  const expected = await signProof(scope, phoneKey, expiresAt);
   return constantTimeEqual(expected, signature);
+}
+
+export function createOtpToken(phone: string): Promise<string> {
+  return createProofToken("otp", phone);
+}
+
+export function verifyOtpToken(
+  phone: string,
+  token: string | null | undefined
+): Promise<boolean> {
+  return verifyProofToken("otp", phone, token);
 }

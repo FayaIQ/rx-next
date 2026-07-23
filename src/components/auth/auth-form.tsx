@@ -26,6 +26,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 interface AuthFormProps {
   mode: "signin" | "signup";
@@ -87,6 +90,17 @@ export function AuthForm({
   const [step, setStep] = useState<"form" | "otp">("form");
   const [otpCode, setOtpCode] = useState("");
   const [resendIn, setResendIn] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // Remounts the widget — Turnstile tokens are single-use.
+  const [captchaNonce, setCaptchaNonce] = useState(0);
+  // Server-issued proof that lets resends skip the captcha.
+  const [captchaProof, setCaptchaProof] = useState<string | null>(null);
+
+  function resetCaptcha() {
+    if (!TURNSTILE_SITE_KEY) return;
+    setCaptchaToken(null);
+    setCaptchaNonce((n) => n + 1);
+  }
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -147,6 +161,8 @@ export function AuthForm({
         password,
         ...(role === "doctor" ? { practiceType } : {}),
         ...(otpToken ? { otpToken } : {}),
+        // Only consumed in the password-only fallback (OTP disabled).
+        ...(captchaToken ? { turnstileToken: captchaToken } : {}),
       }),
     });
     const data = await res.json();
@@ -187,14 +203,18 @@ export function AuthForm({
         phone,
         mode,
         ...(mode === "signin" ? { password } : {}),
+        ...(captchaToken ? { turnstileToken: captchaToken } : {}),
+        ...(captchaProof ? { captchaProof } : {}),
       }),
     });
     const data = await res.json();
     if (!res.ok) {
       toast.error(data.error ?? t("auth.otpSendFailed"));
+      resetCaptcha();
       return "failed";
     }
     if (data.enabled === false) return "disabled";
+    if (data.captchaProof) setCaptchaProof(data.captchaProof as string);
     setResendIn(60);
     return "sent";
   }
@@ -207,6 +227,11 @@ export function AuthForm({
     try {
       if (mode === "signup" && role === "doctor" && !practiceType) {
         toast.error(t("auth.choosePractice"));
+        return;
+      }
+
+      if (TURNSTILE_SITE_KEY && !captchaToken) {
+        toast.error(t("auth.captchaRequired"));
         return;
       }
 
@@ -343,6 +368,8 @@ export function AuthForm({
             onClick={() => {
               setStep("form");
               setOtpCode("");
+              setCaptchaProof(null);
+              resetCaptcha();
             }}
             className="inline-flex items-center gap-1 font-medium text-rx-muted hover:text-rx-text"
           >
@@ -494,7 +521,21 @@ export function AuthForm({
           </div>
         </div>
 
-        <Button type="submit" className="w-full" size="lg" disabled={loading}>
+        {TURNSTILE_SITE_KEY && (
+          <TurnstileWidget
+            key={captchaNonce}
+            siteKey={TURNSTILE_SITE_KEY}
+            locale={locale}
+            onToken={setCaptchaToken}
+          />
+        )}
+
+        <Button
+          type="submit"
+          className="w-full"
+          size="lg"
+          disabled={loading || Boolean(TURNSTILE_SITE_KEY && !captchaToken)}
+        >
           {loading ? (
             <>
               <Loader2 size={18} className="animate-spin" />

@@ -236,6 +236,7 @@ export const ar = {
     otpChangePhone: "تعديل البيانات",
     otpSendFailed: "تعذر إرسال رمز التحقق",
     otpInvalid: "فشل التحقق من الرمز",
+    captchaRequired: "أكمل التحقق من أنك لست روبوتاً",
     namePlaceholder: "د. محمد أحمد",
     phonePlaceholder: "07xxxxxxxxx",
     doctorSignInTitle: "مرحباً بعودتك",

@@ -1,9 +1,17 @@
 import { z } from "zod";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
-import { isOtpEnabled, sendOtp } from "@/lib/otp";
+import {
+  createProofToken,
+  isOtpEnabled,
+  sendOtp,
+  verifyProofToken,
+} from "@/lib/otp";
+import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
 import { verifyUserCredentials } from "@/lib/auth-credentials";
 import { getPhoneLookupVariants } from "@/lib/patient-utils";
 import { prisma } from "@/lib/prisma";
+
+const CAPTCHA_PROOF_TTL_MS = 15 * 60 * 1000;
 
 const schema = z.object({
   phone: z.string().min(8, "رقم الهاتف غير صالح"),
@@ -11,6 +19,10 @@ const schema = z.object({
   // signin only — OTP is sent after the password checks out, so wrong
   // passwords can't burn the phone's WhatsApp rate limit.
   password: z.string().optional(),
+  // Turnstile widget response (first send) or the captchaProof returned by a
+  // previous send (resends — the widget token is single-use).
+  turnstileToken: z.string().optional(),
+  captchaProof: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -21,6 +33,15 @@ export async function POST(request: Request) {
     // No key configured → tell the client to use the password-only flow.
     if (!isOtpEnabled()) {
       return apiOk({ enabled: false });
+    }
+
+    if (isTurnstileEnabled()) {
+      const human =
+        (await verifyProofToken("captcha", data.phone, data.captchaProof)) ||
+        (await verifyTurnstileToken(data.turnstileToken));
+      if (!human) {
+        return apiError("أكمل التحقق من أنك لست روبوتاً", 401);
+      }
     }
 
     if (data.mode === "signup") {
@@ -54,6 +75,16 @@ export async function POST(request: Request) {
       enabled: true,
       requestId: result.requestId,
       expiresAt: result.expiresAt,
+      // Lets the client resend without solving the captcha again.
+      ...(isTurnstileEnabled()
+        ? {
+            captchaProof: await createProofToken(
+              "captcha",
+              data.phone,
+              CAPTCHA_PROOF_TTL_MS
+            ),
+          }
+        : {}),
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

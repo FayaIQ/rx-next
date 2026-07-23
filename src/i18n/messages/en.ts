@@ -240,6 +240,7 @@ export const en: MessageCatalog = {
     otpChangePhone: "Edit details",
     otpSendFailed: "Couldn't send the verification code",
     otpInvalid: "Code verification failed",
+    captchaRequired: "Please verify you're not a robot",
     namePlaceholder: "Dr. John Smith",
     phonePlaceholder: "07xxxxxxxxx",
     doctorSignInTitle: "Welcome back",

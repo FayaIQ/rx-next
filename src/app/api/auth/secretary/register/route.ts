@@ -3,12 +3,14 @@ import { registerSecretary } from "@/lib/auth-credentials";
 import { fromDbId } from "@/lib/bigint";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
 import { isOtpEnabled, verifyOtpToken } from "@/lib/otp";
+import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
 
 const schema = z.object({
   name: z.string().min(2, "الاسم مطلوب"),
   phone: z.string().min(8, "رقم الهاتف غير صالح"),
   password: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل"),
   otpToken: z.string().optional(),
+  turnstileToken: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -16,8 +18,16 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = schema.parse(body);
 
-    if (isOtpEnabled() && !(await verifyOtpToken(data.phone, data.otpToken))) {
-      return apiError("يجب التحقق من رقم الهاتف أولاً", 401);
+    if (isOtpEnabled()) {
+      if (!(await verifyOtpToken(data.phone, data.otpToken))) {
+        return apiError("يجب التحقق من رقم الهاتف أولاً", 401);
+      }
+    } else if (
+      isTurnstileEnabled() &&
+      !(await verifyTurnstileToken(data.turnstileToken))
+    ) {
+      // Password-only flow — the captcha token wasn't consumed by /otp/send.
+      return apiError("أكمل التحقق من أنك لست روبوتاً", 401);
     }
 
     const user = await registerSecretary(data);
