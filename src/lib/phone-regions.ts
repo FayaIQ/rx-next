@@ -33,6 +33,12 @@ export function parseRegionalPhone(raw: string, region: PhoneRegion) {
   );
 }
 
+/** E.164 for any valid international "+…" number, else null. */
+export function parseInternationalPhone(raw: string): string | null {
+  const parsed = parsePhoneNumberFromString(raw);
+  return parsed?.isValid() ? parsed.format("E.164") : null;
+}
+
 export function parseAnyRegionalPhone(raw: string) {
   for (const region of PHONE_REGIONS) {
     const parsed = parseRegionalPhone(raw, region);

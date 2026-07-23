@@ -1,4 +1,5 @@
 import {
+  parseInternationalPhone,
   parseRegionalPhone,
   PHONE_REGIONS,
 } from "./phone-regions";
@@ -298,6 +299,15 @@ export function getPhoneLookupVariants(phone: string): string[] {
 export function normalizePhoneForAuth(phone: string): string {
   const { normalized, error } = parsePatientPhoneInput(phone);
   if (normalized) return normalized;
+
+  // Auth accepts non-Iraqi numbers picked via the country-code selector
+  // (patients stay Iraqi-only — this path is for user accounts).
+  const trimmed = normalizeDigits(phone).replace(/[\s\-().]/g, "").trim();
+  if (trimmed.startsWith("+")) {
+    const parsed = parseInternationalPhone(trimmed);
+    if (parsed) return parsed;
+  }
+
   throw new Error(error ?? "رقم الهاتف غير صالح");
 }
 

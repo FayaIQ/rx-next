@@ -27,6 +27,12 @@ import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import { CountryCodeSelect } from "@/components/auth/country-code-select";
+import {
+  DEFAULT_PHONE_COUNTRY,
+  composeInternationalPhone,
+  type PhoneCountry,
+} from "@/lib/phone-countries";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -83,8 +89,11 @@ export function AuthForm({
   const { t, locale } = useLocale();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
+  const [country, setCountry] = useState<PhoneCountry>(DEFAULT_PHONE_COUNTRY);
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  // Full international number (+9647xx…) sent to every endpoint.
+  const fullPhone = composeInternationalPhone(country.dial, phone);
   const [practiceType, setPracticeType] =
     useState<DoctorPracticeType>("general");
   const [step, setStep] = useState<"form" | "otp">("form");
@@ -157,7 +166,7 @@ export function AuthForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name,
-        phone,
+        phone: fullPhone,
         password,
         ...(role === "doctor" ? { practiceType } : {}),
         ...(otpToken ? { otpToken } : {}),
@@ -178,7 +187,7 @@ export function AuthForm({
     await signOut({ redirect: false });
 
     const result = await signIn("credentials", {
-      phone,
+      phone: fullPhone,
       password,
       role,
       ...(otpToken ? { otpToken } : {}),
@@ -200,7 +209,7 @@ export function AuthForm({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        phone,
+        phone: fullPhone,
         mode,
         ...(mode === "signin" ? { password } : {}),
         ...(captchaToken ? { turnstileToken: captchaToken } : {}),
@@ -265,7 +274,7 @@ export function AuthForm({
       const res = await fetch("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code: otpCode }),
+        body: JSON.stringify({ phone: fullPhone, code: otpCode }),
       });
       const data = await res.json();
       if (!res.ok || !data.otpToken) {
@@ -320,7 +329,7 @@ export function AuthForm({
             {t("auth.otpTitle")}
           </h1>
           <p className="mt-2 text-sm text-rx-muted" dir="auto">
-            {t("auth.otpSentTo", { phone })}
+            {t("auth.otpSentTo", { phone: fullPhone })}
           </p>
         </div>
 
@@ -475,24 +484,32 @@ export function AuthForm({
 
         <div className="space-y-2">
           <Label htmlFor="phone">{t("auth.phone")}</Label>
-          <div className="relative">
-            <Phone
-              className={cn(
-                "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-rx-muted",
-                iconSide
-              )}
+          <div className="flex gap-2">
+            <CountryCodeSelect
+              value={country}
+              onChange={setCountry}
+              locale={locale}
+              label={t("auth.countryCode")}
             />
-            <Input
-              id="phone"
-              type="tel"
-              dir="ltr"
-              className={cn(inputPad, "text-left")}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder={t("auth.phonePlaceholder")}
-              required
-              autoComplete="tel"
-            />
+            <div className="relative flex-1">
+              <Phone
+                className={cn(
+                  "pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-rx-muted",
+                  iconSide
+                )}
+              />
+              <Input
+                id="phone"
+                type="tel"
+                dir="ltr"
+                className={cn(inputPad, "text-left")}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder={country.placeholder}
+                required
+                autoComplete="tel-national"
+              />
+            </div>
           </div>
         </div>
 

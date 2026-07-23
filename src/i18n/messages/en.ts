@@ -241,6 +241,7 @@ export const en: MessageCatalog = {
     otpSendFailed: "Couldn't send the verification code",
     otpInvalid: "Code verification failed",
     captchaRequired: "Please verify you're not a robot",
+    countryCode: "Country code",
     namePlaceholder: "Dr. John Smith",
     phonePlaceholder: "07xxxxxxxxx",
     doctorSignInTitle: "Welcome back",
