@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Stethoscope,
   Smile,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +84,18 @@ export function AuthForm({
   const [password, setPassword] = useState("");
   const [practiceType, setPracticeType] =
     useState<DoctorPracticeType>("general");
+  const [step, setStep] = useState<"form" | "otp">("form");
+  const [otpCode, setOtpCode] = useState("");
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = setInterval(
+      () => setResendIn((s) => (s > 0 ? s - 1 : 0)),
+      1000
+    );
+    return () => clearInterval(timer);
+  }, [resendIn]);
 
   const defaultCallbackUrl =
     role === "admin"
@@ -119,56 +132,96 @@ export function AuthForm({
     return fromQuery === "/dashboard" ? "/home" : fromQuery;
   }
 
+  async function registerAccount(otpToken?: string): Promise<boolean> {
+    const endpoint =
+      role === "secretary"
+        ? "/api/auth/secretary/register"
+        : "/api/auth/register";
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        phone,
+        password,
+        ...(role === "doctor" ? { practiceType } : {}),
+        ...(otpToken ? { otpToken } : {}),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error ?? t("auth.registerFailed"));
+      return false;
+    }
+    toast.success(t("auth.accountCreated"));
+    return true;
+  }
+
+  async function finishSignIn(otpToken?: string): Promise<void> {
+    await signOut({ redirect: false });
+
+    const result = await signIn("credentials", {
+      phone,
+      password,
+      role,
+      ...(otpToken ? { otpToken } : {}),
+      redirect: false,
+    });
+
+    if (result?.error) {
+      toast.error(t("auth.invalidCredentials"));
+      return;
+    }
+
+    window.location.href = await resolveCallbackUrl();
+  }
+
+  /** Returns "sent" when the OTP step should be shown, "disabled" when the
+   *  server has no OTP key, "failed" on error. */
+  async function requestOtp(): Promise<"sent" | "disabled" | "failed"> {
+    const res = await fetch("/api/auth/otp/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone,
+        mode,
+        ...(mode === "signin" ? { password } : {}),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error ?? t("auth.otpSendFailed"));
+      return "failed";
+    }
+    if (data.enabled === false) return "disabled";
+    setResendIn(60);
+    return "sent";
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
 
     try {
-      if (mode === "signup") {
-        if (role === "doctor" && !practiceType) {
-          toast.error(t("auth.choosePractice"));
-          return;
-        }
-
-        const endpoint =
-          role === "secretary"
-            ? "/api/auth/secretary/register"
-            : "/api/auth/register";
-
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            phone,
-            password,
-            ...(role === "doctor" ? { practiceType } : {}),
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          toast.error(data.error ?? t("auth.registerFailed"));
-          return;
-        }
-        toast.success(t("auth.accountCreated"));
-      }
-
-      await signOut({ redirect: false });
-
-      const result = await signIn("credentials", {
-        phone,
-        password,
-        role,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        toast.error(t("auth.invalidCredentials"));
+      if (mode === "signup" && role === "doctor" && !practiceType) {
+        toast.error(t("auth.choosePractice"));
         return;
       }
 
-      window.location.href = await resolveCallbackUrl();
+      const otpStatus = await requestOtp();
+      if (otpStatus === "failed") return;
+
+      if (otpStatus === "sent") {
+        setOtpCode("");
+        setStep("otp");
+        return;
+      }
+
+      // OTP not configured — legacy password-only flow.
+      if (mode === "signup" && !(await registerAccount())) return;
+      await finishSignIn();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : t("common.error")
@@ -178,9 +231,138 @@ export function AuthForm({
     }
   }
 
+  async function handleOtpSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (loading) return;
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, code: otpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.otpToken) {
+        toast.error(data.error ?? t("auth.otpInvalid"));
+        return;
+      }
+
+      const otpToken = data.otpToken as string;
+      if (mode === "signup" && !(await registerAccount(otpToken))) return;
+      await finishSignIn(otpToken);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : t("common.error")
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    if (loading || resendIn > 0) return;
+    setLoading(true);
+    try {
+      const status = await requestOtp();
+      if (status === "sent") {
+        setOtpCode("");
+        toast.success(t("auth.otpResent"));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const iconSide = locale === "ar" ? "right-3.5" : "left-3.5";
   const inputPad = locale === "ar" ? "pr-10" : "pl-10";
   const AltArrow = locale === "ar" ? ArrowLeft : ArrowRight;
+  const BackArrow = locale === "ar" ? ArrowRight : ArrowLeft;
+
+  if (step === "otp") {
+    return (
+      <div className="w-full max-w-md">
+        <div className="mb-6 flex justify-end">
+          <LanguageSwitcher variant="toggle" />
+        </div>
+        <div className="mb-8">
+          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rx-primary/10 text-rx-primary">
+            <ShieldCheck size={24} />
+          </span>
+          <h1 className="text-2xl font-bold text-rx-text">
+            {t("auth.otpTitle")}
+          </h1>
+          <p className="mt-2 text-sm text-rx-muted" dir="auto">
+            {t("auth.otpSentTo", { phone })}
+          </p>
+        </div>
+
+        <form onSubmit={handleOtpSubmit} className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="otp-code">{t("auth.otpCodeLabel")}</Label>
+            <Input
+              id="otp-code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              dir="ltr"
+              className="text-center text-lg font-semibold tracking-[0.5em]"
+              value={otpCode}
+              onChange={(e) =>
+                setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              placeholder="••••••"
+              required
+              minLength={4}
+              autoFocus
+            />
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full"
+            size="lg"
+            disabled={loading || otpCode.length < 4}
+          >
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                {t("auth.otpVerifying")}
+              </>
+            ) : (
+              t("auth.otpVerify")
+            )}
+          </Button>
+        </form>
+
+        <div className="mt-6 flex items-center justify-between text-sm">
+          <button
+            type="button"
+            onClick={() => {
+              setStep("form");
+              setOtpCode("");
+            }}
+            className="inline-flex items-center gap-1 font-medium text-rx-muted hover:text-rx-text"
+          >
+            <BackArrow size={14} />
+            {t("auth.otpChangePhone")}
+          </button>
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={loading || resendIn > 0}
+            className="font-medium text-rx-primary hover:underline disabled:cursor-not-allowed disabled:text-rx-muted disabled:no-underline"
+          >
+            {resendIn > 0
+              ? t("auth.otpResendIn", { seconds: resendIn })
+              : t("auth.otpResend")}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md">

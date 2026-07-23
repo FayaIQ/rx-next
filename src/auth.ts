@@ -11,14 +11,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         phone: { label: "Phone", type: "text" },
         password: { label: "Password", type: "password" },
         role: { label: "Role", type: "text" },
+        otpToken: { label: "OTP Token", type: "text" },
       },
       async authorize(credentials) {
         const { authenticateUser } = await import("@/lib/auth-credentials");
+        const { isOtpEnabled, verifyOtpToken } = await import("@/lib/otp");
         const phone = credentials?.phone as string | undefined;
         const password = credentials?.password as string | undefined;
         const role = credentials?.role as string | undefined;
+        const otpToken = credentials?.otpToken as string | undefined;
 
         if (!phone || !password) return null;
+
+        // WhatsApp OTP is a required second factor when CFlow is configured.
+        if (isOtpEnabled() && !(await verifyOtpToken(phone, otpToken)))
+          return null;
 
         const user = await authenticateUser(phone, password);
         if (!user) return null;

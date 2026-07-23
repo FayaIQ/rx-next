@@ -40,6 +40,20 @@ async function findUserByPhone(phone: string) {
   return [...users].sort((a, b) => Number(b.id) - Number(a.id))[0];
 }
 
+/** Check phone+password without rotating the active session (used pre-OTP). */
+export async function verifyUserCredentials(
+  phone: string,
+  password: string
+): Promise<{ type: UserRole } | null> {
+  const users = await findUsersByPhone(phone);
+  for (const candidate of users) {
+    if (await bcrypt.compare(password, candidate.password)) {
+      return { type: candidate.type as UserRole };
+    }
+  }
+  return null;
+}
+
 export async function authenticateUser(
   phone: string,
   password: string

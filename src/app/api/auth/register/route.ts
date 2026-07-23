@@ -2,6 +2,7 @@ import { z } from "zod";
 import { registerDoctor, authenticateUser } from "@/lib/auth-credentials";
 import { fromDbId } from "@/lib/bigint";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
+import { isOtpEnabled, verifyOtpToken } from "@/lib/otp";
 
 const schema = z.object({
   name: z.string().min(2, "الاسم مطلوب"),
@@ -10,12 +11,18 @@ const schema = z.object({
   practiceType: z.enum(["general", "dental"], {
     message: "اختر نوع العيادة",
   }),
+  otpToken: z.string().optional(),
 });
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const data = schema.parse(body);
+
+    if (isOtpEnabled() && !(await verifyOtpToken(data.phone, data.otpToken))) {
+      return apiError("يجب التحقق من رقم الهاتف أولاً", 401);
+    }
+
     const user = await registerDoctor(data);
 
     const authUser = await authenticateUser(data.phone, data.password);
