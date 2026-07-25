@@ -80,11 +80,17 @@ export async function authenticateUser(
   }
   if (!user) return null;
 
-  const sessionId = uuidv4();
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { activeSessionId: sessionId },
-  });
+  // Reuse the account's session id so logging in from a new device does NOT
+  // invalidate existing devices (rotating here used to kick every other
+  // device to "session expired" on each login). Clearing activeSessionId in
+  // the DB still force-logs-out all devices at once.
+  const sessionId = user.activeSessionId ?? uuidv4();
+  if (!user.activeSessionId) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { activeSessionId: sessionId },
+    });
+  }
 
   return {
     id: fromDbId(user.id),

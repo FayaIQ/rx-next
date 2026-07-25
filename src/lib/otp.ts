@@ -1,6 +1,7 @@
 import { normalizePhoneForAuth } from "./patient-utils";
 
-const CFLOW_BASE = "https://cflow.faya.dev/api/v1/otp";
+const DEFAULT_CFLOW_BASE = "https://cflow.faya.dev/api/v1/otp";
+const DEFAULT_CFLOW_TIMEOUT_MS = 10_000;
 const TOKEN_TTL_MS = 10 * 60 * 1000; // proof of verified phone, valid 10 min
 
 /** OTP is enforced only when a CFlow key is configured. */
@@ -14,10 +15,29 @@ function apiKey(): string {
   return key;
 }
 
+function cflowBase(): string {
+  return (process.env.CFLOW_OTP_URL?.trim() || DEFAULT_CFLOW_BASE).replace(
+    /\/+$/,
+    ""
+  );
+}
+
+function cflowTimeoutMs(): number {
+  const configured = Number(process.env.CFLOW_OTP_TIMEOUT_MS);
+  if (!Number.isFinite(configured)) return DEFAULT_CFLOW_TIMEOUT_MS;
+  return Math.min(Math.max(configured, 1_000), 30_000);
+}
+
 function tokenSecret(): string {
   const secret = process.env.AUTH_SECRET;
   if (!secret) throw new Error("AUTH_SECRET غير مضبوط");
   return secret;
+}
+
+interface CflowRequestResult {
+  status: number;
+  data: Record<string, unknown>;
+  transportError?: "timeout" | "network";
 }
 
 /** Canonical phone format used to bind OTP proof tokens (E.164). */
@@ -25,24 +45,39 @@ export function otpPhoneKey(phone: string): string {
   return normalizePhoneForAuth(phone);
 }
 
-async function cflowRequest(path: string, body: Record<string, unknown>) {
-  const res = await fetch(`${CFLOW_BASE}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey(),
-    },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-
-  let data: Record<string, unknown> = {};
+async function cflowRequest(
+  path: string,
+  body: Record<string, unknown>
+): Promise<CflowRequestResult> {
   try {
-    data = (await res.json()) as Record<string, unknown>;
-  } catch {
-    // non-JSON error body — fall through with status only
+    const res = await fetch(`${cflowBase()}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey(),
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: AbortSignal.timeout(cflowTimeoutMs()),
+    });
+
+    let data: Record<string, unknown> = {};
+    try {
+      data = (await res.json()) as Record<string, unknown>;
+    } catch {
+      // Non-JSON upstream response — keep the status for diagnostics.
+    }
+    return { status: res.status, data };
+  } catch (error) {
+    const timedOut =
+      error instanceof Error &&
+      (error.name === "AbortError" || error.name === "TimeoutError");
+    return {
+      status: timedOut ? 504 : 503,
+      data: {},
+      transportError: timedOut ? "timeout" : "network",
+    };
   }
-  return { status: res.status, data };
 }
 
 const SEND_ERROR_MESSAGES: Record<string, string> = {
@@ -54,16 +89,30 @@ const SEND_ERROR_MESSAGES: Record<string, string> = {
   template_not_configured: "خدمة التحقق غير مهيأة — تواصل مع الدعم",
 };
 
+function cflowErrorCode(data: Record<string, unknown>): string {
+  return typeof data.error === "object" && data.error !== null
+    ? String((data.error as Record<string, unknown>).code ?? "")
+    : String(data.error ?? "");
+}
+
+function cflowTraceId(data: Record<string, unknown>): string | undefined {
+  const traceId = data.request_trace_id;
+  return typeof traceId === "string" && traceId ? traceId : undefined;
+}
+
 export interface OtpSendResult {
   ok: boolean;
   requestId?: string;
   expiresAt?: string;
   error?: string;
   status?: number;
+  upstreamCode?: string;
+  requestTraceId?: string;
+  transportError?: "timeout" | "network";
 }
 
 export async function sendOtp(phone: string, ref?: string): Promise<OtpSendResult> {
-  const { status, data } = await cflowRequest("/send", {
+  const { status, data, transportError } = await cflowRequest("/send", {
     phone,
     ...(ref ? { ref } : {}),
   });
@@ -76,14 +125,24 @@ export async function sendOtp(phone: string, ref?: string): Promise<OtpSendResul
     };
   }
 
-  const errorCode =
-    typeof data.error === "object" && data.error !== null
-      ? String((data.error as Record<string, unknown>).code ?? "")
-      : String(data.error ?? "");
+  const errorCode = cflowErrorCode(data);
+  const configurationError = status === 401 || status === 403;
   return {
     ok: false,
     status,
+    upstreamCode: errorCode || undefined,
+    requestTraceId: cflowTraceId(data),
+    transportError,
     error:
+      (configurationError
+        ? "خدمة التحقق غير مهيأة بشكل صحيح — تواصل مع الدعم"
+        : undefined) ??
+      (transportError === "timeout"
+        ? "تأخرت خدمة التحقق في الاستجابة — أعد المحاولة"
+        : undefined) ??
+      (transportError === "network"
+        ? "تعذر الاتصال بخدمة التحقق — أعد المحاولة"
+        : undefined) ??
       SEND_ERROR_MESSAGES[errorCode] ??
       "تعذر إرسال رمز التحقق — أعد المحاولة",
   };
@@ -107,7 +166,10 @@ export async function verifyOtp(
   phone: string,
   code: string
 ): Promise<OtpVerifyResult> {
-  const { status, data } = await cflowRequest("/verify", { phone, code });
+  const { status, data, transportError } = await cflowRequest("/verify", {
+    phone,
+    code,
+  });
 
   if (data.success && data.valid === true) {
     return { valid: true };
@@ -115,6 +177,23 @@ export async function verifyOtp(
 
   if (status === 429) {
     return { valid: false, error: SEND_ERROR_MESSAGES.rate_limited };
+  }
+
+  if (status === 401 || status === 403) {
+    return {
+      valid: false,
+      error: "خدمة التحقق غير مهيأة بشكل صحيح — تواصل مع الدعم",
+    };
+  }
+
+  if (transportError) {
+    return {
+      valid: false,
+      error:
+        transportError === "timeout"
+          ? "تأخرت خدمة التحقق في الاستجابة — أعد المحاولة"
+          : "تعذر الاتصال بخدمة التحقق — أعد المحاولة",
+    };
   }
 
   const reason = String(data.reason ?? "");

@@ -68,7 +68,22 @@ export async function POST(request: Request) {
 
     const result = await sendOtp(data.phone);
     if (!result.ok) {
-      return apiError(result.error ?? "تعذر إرسال رمز التحقق", 502);
+      console.error("[otp] CFlow send failed", {
+        status: result.status,
+        code: result.upstreamCode,
+        traceId: result.requestTraceId,
+        transport: result.transportError,
+      });
+
+      const status =
+        result.status === 400 || result.status === 422
+          ? 400
+          : result.status === 429
+            ? 429
+            : result.status === 401 || result.status === 403
+              ? 503
+              : 502;
+      return apiError(result.error ?? "تعذر إرسال رمز التحقق", status);
     }
 
     return apiOk({
