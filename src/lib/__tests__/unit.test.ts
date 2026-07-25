@@ -1,9 +1,9 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { migrateRecipeFontId, recipeFontFamilyName } from "../recipe-fonts.ts";
-import { normalizeQueueStatus } from "../visit-queue/constants.ts";
-import { normalizePatientFieldsArray } from "../patient-field-display.ts";
-import { sendOtp } from "../otp.ts";
+import { migrateRecipeFontId, recipeFontFamilyName } from "../recipe-fonts";
+import { normalizeQueueStatus } from "../visit-queue/constants";
+import { normalizePatientFieldsArray } from "../patient-field-display";
+import { sendOtp } from "../otp";
 
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;

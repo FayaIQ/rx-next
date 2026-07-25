@@ -4,7 +4,7 @@ import { LandingPage } from "@/components/landing/landing-page";
 export const metadata: Metadata = {
   title: "RX Clinic — نظام إدارة العيادات",
   description:
-    "نظام عيادة متكامل للوصفات والمواعيد والمالية — يعمل أوفلاين ويتزامن تلقائياً.",
+    "نظام لإدارة العيادات العامة وعيادات الأسنان: مرضى، مواعيد، وصفات، خطط علاج، وحسابات — يعمل دون إنترنت ويزامن البيانات تلقائياً.",
 };
 
 export default function HomePage() {

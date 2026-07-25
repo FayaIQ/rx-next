@@ -7,7 +7,6 @@ import {
   verifyProofToken,
 } from "@/lib/otp";
 import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
-import { verifyUserCredentials } from "@/lib/auth-credentials";
 import { getPhoneLookupVariants } from "@/lib/patient-utils";
 import { prisma } from "@/lib/prisma";
 
@@ -15,10 +14,7 @@ const CAPTCHA_PROOF_TTL_MS = 15 * 60 * 1000;
 
 const schema = z.object({
   phone: z.string().min(8, "رقم الهاتف غير صالح"),
-  mode: z.enum(["signin", "signup"]),
-  // signin only — OTP is sent after the password checks out, so wrong
-  // passwords can't burn the phone's WhatsApp rate limit.
-  password: z.string().optional(),
+  mode: z.literal("signup"),
   // Turnstile widget response (first send) or the captchaProof returned by a
   // previous send (resends — the widget token is single-use).
   turnstileToken: z.string().optional(),
@@ -44,26 +40,16 @@ export async function POST(request: Request) {
       }
     }
 
-    if (data.mode === "signup") {
-      const variants = getPhoneLookupVariants(data.phone);
-      if (variants.length === 0) {
-        return apiError("رقم الهاتف غير صالح");
-      }
-      const existing = await prisma.user.findFirst({
-        where: { phoneNumber: { in: variants } },
-        select: { id: true },
-      });
-      if (existing) {
-        return apiError("رقم الهاتف مستخدم مسبقاً");
-      }
-    } else {
-      if (!data.password) {
-        return apiError("كلمة المرور مطلوبة");
-      }
-      const user = await verifyUserCredentials(data.phone, data.password);
-      if (!user) {
-        return apiError("بيانات الدخول غير صحيحة", 401);
-      }
+    const variants = getPhoneLookupVariants(data.phone);
+    if (variants.length === 0) {
+      return apiError("رقم الهاتف غير صالح");
+    }
+    const existing = await prisma.user.findFirst({
+      where: { phoneNumber: { in: variants } },
+      select: { id: true },
+    });
+    if (existing) {
+      return apiError("رقم الهاتف مستخدم مسبقاً");
     }
 
     const result = await sendOtp(data.phone);

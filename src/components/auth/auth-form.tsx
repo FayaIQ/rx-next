@@ -28,6 +28,7 @@ import { useLocale } from "@/i18n/locale-provider";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { CountryCodeSelect } from "@/components/auth/country-code-select";
+import { PasswordResetFlow } from "@/components/auth/password-reset-flow";
 import {
   DEFAULT_PHONE_COUNTRY,
   composeInternationalPhone,
@@ -104,6 +105,7 @@ export function AuthForm({
   const [captchaNonce, setCaptchaNonce] = useState(0);
   // Server-issued proof that lets resends skip the captcha.
   const [captchaProof, setCaptchaProof] = useState<string | null>(null);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   function resetCaptcha() {
     if (!TURNSTILE_SITE_KEY) return;
@@ -183,14 +185,13 @@ export function AuthForm({
     return true;
   }
 
-  async function finishSignIn(otpToken?: string): Promise<void> {
+  async function finishSignIn(): Promise<void> {
     await signOut({ redirect: false });
 
     const result = await signIn("credentials", {
       phone: fullPhone,
       password,
       role,
-      ...(otpToken ? { otpToken } : {}),
       redirect: false,
     });
 
@@ -210,8 +211,7 @@ export function AuthForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         phone: fullPhone,
-        mode,
-        ...(mode === "signin" ? { password } : {}),
+        mode: "signup",
         ...(captchaToken ? { turnstileToken: captchaToken } : {}),
         ...(captchaProof ? { captchaProof } : {}),
       }),
@@ -234,6 +234,11 @@ export function AuthForm({
     setLoading(true);
 
     try {
+      if (mode === "signin") {
+        await finishSignIn();
+        return;
+      }
+
       if (mode === "signup" && role === "doctor" && !practiceType) {
         toast.error(t("auth.choosePractice"));
         return;
@@ -253,8 +258,8 @@ export function AuthForm({
         return;
       }
 
-      // OTP not configured — legacy password-only flow.
-      if (mode === "signup" && !(await registerAccount())) return;
+      // OTP not configured — registration falls back to password + captcha.
+      if (!(await registerAccount())) return;
       await finishSignIn();
     } catch (err) {
       toast.error(
@@ -283,8 +288,8 @@ export function AuthForm({
       }
 
       const otpToken = data.otpToken as string;
-      if (mode === "signup" && !(await registerAccount(otpToken))) return;
-      await finishSignIn(otpToken);
+      if (!(await registerAccount(otpToken))) return;
+      await finishSignIn();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : t("common.error")
@@ -314,6 +319,22 @@ export function AuthForm({
   const inputPad = locale === "ar" ? "pr-10" : "pl-10";
   const AltArrow = locale === "ar" ? ArrowLeft : ArrowRight;
   const BackArrow = locale === "ar" ? ArrowRight : ArrowLeft;
+
+  if (showPasswordReset) {
+    return (
+      <PasswordResetFlow
+        initialCountry={country}
+        initialPhone={phone}
+        onBack={() => setShowPasswordReset(false)}
+        onComplete={(values) => {
+          setCountry(values.country);
+          setPhone(values.phone);
+          setPassword(values.password);
+          setShowPasswordReset(false);
+        }}
+      />
+    );
+  }
 
   if (step === "otp") {
     return (
@@ -514,7 +535,21 @@ export function AuthForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">{t("auth.password")}</Label>
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="password">{t("auth.password")}</Label>
+            {mode === "signin" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPassword("");
+                  setShowPasswordReset(true);
+                }}
+                className="text-xs font-medium text-rx-primary hover:underline"
+              >
+                {t("auth.forgotPassword")}
+              </button>
+            )}
+          </div>
           <div className="relative">
             <Lock
               className={cn(
@@ -538,7 +573,7 @@ export function AuthForm({
           </div>
         </div>
 
-        {TURNSTILE_SITE_KEY && (
+        {mode === "signup" && TURNSTILE_SITE_KEY && (
           <TurnstileWidget
             key={captchaNonce}
             siteKey={TURNSTILE_SITE_KEY}
@@ -551,7 +586,12 @@ export function AuthForm({
           type="submit"
           className="w-full"
           size="lg"
-          disabled={loading || Boolean(TURNSTILE_SITE_KEY && !captchaToken)}
+          disabled={
+            loading ||
+            Boolean(
+              mode === "signup" && TURNSTILE_SITE_KEY && !captchaToken
+            )
+          }
         >
           {loading ? (
             <>

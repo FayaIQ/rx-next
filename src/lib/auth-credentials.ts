@@ -40,20 +40,6 @@ async function findUserByPhone(phone: string) {
   return [...users].sort((a, b) => Number(b.id) - Number(a.id))[0];
 }
 
-/** Check phone+password without rotating the active session (used pre-OTP). */
-export async function verifyUserCredentials(
-  phone: string,
-  password: string
-): Promise<{ type: UserRole } | null> {
-  const users = await findUsersByPhone(phone);
-  for (const candidate of users) {
-    if (await bcrypt.compare(password, candidate.password)) {
-      return { type: candidate.type as UserRole };
-    }
-  }
-  return null;
-}
-
 export async function authenticateUser(
   phone: string,
   password: string
@@ -82,8 +68,8 @@ export async function authenticateUser(
 
   // Reuse the account's session id so logging in from a new device does NOT
   // invalidate existing devices (rotating here used to kick every other
-  // device to "session expired" on each login). Clearing activeSessionId in
-  // the DB still force-logs-out all devices at once.
+  // device to "session expired" on each login). Explicitly rotating
+  // activeSessionId still force-logs-out all existing devices at once.
   const sessionId = user.activeSessionId ?? uuidv4();
   if (!user.activeSessionId) {
     await prisma.user.update({

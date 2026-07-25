@@ -25,8 +25,7 @@ export async function POST(request: Request) {
       return apiError(result.error ?? "فشل التحقق من الرمز", 401);
     }
 
-    // Single-use CFlow code → short-lived proof token the register/signin
-    // endpoints can both accept.
+    // Single-use CFlow code → short-lived proof token accepted by registration.
     return apiOk({ valid: true, otpToken: await createOtpToken(data.phone) });
   } catch (error) {
     if (error instanceof z.ZodError) {

@@ -209,7 +209,7 @@ export async function verifyOtp(
 
 // --- Proof tokens -----------------------------------------------------------
 // Short-lived HMAC tokens bound to a phone, e.g. "the OTP code checked out"
-// or "the captcha was solved". Register + NextAuth authorize accept these
+// or "the captcha was solved". Registration and resend flows accept these
 // instead of re-verifying with the upstream service (codes and captcha
 // tokens are single-use, so one flow may need the proof in several places).
 
