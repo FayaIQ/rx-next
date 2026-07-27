@@ -1,4 +1,6 @@
 /** Subtle system credit on printed / previewed prescriptions. */
+import { FAYA_DEV_URL } from "@/components/faya-dev-link";
+
 export function PrescriptionSystemCredit({
   color,
 }: {
@@ -15,16 +17,23 @@ export function PrescriptionSystemCredit({
           color: color ? `${color}55` : "rgba(15, 23, 42, 0.28)",
         }}
       >
-        <span className="font-medium">rx.faya.dev</span>
-        <span className="mx-1 opacity-60">by</span>
-        <span>Faya Dev</span>
+        <a
+          href={FAYA_DEV_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pointer-events-auto font-medium underline-offset-2 hover:underline"
+        >
+          <span>rx.faya.dev</span>
+          <span className="mx-1 opacity-60">by</span>
+          <span>Faya Dev</span>
+        </a>
       </p>
     </footer>
   );
 }
 
 export function prescriptionSystemCreditHtml(color: string): string {
-  return `<footer class="rx-credit" style="color:${color}55" aria-label="RX Clinic"><span class="rx-credit-site">rx.faya.dev</span><span class="rx-credit-by"> by </span><span>Faya Dev</span></footer>`;
+  return `<footer class="rx-credit" style="color:${color}55" aria-label="RX Clinic"><a href="${FAYA_DEV_URL}" target="_blank" rel="noopener noreferrer"><span class="rx-credit-site">rx.faya.dev</span><span class="rx-credit-by"> by </span><span>Faya Dev</span></a></footer>`;
 }
 
 export const PRESCRIPTION_SYSTEM_CREDIT_STYLES = `
@@ -45,4 +54,6 @@ export const PRESCRIPTION_SYSTEM_CREDIT_STYLES = `
   }
   .rx-credit-site { font-weight: 600; }
   .rx-credit-by { opacity: 0.65; }
+  .rx-credit a { color: inherit; text-decoration: none; pointer-events: auto; }
+  .rx-credit a:hover { text-decoration: underline; }
 `;

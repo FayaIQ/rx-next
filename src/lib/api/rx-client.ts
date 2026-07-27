@@ -184,6 +184,49 @@ export type FinanceSummaryDto = {
   }>;
   daily: Array<{ date: string; income: number; expense: number }>;
 };
+
+export type ClinicMemberDto = {
+  id: number;
+  name: string;
+  type: "doctor" | "secretary";
+};
+
+export type ClinicTaskDto = {
+  id: number;
+  doctorId: number;
+  patientId: number | null;
+  assignedToId: number | null;
+  createdById: number;
+  title: string;
+  description: string | null;
+  status: "todo" | "in_progress" | "done" | "cancelled";
+  priority: "low" | "normal" | "high" | "urgent";
+  dueAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignee: ClinicMemberDto | null;
+  createdBy: ClinicMemberDto;
+  patient: { id: number; name: string; phone: string | null } | null;
+  commentCount: number;
+};
+
+export type ClinicTaskDetailDto = ClinicTaskDto & {
+  comments: Array<{
+    id: number;
+    body: string;
+    createdAt: string;
+    author: ClinicMemberDto;
+  }>;
+  activities: Array<{
+    id: number;
+    action: string;
+    fromValue: string | null;
+    toValue: string | null;
+    createdAt: string;
+    actor: ClinicMemberDto;
+  }>;
+};
 export type RecipeSettingsDto = {
   id: number;
   doctorId: number;
@@ -457,6 +500,64 @@ export const rxApi = {
           href: string;
         }>;
       }>(fetch("/api/alerts/smart")),
+  },
+  tasks: {
+    list: (params?: {
+      scope?: "assigned" | "created" | "all" | "unassigned";
+      status?: "open" | "all" | "todo" | "in_progress" | "done" | "cancelled";
+      priority?: "low" | "normal" | "high" | "urgent";
+      q?: string;
+    }) => {
+      const sp = new URLSearchParams();
+      if (params?.scope) sp.set("scope", params.scope);
+      if (params?.status) sp.set("status", params.status);
+      if (params?.priority) sp.set("priority", params.priority);
+      if (params?.q) sp.set("q", params.q);
+      const q = sp.toString();
+      return handleResponse<{
+        tasks: ClinicTaskDto[];
+        members: ClinicMemberDto[];
+        summary: {
+          todo: number;
+          inProgress: number;
+          overdue: number;
+          done: number;
+        };
+        viewer: { id: number; type: "doctor" | "secretary" };
+      }>(fetch(`/api/tasks${q ? `?${q}` : ""}`));
+    },
+    get: (id: number) =>
+      handleResponse<{ task: ClinicTaskDetailDto }>(fetch(`/api/tasks/${id}`)),
+    create: (body: Record<string, unknown>) =>
+      handleResponse<{ task: ClinicTaskDto }>(
+        fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ),
+    update: (id: number, body: Record<string, unknown>) =>
+      handleResponse<{ task: ClinicTaskDto }>(
+        fetch(`/api/tasks/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      ),
+    archive: (id: number) =>
+      handleResponse<{ success: boolean }>(
+        fetch(`/api/tasks/${id}`, { method: "DELETE" })
+      ),
+    addComment: (id: number, body: string) =>
+      handleResponse<{
+        comment: ClinicTaskDetailDto["comments"][number];
+      }>(
+        fetch(`/api/tasks/${id}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body }),
+        })
+      ),
   },
   medicines: {
     list: (params?: { q?: string; page?: number; pageSize?: number }) => {

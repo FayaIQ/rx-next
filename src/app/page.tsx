@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing/landing-page";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "RX Clinic — نظام إدارة العيادات",
   description:

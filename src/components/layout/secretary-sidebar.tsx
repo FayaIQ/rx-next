@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Calendar, Wallet, Stethoscope } from "lucide-react";
+import { Users, Calendar, Wallet, Stethoscope, ListChecks } from "lucide-react";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { useLocale } from "@/i18n/locale-provider";
 
@@ -18,6 +18,11 @@ export function SecretarySidebar() {
       href: "/secretary/patients",
       label: t("nav.doctorPatients"),
       icon: Users,
+    },
+    {
+      href: "/secretary/tasks",
+      label: t("nav.tasks"),
+      icon: ListChecks,
     },
     { href: "/secretary/finances", label: t("nav.finances"), icon: Wallet },
   ];

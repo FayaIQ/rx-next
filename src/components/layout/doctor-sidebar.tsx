@@ -11,6 +11,7 @@ import {
   FileText,
   Wallet,
   BarChart3,
+  ListChecks,
 } from "lucide-react";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { useLocale } from "@/i18n/locale-provider";
@@ -23,6 +24,7 @@ export function DoctorSidebar() {
     { href: "/dates", label: t("nav.appointments"), icon: Calendar },
     { href: "/pharmaceutical", label: t("nav.medicines"), icon: Pill },
     { href: "/patients", label: t("nav.patients"), icon: Users },
+    { href: "/tasks", label: t("nav.tasks"), icon: ListChecks },
     { href: "/dental", label: t("nav.dental"), icon: Smile },
     { href: "/finances", label: t("nav.finances"), icon: Wallet },
     { href: "/reports", label: t("nav.reports"), icon: BarChart3 },

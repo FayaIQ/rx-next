@@ -12,6 +12,7 @@ const SECRETARY_API_ALLOW: RegExp[] = [
   /^\/api\/secretary(\/|$)/,
   /^\/api\/settings\/profile$/,
   /^\/api\/fields$/,
+  /^\/api\/tasks(\/|$)/,
 ];
 
 export function isSecretaryApiAllowed(pathname: string): boolean {

@@ -30,6 +30,7 @@ import {
 } from "@/lib/patient-field-display";
 import { usePatientFields } from "@/hooks/use-patient-fields";
 import { useLocale } from "@/i18n/locale-provider";
+import { useSyncStore } from "@/stores/sync-store";
 
 export function PatientsPageClient({
   title,
@@ -39,6 +40,7 @@ export function PatientsPageClient({
   showRecordLink?: boolean;
 }) {
   const { t, locale } = useLocale();
+  const online = useSyncStore((state) => state.online);
   const pageTitle = title ?? t("patients.title");
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
@@ -51,7 +53,7 @@ export function PatientsPageClient({
     queryKey: ["patients", q, page, pageSize],
     queryFn: () => fetchPatientsPaginated(q || undefined, page, pageSize),
     placeholderData: keepPreviousData,
-    retry: (failureCount) => navigator.onLine && failureCount < 1,
+    retry: (failureCount) => online && failureCount < 1,
   });
 
   const { data: fieldsData } = usePatientFields();

@@ -205,9 +205,22 @@ export function MedicineRowEditor({
     const activeHighlight = focusedField === field ? usageHighlight : -1;
 
     return (
-      <div key={field} className={mockup ? "min-w-0" : "space-y-0.5"}>
+      <div
+        key={field}
+        className={
+          mockup
+            ? "min-w-0"
+            : compact
+              ? "min-w-0 space-y-0.5"
+              : "min-w-0 space-y-1"
+        }
+      >
         {!mockup && (
-          <Label className={compact ? "rx-label" : undefined}>{label}</Label>
+          <Label
+            className={cn(compact ? "rx-label" : undefined, "whitespace-nowrap")}
+          >
+            {label}
+          </Label>
         )}
         <div className="relative">
           <Input
@@ -317,9 +330,20 @@ export function MedicineRowEditor({
   }
 
   const nameInput = (
-    <div className={mockup ? "relative min-w-0" : "relative space-y-0.5 lg:col-span-2"}>
+    <div
+      className={cn(
+        "relative min-w-0",
+        mockup
+          ? ""
+          : compact
+            ? "space-y-0.5 lg:col-span-2"
+            : "space-y-1 sm:col-span-2 xl:col-span-1"
+      )}
+    >
       {!mockup && (
-        <Label className={compact ? "rx-label" : undefined}>
+        <Label
+          className={cn(compact ? "rx-label" : undefined, "whitespace-nowrap")}
+        >
           {t("composer.medName")}
         </Label>
       )}
@@ -425,20 +449,28 @@ export function MedicineRowEditor({
     </div>
   );
 
-  const removeButton = (
-    <div className={mockup ? "flex items-center justify-center" : "flex items-end"}>
+  const removeButton = canRemove ? (
+    <div
+      className={cn(
+        "flex",
+        mockup
+          ? "items-center justify-center"
+          : compact
+            ? "items-end"
+            : "items-end justify-end sm:col-span-2 xl:col-span-1"
+      )}
+    >
       <Button
         variant="ghost"
         size="icon"
         className={mockup ? "size-6" : compact ? "size-8" : undefined}
-        disabled={!canRemove}
         tabIndex={-1}
         onClick={onRemove}
       >
         <Trash2 size={mockup ? 12 : 16} className="text-rx-danger" />
       </Button>
     </div>
-  );
+  ) : null;
 
   if (mockup) {
     return (
@@ -460,7 +492,7 @@ export function MedicineRowEditor({
         className={
           compact
             ? "grid gap-2 lg:grid-cols-7"
-            : "grid gap-3 rounded-xl border border-rx-border bg-rx-bg-subtle/50 p-4 lg:grid-cols-7"
+            : "grid gap-3 rounded-xl border border-rx-border bg-rx-surface p-3 shadow-sm sm:grid-cols-2 xl:grid-cols-[minmax(10.5rem,1.8fr)_repeat(4,minmax(4.5rem,0.75fr))_minmax(6.5rem,1fr)_2.5rem] xl:items-end"
         }
       >
         {nameInput}

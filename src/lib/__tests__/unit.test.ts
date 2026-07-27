@@ -4,6 +4,10 @@ import { migrateRecipeFontId, recipeFontFamilyName } from "../recipe-fonts";
 import { normalizeQueueStatus } from "../visit-queue/constants";
 import { normalizePatientFieldsArray } from "../patient-field-display";
 import { sendOtp } from "../otp";
+import {
+  createClinicTaskSchema,
+  updateClinicTaskSchema,
+} from "../validations/tasks";
 
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;
@@ -42,6 +46,36 @@ describe("patient fields", () => {
     assert.deepEqual(normalizePatientFieldsArray([row]), [row]);
     assert.deepEqual(normalizePatientFieldsArray({ fields: [row] }), [row]);
     assert.deepEqual(normalizePatientFieldsArray(undefined), []);
+  });
+});
+
+describe("clinic tasks", () => {
+  it("normalizes optional links and applies a normal priority", () => {
+    const task = createClinicTaskSchema.parse({
+      title: "  Call the patient  ",
+      assignedToId: null,
+      patientId: null,
+      dueAt: "2026-07-27T09:30:00.000Z",
+    });
+
+    assert.equal(task.title, "Call the patient");
+    assert.equal(task.priority, "normal");
+    assert.equal(task.assignedToId, null);
+  });
+
+  it("rejects unsafe task states and empty updates", () => {
+    assert.equal(
+      createClinicTaskSchema.safeParse({
+        title: "x",
+        priority: "critical",
+      }).success,
+      false
+    );
+    assert.equal(updateClinicTaskSchema.safeParse({}).success, false);
+    assert.equal(
+      updateClinicTaskSchema.safeParse({ status: "in_progress" }).success,
+      true
+    );
   });
 });
 

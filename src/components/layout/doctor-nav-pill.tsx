@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { useEffect, useState } from "react";
 import {
   Calendar,
   ClipboardList,
@@ -16,6 +17,7 @@ import {
   Wallet,
   ListOrdered,
   BarChart3,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,7 @@ const navItems: NavItem[] = [
   { href: "/dates", labelKey: "nav.appointments", icon: Calendar },
   { href: "/pharmaceutical", labelKey: "nav.medicines", icon: Pill },
   { href: "/patients", labelKey: "nav.patients", icon: Users },
+  { href: "/tasks", labelKey: "nav.tasks", icon: ListChecks },
   { href: "/dental", labelKey: "nav.dental", icon: Smile },
   { href: "/finances", labelKey: "nav.finances", icon: Wallet },
   { href: "/reports", labelKey: "nav.reports", icon: BarChart3 },
@@ -60,6 +63,18 @@ export function DoctorNavPill() {
   const { data: session } = useSession();
   const { enabledMap } = useClinicFeatures();
   const { t } = useLocale();
+  const [isEmbeddedPreview, setIsEmbeddedPreview] = useState(false);
+
+  useEffect(() => {
+    const embedded = window.self !== window.top;
+    setIsEmbeddedPreview(embedded);
+    if (!embedded) return;
+
+    document.documentElement.classList.add("rx-embedded-preview");
+    return () => {
+      document.documentElement.classList.remove("rx-embedded-preview");
+    };
+  }, []);
 
   const visibleItems = navItems.filter((item) =>
     filterNavHref(item.href, enabledMap)
@@ -73,6 +88,11 @@ export function DoctorNavPill() {
   return (
     <nav
       className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
+      style={
+        isEmbeddedPreview
+          ? { bottom: "9rem", zIndex: 2147483647 }
+          : undefined
+      }
       aria-label={t("nav.main")}
     >
       <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-full border border-white/60 bg-white/90 p-1.5 shadow-[0_8px_32px_rgb(8_51_68/0.18)] backdrop-blur-xl ring-1 ring-slate-900/5">

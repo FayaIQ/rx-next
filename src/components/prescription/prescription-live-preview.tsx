@@ -41,15 +41,21 @@ export function PrescriptionLivePreview({
       const container = containerRef.current;
       if (!container) return;
 
-      const availableW = container.clientWidth;
+      const availableW =
+        container.parentElement?.clientWidth ?? container.clientWidth;
       if (availableW <= 0) return;
 
-      setScale(availableW / paperWidthPx);
+      setScale(Math.min(1, availableW / paperWidthPx));
     }
 
     updateScale();
     const ro = new ResizeObserver(updateScale);
-    if (containerRef.current) ro.observe(containerRef.current);
+    if (containerRef.current) {
+      ro.observe(containerRef.current);
+      if (containerRef.current.parentElement) {
+        ro.observe(containerRef.current.parentElement);
+      }
+    }
     window.addEventListener("resize", updateScale);
     return () => {
       ro.disconnect();
@@ -63,18 +69,18 @@ export function PrescriptionLivePreview({
   return (
     <div
       className={cn(
-        "flex w-full flex-col overflow-hidden rounded-xl border border-rx-border bg-slate-100/80",
+        "flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-rx-border bg-slate-100/80",
         className
       )}
     >
       <div className="flex shrink-0 items-center justify-between border-b border-rx-border/80 bg-white/80 px-3 py-1.5">
         <p className="text-xs font-semibold text-rx-text">{previewLabel}</p>
         <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[0.65rem] font-medium text-emerald-700">
-          {t("home.liveBadge")}
+          {t("composer.liveBadge")}
         </span>
       </div>
 
-      <div ref={containerRef} className="overflow-hidden">
+      <div ref={containerRef} className="w-full min-w-0 overflow-hidden">
         <div
           className="relative mx-auto"
           style={{

@@ -17,6 +17,7 @@ export const CLINIC_FEATURE_KEYS = [
   "treatment",
   "search",
   "alerts",
+  "tasks",
 ] as const;
 
 export type ClinicFeatureKey = (typeof CLINIC_FEATURE_KEYS)[number];
@@ -144,6 +145,14 @@ export const CLINIC_FEATURE_DEFINITIONS: ClinicFeatureDefinition[] = [
     description: "تنبيهات المتابعة والمواعيد",
     routes: [],
     apiPatterns: [/^\/api\/alerts(\/|$)/],
+  },
+  {
+    key: "tasks",
+    label: "مهام الفريق",
+    description: "إسناد ومتابعة المهام الداخلية بين الطبيب والسكرتارية",
+    routes: ["/tasks"],
+    apiPatterns: [/^\/api\/tasks(\/|$)/],
+    navHref: "/tasks",
   },
 ];
 

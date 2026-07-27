@@ -6,6 +6,7 @@ import type { PrescriptionDocumentData } from "@/components/prescription/prescri
 import type { RecipeSettingsDto } from "@/lib/recipe-settings";
 import { fieldFontSize } from "@/lib/patient-field-layout";
 import { formatAge, formatPrescriptionDate, genderLabel } from "@/lib/patient-utils";
+import { PUBLIC_DEMO_PRESCRIPTION_BACKGROUND } from "@/lib/demo/constants";
 
 export function PositionedPrescriptionBlocks({
   data,
@@ -17,6 +18,17 @@ export function PositionedPrescriptionBlocks({
   const printableFields =
     data.printableFields?.filter((field) => field.value.trim()) ?? [];
   const valueOnlyFields = settings.designMode === "image";
+  const usesPublicDemoBackground =
+    settings.designImagePath === PUBLIC_DEMO_PRESCRIPTION_BACKGROUND;
+  const demoValueStyle = usesPublicDemoBackground
+    ? {
+        backgroundColor: "rgba(255,255,255,0.94)",
+        borderRadius: "4px",
+        padding: "1px 5px",
+        fontWeight: 700,
+        lineHeight: 1.35,
+      }
+    : undefined;
 
   return (
     <>
@@ -27,6 +39,10 @@ export function PositionedPrescriptionBlocks({
             left: `${settings.designPatientX}%`,
             top: `${settings.designPatientY}%`,
             transform: "translate(-50%, -50%)",
+            maxWidth: usesPublicDemoBackground ? "23%" : undefined,
+            overflow: usesPublicDemoBackground ? "hidden" : undefined,
+            textOverflow: usesPublicDemoBackground ? "ellipsis" : undefined,
+            ...demoValueStyle,
           }}
         >
           {data.patientName}
@@ -40,6 +56,7 @@ export function PositionedPrescriptionBlocks({
             left: `${settings.designAgeX}%`,
             top: `${settings.designAgeY}%`,
             transform: "translate(-50%, -50%)",
+            ...demoValueStyle,
           }}
         >
           {settings.printAge && data.patientBirthdate && (
@@ -73,15 +90,36 @@ export function PositionedPrescriptionBlocks({
           left: `${settings.designDateX}%`,
           top: `${settings.designDateY}%`,
           transform: "translate(-50%, -50%)",
+          ...demoValueStyle,
         }}
       >
         {formatPrescriptionDate(data.prescriptionDate)}
       </div>
 
+      {usesPublicDemoBackground &&
+        settings.printDiagnosis &&
+        data.diagnosis && (
+          <div
+            className="absolute z-10 truncate text-right font-bold"
+            dir="rtl"
+            style={{
+              left: "8%",
+              right: "15%",
+              top: "34.55%",
+              backgroundColor: "rgba(255,255,255,0.94)",
+              borderRadius: "4px",
+              padding: "1px 6px",
+              lineHeight: 1.4,
+            }}
+          >
+            {data.diagnosis}
+          </div>
+        )}
+
       {printableFields.map((field) => (
         <div
           key={field.id}
-          className="absolute z-10 whitespace-nowrap"
+          className="absolute z-10 w-max max-w-[80%] whitespace-normal break-words text-center [overflow-wrap:anywhere]"
           style={{
             left: `${field.designX}%`,
             top: `${field.designY}%`,

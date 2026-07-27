@@ -93,7 +93,13 @@ export async function GET(req: Request, { params }: Params) {
             `<div class="pos center" style="left:${field.designX}%;top:${field.designY}%">${isImageMode ? escapeHtml(field.value) : `<strong>${escapeHtml(field.name)}:</strong> ${escapeHtml(field.value)}`}</div>`
         )
         .join("")}
-      <div class="pos items-box" style="left:${s.designItemsX}%;top:${s.designItemsY}%;width:${itemsSize.width}%;height:${itemsSize.height}%">${s.printDiagnosis && data.diagnosis ? `<p><strong>التشخيص:</strong> ${escapeHtml(data.diagnosis)}</p>` : ""}<ol class="med-list">${itemsHtml}</ol></div>`;
+      <div class="pos items-box" style="left:${s.designItemsX}%;top:${s.designItemsY}%;width:${itemsSize.width}%;height:${itemsSize.height}%">
+        ${s.printDiagnosis && data.diagnosis ? `<p><strong>التشخيص:</strong> ${escapeHtml(data.diagnosis)}</p>` : ""}
+        <div class="medication-content">
+          <span class="rx-mark" aria-hidden="true"><span>R</span><sub>x</sub></span>
+          <ol class="med-list">${itemsHtml}</ol>
+        </div>
+      </div>`;
 
   const classicExtras =
     showBackground && !isImageMode
@@ -129,6 +135,10 @@ export async function GET(req: Request, { params }: Params) {
     .pos { position: absolute; }
     .pos.center { transform: translate(-50%, -50%); }
     .items-box { overflow: hidden; word-break: break-word; overflow-wrap: anywhere; }
+    .medication-content { display: flex; min-width: 0; align-items: flex-start; gap: .65em; direction: ltr; }
+    .rx-mark { display: inline-flex; flex: none; align-items: flex-start; margin-top: .08em; font-family: "Times New Roman", Georgia, serif; font-size: 3em; line-height: 1; user-select: none; }
+    .rx-mark sub { margin-top: 1.05em; margin-left: -.08em; font-size: .38em; line-height: 1; font-style: italic; vertical-align: baseline; }
+    .med-list { min-width: 0; flex: 1; list-style: none; margin: 0; padding: 0; direction: ltr; text-align: left; }
     .age-row { display: flex; gap: 12px; }
     img.attach { max-height: 180px; max-width: 100%; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; }
     ${!isImageMode && showBackground ? templatePrintStyles(templateId, s.color) : ""}

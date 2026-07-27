@@ -38,6 +38,7 @@ import {
   type Locale,
   type TranslateFn,
 } from "@/i18n/locale-provider";
+import { useSyncStore } from "@/stores/sync-store";
 
 const SECRETARY_COLUMNS: VisitStatus[] = [
   "scheduled",
@@ -134,6 +135,7 @@ export function WaitingRoomBoard({
 }: Props) {
   const { t, locale } = useLocale();
   const queryClient = useQueryClient();
+  const online = useSyncStore((state) => state.online);
   const day = date ?? todayKey();
   const isDoctor = role === "doctor";
 
@@ -146,7 +148,7 @@ export function WaitingRoomBoard({
       });
       return { appointments };
     },
-    refetchInterval: navigator.onLine ? (isDoctor ? 10_000 : 5_000) : false,
+    refetchInterval: online ? (isDoctor ? 10_000 : 5_000) : false,
   });
 
   const appointments = data?.appointments ?? [];

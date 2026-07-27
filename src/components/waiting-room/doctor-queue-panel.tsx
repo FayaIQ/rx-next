@@ -29,6 +29,7 @@ import {
 } from "@/lib/visit-queue/constants";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
+import { useSyncStore } from "@/stores/sync-store";
 
 function todayKey() {
   const d = new Date();
@@ -53,6 +54,7 @@ export function DoctorQueuePanel(
   /*i18n*/{ onSelectPatient }: Props) {
   const { t } = useLocale();
   const queryClient = useQueryClient();
+  const online = useSyncStore((state) => state.online);
   const day = todayKey();
 
   const { data, isLoading } = useQuery({
@@ -64,14 +66,14 @@ export function DoctorQueuePanel(
       });
       return { appointments };
     },
-    refetchInterval: navigator.onLine ? 10_000 : false,
+    refetchInterval: online ? 10_000 : false,
   });
 
   const { data: sessionsData } = useQuery({
     queryKey: ["treatment-sessions-today", day],
     queryFn: () => rxApi.treatment.todaySessions(day),
-    enabled: navigator.onLine,
-    refetchInterval: navigator.onLine ? 30_000 : false,
+    enabled: online,
+    refetchInterval: online ? 30_000 : false,
   });
 
   const appointments = data?.appointments ?? [];

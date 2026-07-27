@@ -5,6 +5,17 @@ import { toOptionalUserId, toUserId } from "@/lib/user-id";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
+      id: "demo",
+      name: "demo",
+      credentials: {},
+      async authorize() {
+        const { ensurePublicDemoDoctor } = await import(
+          "@/lib/demo/public-demo"
+        );
+        return ensurePublicDemoDoctor();
+      },
+    }),
+    Credentials({
       id: "credentials",
       name: "credentials",
       credentials: {

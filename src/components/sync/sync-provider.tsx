@@ -19,6 +19,10 @@ import {
 import { activateLocalCacheMode } from "@/lib/sync/sync-local";
 import { useSyncStore } from "@/stores/sync-store";
 import { SyncQueryListener } from "@/components/sync/sync-query-listener";
+import {
+  PUBLIC_DEMO_SESSION_ID,
+} from "@/lib/demo/constants";
+import { preparePublicDemoCache } from "@/lib/demo/prepare-demo-cache";
 
 const CLINIC_ROLES = new Set(["doctor", "secretary"]);
 
@@ -33,6 +37,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const role = session?.user?.type;
+  const isPublicDemo =
+    session?.user?.sessionId === PUBLIC_DEMO_SESSION_ID;
   const canSync =
     status === "authenticated" &&
     !!role &&
@@ -107,6 +113,9 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
     const timer = setTimeout(() => {
       void (async () => {
+        if (isPublicDemo && session?.user?.id) {
+          await preparePublicDemoCache(Number(session.user.id));
+        }
         const hydrated = await hydrateFromServer();
         if (!hydrated) {
           await activateLocalCacheMode();
@@ -121,7 +130,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [canSync, session?.user?.id]);
+  }, [canSync, isPublicDemo, session?.user?.id]);
 
   return (
     <>

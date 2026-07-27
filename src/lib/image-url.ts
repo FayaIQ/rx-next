@@ -11,6 +11,9 @@ export function resolveImageUrl(
   if (storedPath.startsWith("http://") || storedPath.startsWith("https://")) {
     return storedPath;
   }
+  if (storedPath.startsWith("/landing/")) {
+    return storedPath;
+  }
 
   // Prefer public CDN when available (faster; no app proxy hop).
   const cdn =

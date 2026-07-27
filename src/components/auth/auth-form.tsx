@@ -25,7 +25,6 @@ import {
 } from "@/lib/doctor-practice";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
-import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { CountryCodeSelect } from "@/components/auth/country-code-select";
 import { PasswordResetFlow } from "@/components/auth/password-reset-flow";
@@ -338,10 +337,7 @@ export function AuthForm({
 
   if (step === "otp") {
     return (
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex justify-end">
-          <LanguageSwitcher variant="toggle" />
-        </div>
+      <div className="w-full">
         <div className="mb-8">
           <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rx-primary/10 text-rx-primary">
             <ShieldCheck size={24} />
@@ -422,10 +418,7 @@ export function AuthForm({
   }
 
   return (
-    <div className="w-full max-w-md">
-      <div className="mb-6 flex justify-end">
-        <LanguageSwitcher variant="toggle" />
-      </div>
+    <div className="w-full">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-rx-text">{title}</h1>
         {subtitle && (

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
 import { clearSessionCookies } from "@/lib/auth-cookies";
 import { isSecretaryApiAllowed } from "@/lib/api/secretary-api-access";
+import { PUBLIC_DEMO_SESSION_ID } from "@/lib/demo/constants";
 
 function nextWithPathname(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
@@ -19,6 +20,9 @@ const PUBLIC_PATHS = [
   "/auth/login/secretary",
   "/auth/register/secretary",
   "/subscription/expired",
+  "/demo-preview",
+  "/terms",
+  "/privacy",
   "/api/auth",
   "/portal",
   "/api/portal",
@@ -48,6 +52,12 @@ function getDefaultRoute(type: string, isConfirmed: boolean): string {
   return "/home";
 }
 
+function publicDemoExitUrl(req: NextRequest, nextPath: string) {
+  const url = new URL("/auth/demo-exit", req.url);
+  url.searchParams.set("next", nextPath);
+  return url;
+}
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
@@ -64,8 +74,16 @@ export default auth((req) => {
   }
 
   const session = req.auth;
+  const isPublicDemoSession =
+    session?.user?.sessionId === PUBLIC_DEMO_SESSION_ID;
+  const isTopLevelDocument =
+    req.headers.get("sec-fetch-dest") === "document";
 
   if (pathname.startsWith("/api/auth")) {
+    return nextWithPathname(req);
+  }
+
+  if (pathname === "/auth/demo-exit") {
     return nextWithPathname(req);
   }
 
@@ -84,6 +102,28 @@ export default auth((req) => {
   }
 
   const { type, isConfirmed } = session.user;
+
+  // The public demo is allowed inside the landing-page iframe only. If its
+  // session ever reaches a normal browser tab, discard it instead of treating
+  // the visitor as a logged-in doctor.
+  if (isPublicDemoSession && isAuthPath(pathname)) {
+    return NextResponse.redirect(publicDemoExitUrl(req, pathname));
+  }
+
+  if (
+    isPublicDemoSession &&
+    isTopLevelDocument &&
+    pathname !== "/" &&
+    pathname !== "/demo-preview"
+  ) {
+    const destination =
+      pathname === "/terms" || pathname === "/privacy"
+        ? pathname
+        : "/auth/signin";
+    return NextResponse.redirect(
+      publicDemoExitUrl(req, destination)
+    );
+  }
 
   // Auth pages: if session is marked expired, clear JWT and stay on sign-in.
   // Otherwise send already-logged-in users to their home.
@@ -104,6 +144,12 @@ export default auth((req) => {
   }
 
   if (pathname === "/") {
+    if (isPublicDemoSession) {
+      if (isTopLevelDocument) {
+        return NextResponse.redirect(publicDemoExitUrl(req, "/"));
+      }
+      return nextWithPathname(req);
+    }
     return NextResponse.redirect(
       new URL(getDefaultRoute(type, isConfirmed), req.url)
     );
@@ -125,6 +171,7 @@ export default auth((req) => {
       "/print",
       "/reports",
       "/treatment",
+      "/tasks",
     ];
     const allowed = doctorPaths.some((p) => pathname.startsWith(p));
     if (!allowed && !pathname.startsWith("/api/")) {

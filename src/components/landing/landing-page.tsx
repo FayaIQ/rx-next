@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { LandingRxDemo } from "@/components/landing/landing-rx-demo";
+import { LinkedFayaDevText } from "@/components/faya-dev-link";
 import { useLocale } from "@/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -128,7 +129,7 @@ export function LandingPage() {
   return (
     <div className="rx-landing min-h-screen bg-[#F6F8F7] text-[#0B2C3D]" dir={dir}>
       {/* Nav — floating pill */}
-      <header className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-50 flex justify-center px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-full border border-white/60 bg-white/90 p-1.5 shadow-[0_8px_32px_rgb(8_51_68/0.18)] backdrop-blur-xl ring-1 ring-slate-900/5">
           <Link
             href="/"
@@ -393,8 +394,11 @@ export function LandingPage() {
       </section>
 
       {/* Live Rx demo */}
-      <section className="border-t border-slate-200/80 bg-white px-5 py-20 sm:px-8">
-        <div className="mx-auto max-w-6xl">
+      <section
+        id="live-demo"
+        className="scroll-mt-24 border-t border-slate-200/80 bg-white px-5 py-20 sm:px-8"
+      >
+        <div className="mx-auto max-w-7xl">
           <SectionHead
             badge={t("landing.demoBadge")}
             title={t("landing.demoTitle")}
@@ -587,7 +591,10 @@ export function LandingPage() {
           <div>
             <p className="text-lg font-bold text-white">RX Clinic</p>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-400">
-              {t("landing.footerAbout")}
+              <LinkedFayaDevText
+                text={t("landing.footerAbout")}
+                className="text-slate-300 hover:text-white"
+              />
             </p>
           </div>
           <div>
@@ -615,7 +622,10 @@ export function LandingPage() {
         </div>
         <div className="border-t border-white/10">
           <p className="mx-auto max-w-6xl px-5 py-5 text-xs text-slate-500 sm:px-8">
-            {t("landing.footerCopy", { year })}
+            <LinkedFayaDevText
+              text={t("landing.footerCopy", { year })}
+              className="text-slate-400 hover:text-white"
+            />
           </p>
         </div>
       </footer>

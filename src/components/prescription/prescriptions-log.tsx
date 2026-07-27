@@ -29,6 +29,7 @@ import {
   activeRecipeFields,
   getFieldValue,
 } from "@/lib/patient-field-display";
+import { useSyncStore } from "@/stores/sync-store";
 
 function PrescriptionActions({ rx }: { rx: PrescriptionDto }) {
   const { t } = useLocale();
@@ -78,6 +79,7 @@ function PrescriptionActions({ rx }: { rx: PrescriptionDto }) {
 
 export function PrescriptionsLogPage() {
   const { t, locale } = useLocale();
+  const online = useSyncStore((state) => state.online);
   const [q, setQ] = useState("");
   const { page, pageSize, onPageChange, onPageSizeChange } =
     usePaginationState(q);
@@ -87,7 +89,7 @@ export function PrescriptionsLogPage() {
     queryFn: () =>
       fetchPrescriptionsPaginated(q.trim() || undefined, page, pageSize),
     placeholderData: keepPreviousData,
-    retry: (failureCount) => navigator.onLine && failureCount < 1,
+    retry: (failureCount) => online && failureCount < 1,
   });
 
   const { data: fieldsData } = usePatientFields();

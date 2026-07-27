@@ -79,6 +79,11 @@
   );
 }
 
+/* Keep the raised demo navigation from covering the final form fields. */
+html.rx-embedded-preview {
+  --rx-nav-pill-offset: 15.5rem;
+}
+
 @theme inline {
   --color-rx-primary: var(--rx-primary);
   --color-rx-primary-hover: var(--rx-primary-hover);

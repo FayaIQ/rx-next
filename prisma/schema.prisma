@@ -36,6 +36,11 @@ model User {
   financeTransactions   FinanceTransaction[]   @relation("DoctorFinanceTransactions")
   financeRecordsCreated FinanceTransaction[]   @relation("FinanceCreatedBy")
   featureToggles        ClinicFeatureToggle[]
+  clinicTasks           ClinicTask[]           @relation("DoctorTasks")
+  assignedTasks         ClinicTask[]           @relation("TaskAssignee")
+  createdTasks          ClinicTask[]           @relation("TaskCreator")
+  taskComments          ClinicTaskComment[]
+  taskActivities        ClinicTaskActivity[]
 
   @@index([activeSessionId], map: "users_active_session_id_index")
   @@map("users")
@@ -65,6 +70,7 @@ model Patient {
   treatmentSessions   TreatmentSession[]
   patientVisits       PatientVisit[]
   dentalToothImages   DentalToothImage[]
+  clinicTasks         ClinicTask[]
 
   @@map("patients")
 }
@@ -559,6 +565,62 @@ model ClinicFeatureToggle {
   @@unique([doctorId, key], map: "clinic_feature_toggles_doctor_key_unique")
   @@index([doctorId], map: "clinic_feature_toggles_doctor_id_index")
   @@map("clinic_feature_toggles")
+}
+
+model ClinicTask {
+  id           BigInt               @id @default(autoincrement())
+  doctorId     BigInt               @map("doctor_id")
+  patientId    BigInt?              @map("patient_id")
+  assignedToId BigInt?              @map("assigned_to_id")
+  createdById  BigInt               @map("created_by_id")
+  title        String               @db.VarChar(180)
+  description  String?
+  status       String               @default("todo") @db.VarChar(24)
+  priority     String               @default("normal") @db.VarChar(16)
+  dueAt        DateTime?            @map("due_at") @db.Timestamp(0)
+  completedAt  DateTime?            @map("completed_at") @db.Timestamp(0)
+  archivedAt   DateTime?            @map("archived_at") @db.Timestamp(0)
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt    DateTime             @updatedAt @map("updated_at") @db.Timestamp(0)
+  doctor       User                 @relation("DoctorTasks", fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "clinic_tasks_doctor_id_foreign")
+  patient      Patient?             @relation(fields: [patientId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "clinic_tasks_patient_id_foreign")
+  assignee     User?                @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "clinic_tasks_assigned_to_id_foreign")
+  createdBy    User                 @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "clinic_tasks_created_by_id_foreign")
+  comments     ClinicTaskComment[]
+  activities   ClinicTaskActivity[]
+
+  @@index([doctorId, status, archivedAt], map: "clinic_tasks_doctor_status_archived_index")
+  @@index([assignedToId, status, dueAt], map: "clinic_tasks_assignee_status_due_index")
+  @@index([patientId], map: "clinic_tasks_patient_id_index")
+  @@map("clinic_tasks")
+}
+
+model ClinicTaskComment {
+  id        BigInt     @id @default(autoincrement())
+  taskId    BigInt     @map("task_id")
+  authorId  BigInt     @map("author_id")
+  body      String
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamp(0)
+  task      ClinicTask @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "clinic_task_comments_task_id_foreign")
+  author    User       @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "clinic_task_comments_author_id_foreign")
+
+  @@index([taskId, createdAt], map: "clinic_task_comments_task_created_index")
+  @@map("clinic_task_comments")
+}
+
+model ClinicTaskActivity {
+  id        BigInt     @id @default(autoincrement())
+  taskId    BigInt     @map("task_id")
+  actorId   BigInt     @map("actor_id")
+  action    String     @db.VarChar(32)
+  fromValue String?    @map("from_value") @db.VarChar(255)
+  toValue   String?    @map("to_value") @db.VarChar(255)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamp(0)
+  task      ClinicTask @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "clinic_task_activities_task_id_foreign")
+  actor     User       @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "clinic_task_activities_actor_id_foreign")
+
+  @@index([taskId, createdAt], map: "clinic_task_activities_task_created_index")
+  @@map("clinic_task_activities")
 }
 
 model sessions {

@@ -195,7 +195,10 @@ export function RecipePreviewEditor({
                   onSelect={setSelected}
                   onMove={(x, y) => onFieldPositionChange?.(field.id, x, y)}
                 >
-                  <span style={{ fontSize: fieldFontSize(field.size) }}>
+                  <span
+                    className="inline-block max-w-[80%] whitespace-normal break-words text-center [overflow-wrap:anywhere]"
+                    style={{ fontSize: fieldFontSize(field.size) }}
+                  >
                     {isImageMode ? (
                       field.value
                     ) : (
