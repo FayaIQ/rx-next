@@ -51,13 +51,77 @@ export type AdminFeatureDto = {
   navHref: string | null;
 };
 
+export type AdminDashboardDoctorDto = {
+  id: number;
+  name: string;
+  phoneNumber: string;
+  registeredAt: string | null;
+  confirmed: boolean;
+  lastActivityAt: string | null;
+  lastActivityType: "prescription" | "patient" | "appointment" | "visit" | null;
+  lastVisitAt: string | null;
+  prescriptionsCount: number;
+  patientsCount: number;
+  appointmentsCount: number;
+  visitsCount: number;
+  upcomingAppointments: number;
+  activityScore: number;
+  status: "high" | "growing" | "low" | "none";
+};
+
+type ComparedMetric = {
+  value: number;
+  previous: number;
+  changePercent: number;
+};
+
+export type AdminDashboardData = {
+  meta: {
+    days: number;
+    generatedAt: string;
+    periodStart: string;
+    periodEnd: string;
+    previousStart: string;
+  };
+  totals: { doctors: number; activeSubscriptions: number };
+  kpis: {
+    newDoctors: ComparedMetric;
+    activatedNewDoctors: { value: number; rate: number; previousRate: number };
+    activeDoctors: ComparedMetric & { rate: number };
+    prescriptions: ComparedMetric;
+    visits: ComparedMetric;
+    patients: ComparedMetric;
+    futureActivity: { appointments: number; doctors: number; rate: number };
+  };
+  funnel: {
+    registered: number;
+    activated: number;
+    prescribed: number;
+    returning: number;
+  };
+  segments: {
+    healthy: number;
+    growing: number;
+    neverActivated: number;
+    atRisk: number;
+    dormant: number;
+    upcomingDoctors: number;
+  };
+  trend: Array<{
+    date: string;
+    doctors: number;
+    prescriptions: number;
+    visits: number;
+  }>;
+  recentDoctors: AdminDashboardDoctorDto[];
+  topDoctors: AdminDashboardDoctorDto[];
+};
+
 export const adminApi = {
-  stats: () =>
-    handleResponse<{
-      stats: Record<string, number>;
-      demographics: Array<{ gender: string; count: number }>;
-      appointmentsChart: Array<{ date: string; count: number }>;
-    }>(fetch("/api/dashboard/stats")),
+  stats: (days = 14) =>
+    handleResponse<AdminDashboardData>(
+      fetch(`/api/dashboard/stats?days=${days}`)
+    ),
 
   users: (params?: { type?: string; q?: string; page?: number; pageSize?: number }) => {
     const sp = new URLSearchParams();

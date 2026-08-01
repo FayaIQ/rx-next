@@ -81,6 +81,7 @@ export async function POST(request: Request) {
         type: "secretary",
         doctorId: doctor.id,
         isConfirmed: true,
+        createdAt: new Date(),
       },
       include: { doctor: { select: { name: true } } },
     });

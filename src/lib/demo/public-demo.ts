@@ -81,6 +81,7 @@ export async function ensurePublicDemoDoctor(): Promise<AuthUser> {
         password,
         type: "doctor",
         isConfirmed: true,
+        createdAt: new Date(),
         activeSessionId: PUBLIC_DEMO_SESSION_ID,
         recipeSettings: {
           create: DEMO_RECIPE_SETTINGS,

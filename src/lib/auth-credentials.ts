@@ -117,6 +117,7 @@ export async function registerDoctor(data: {
       password: hashed,
       type: "doctor",
       isConfirmed: true,
+      createdAt: new Date(),
       recipeSettings: {
         create: {
           doctorName: data.name,
@@ -160,6 +161,7 @@ export async function registerSecretary(data: {
       password: hashed,
       type: "secretary",
       isConfirmed: false,
+      createdAt: new Date(),
     },
   });
 }
