@@ -1,25 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { useLocale } from "@/i18n/locale-provider";
 
 export function LandingRxDemo() {
-  const { t, dir, locale } = useLocale();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [demoFrameReady, setDemoFrameReady] = useState(false);
-  const [frameLoaded, setFrameLoaded] = useState(false);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    // Load the demo in an ephemeral credential context. This prevents the
-    // demo Auth.js cookie from becoming the visitor's normal app session.
-    iframe.setAttribute("credentialless", "");
-    setDemoFrameReady(true);
-  }, []);
+  const { t, dir } = useLocale();
 
   return (
     <div className="mt-12" dir={dir}>
@@ -34,37 +19,12 @@ export function LandingRxDemo() {
             borderRadius: "0.2%",
           }}
         >
-          {!frameLoaded && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#f5f8fa] text-slate-700">
-              <div className="text-center">
-                <Loader2
-                  className="mx-auto animate-spin text-[#10A6C3]"
-                  size={30}
-                />
-                <p className="mt-3 text-sm font-semibold">
-                  {locale === "en"
-                    ? "Loading the live system…"
-                    : "جاري تحميل النظام الحي…"}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <iframe
-            ref={iframeRef}
-            src={demoFrameReady ? "/demo-preview" : undefined}
-            title={t("landing.demoLockedTitle")}
-            onLoad={() => {
-              if (demoFrameReady) setFrameLoaded(true);
-            }}
-            className="absolute left-0 top-0 block border-0 bg-white"
-            style={{
-              width: "160%",
-              height: "160%",
-              transform: "scale(0.625)",
-              transformOrigin: "top left",
-            }}
-            allow="clipboard-read; clipboard-write"
+          <Image
+            src="/why-rx-img.png"
+            alt={t("landing.demoLockedTitle")}
+            fill
+            sizes="(min-width: 1200px) 900px, 82vw"
+            className="object-cover object-center"
           />
         </div>
 

@@ -108,11 +108,11 @@ export const en: MessageCatalog = {
     rolesBadge: "Team",
     rolesTitle: "Built for your clinic team",
     rolesBody: "Clear permissions for each role — no mixed desks.",
-    demoBadge: "Live demo",
-    demoTitle: "Try RX Clinic live",
+    demoBadge: "System preview",
+    demoTitle: "Explore the RX Clinic interface",
     demoBody:
-      "Launch the real system inside the preview and explore every section using isolated sample data.",
-    demoLockedTitle: "Interactive system preview",
+      "See how RX Clinic brings the queue, prescriptions, patient records, and finances together.",
+    demoLockedTitle: "RX Clinic interface preview",
     demoLockedBody:
       "Start demo mode to explore the dashboard, prescriptions, patients, appointments, queue, dental tools, finances, and reports with sample data.",
     demoStart: "Start demo",
@@ -138,7 +138,7 @@ export const en: MessageCatalog = {
     demoPaperSignature: "Signature",
     demoPaperEmpty: "Add a medicine to see it here",
     demoNote:
-      "Demo preview — inside the system it uses your clinic's template and logo.",
+      "Illustrative preview — your clinic uses its own prescription template and logo.",
     roleDoctorTitle: "Doctor",
     roleDoctorTag: "Practice",
     roleDoctorBody: "Every daily-practice tool in one board.",
