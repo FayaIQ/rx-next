@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClinicFeatures } from "@/components/clinic/clinic-features-provider";
-import { filterNavHref } from "@/lib/clinic-features";
+import { filterNavHref } from "@/lib/clinic-features-shared";
 import { useLocale } from "@/i18n/locale-provider";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 

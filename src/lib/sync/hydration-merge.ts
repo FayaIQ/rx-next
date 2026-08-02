@@ -3,11 +3,32 @@ import type { Table } from "dexie";
 
 async function pendingLocalIds(): Promise<Set<string>> {
   const db = getRxDb();
-  const pending = await db.sync_queue
-    .where("status")
-    .anyOf(["pending", "failed", "syncing"])
-    .toArray();
-  return new Set(pending.map((item) => item.localId));
+  // A browser can retain an IndexedDB schema from before sync_queue existed.
+  // The version-5 migration adds it on reopen; until then, hydrate the server
+  // data safely instead of aborting the entire offline bootstrap.
+  if (!db.tables.some((table) => table.name === "sync_queue")) {
+    return new Set();
+  }
+
+  try {
+    const pending = await db.sync_queue
+      .where("status")
+      .anyOf(["pending", "failed", "syncing"])
+      .toArray();
+    return new Set(pending.map((item) => item.localId));
+  } catch (error) {
+    // DOMException may come from a different browser realm, so checking the
+    // name is more reliable than `instanceof` during an IndexedDB upgrade.
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      error.name === "NotFoundError"
+    ) {
+      return new Set();
+    }
+    throw error;
+  }
 }
 
 async function mergeSyncedTable<T extends { id: string; serverId?: number; synced: boolean; updatedAt: string }>(

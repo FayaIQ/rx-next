@@ -1,7 +1,6 @@
-import { fromDbId, toDbId } from "@/lib/bigint";
+import { fromDbId } from "@/lib/bigint";
 import type { RecipeSettings } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { Decimal } from "@prisma/client/runtime/library";
+import type { Decimal } from "@prisma/client/runtime/client";
 
 import { migrateRecipeFontId } from "@/lib/recipe-fonts";
 
@@ -252,63 +251,5 @@ export function defaultRecipeSettingsForDoctor(
     printWithoutDesignImage: false,
     designPhoneX: 88,
     designPhoneY: 42,
-  });
-}
-
-export async function ensureRecipeSettings(doctorId: number) {
-  const doctorDbId = toDbId(doctorId);
-  const existing = await prisma.recipeSettings.findFirst({
-    where: { doctorId: doctorDbId },
-  });
-  if (existing) return existing;
-
-  const user = await prisma.user.findUnique({
-    where: { id: doctorDbId },
-    select: { name: true, phoneNumber: true },
-  });
-
-  const defaults = defaultRecipeSettingsForDoctor(doctorId, user ?? undefined);
-
-  return prisma.recipeSettings.create({
-    data: {
-      doctorId: doctorDbId,
-      doctorName: defaults.doctorName,
-      doctorSpecialty: defaults.doctorSpecialty,
-      additionalText1: defaults.additionalText1,
-      phoneNumber: defaults.phoneNumber,
-      email: defaults.email,
-      address: defaults.address,
-      fontFamily: defaults.fontFamily,
-      fontSize: defaults.fontSize,
-      opacity: defaults.opacity,
-      paperSize: defaults.paperSize,
-      color: defaults.color,
-      logoPath: defaults.logoPath,
-      designImagePath: defaults.designImagePath,
-      designMode: defaults.designMode,
-      designTemplate: defaults.designTemplate,
-      designImageScale: defaults.designImageScale,
-      designPatientX: defaults.designPatientX,
-      designPatientY: defaults.designPatientY,
-      designAgeX: defaults.designAgeX,
-      designAgeY: defaults.designAgeY,
-      designDateX: defaults.designDateX,
-      designDateY: defaults.designDateY,
-      designItemsX: defaults.designItemsX,
-      designItemsY: defaults.designItemsY,
-      designItemsWidth: defaults.designItemsWidth,
-      designItemsHeight: defaults.designItemsHeight,
-      showGender: defaults.showGender,
-      showAge: defaults.showAge,
-      showPhone: defaults.showPhone,
-      printName: defaults.printName,
-      printAge: defaults.printAge,
-      printGender: defaults.printGender,
-      printPhone: defaults.printPhone,
-      printDiagnosis: defaults.printDiagnosis,
-      printWithoutDesignImage: defaults.printWithoutDesignImage,
-      designPhoneX: defaults.designPhoneX,
-      designPhoneY: defaults.designPhoneY,
-    },
   });
 }

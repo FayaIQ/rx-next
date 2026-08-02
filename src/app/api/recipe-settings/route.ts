@@ -4,8 +4,8 @@ import { apiOk, apiError } from "@/lib/api/response";
 import {
   normalizeRecipeSettingsDto,
   serializeRecipeSettings,
-  ensureRecipeSettings,
 } from "@/lib/recipe-settings";
+import { ensureRecipeSettings } from "@/lib/recipe-settings-server";
 import { recipeSettingsSchema } from "@/lib/validations/settings";
 
 export async function GET() {

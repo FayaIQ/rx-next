@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/auth-edge";
 import { clearSessionCookies } from "@/lib/auth-cookies";
 import { isSecretaryApiAllowed } from "@/lib/api/secretary-api-access";
 import { PUBLIC_DEMO_SESSION_ID } from "@/lib/demo/constants";

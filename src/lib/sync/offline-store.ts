@@ -65,6 +65,7 @@ export async function persistHydration(data: {
       db.recipe_settings,
       db.dental_charts,
       db.treatment_cache,
+      db.sync_queue,
       db.meta,
     ],
     async () => {

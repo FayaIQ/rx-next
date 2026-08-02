@@ -73,12 +73,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         ...session,
         user: {
           id: toUserId(token.id),
-          name: token.name ?? session.user.name,
-          phoneNumber: token.phoneNumber,
-          type: token.type,
+          name: typeof token.name === "string" ? token.name : session.user.name,
+          phoneNumber: String(token.phoneNumber ?? ""),
+          type: (token.type ?? "doctor") as "doctor" | "secretary" | "admin",
           doctorId: toOptionalUserId(token.doctorId),
-          isConfirmed: token.isConfirmed,
-          sessionId: token.sessionId,
+          isConfirmed: Boolean(token.isConfirmed),
+          sessionId: String(token.sessionId ?? ""),
         },
       };
     },

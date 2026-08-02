@@ -1,4 +1,10 @@
 import Image from "next/image";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "معاينة RX Clinic",
+  robots: { index: false, follow: false },
+};
 
 export default function DemoPreviewBootstrapPage() {
   return (

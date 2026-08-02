@@ -3,36 +3,17 @@ import {
   setClinicFeatureEnabled,
   type ClinicFeatureKey,
 } from "@/lib/clinic-features";
+import {
+  getPracticeTypeMeta,
+  type DoctorPracticeType,
+} from "@/lib/doctor-practice-shared";
 
-export const DOCTOR_PRACTICE_TYPES = [
-  {
-    id: "general",
-    label: "طب عام وتخصصات",
-    description: "وصفات، مواعيد، مرضى ومالية — بدون طبلة الأسنان",
-    specialty: "طب عام",
-    disabledFeatures: ["dental", "treatment"] as ClinicFeatureKey[],
-  },
-  {
-    id: "dental",
-    label: "طب أسنان",
-    description: "يشمل طبلة الأسنان وخطط العلاج السني مع باقي الأدوات",
-    specialty: "طب أسنان",
-    disabledFeatures: [] as ClinicFeatureKey[],
-  },
-] as const;
-
-export type DoctorPracticeType = (typeof DOCTOR_PRACTICE_TYPES)[number]["id"];
-
-export function isDoctorPracticeType(value: unknown): value is DoctorPracticeType {
-  return (
-    typeof value === "string" &&
-    DOCTOR_PRACTICE_TYPES.some((t) => t.id === value)
-  );
-}
-
-export function getPracticeTypeMeta(type: DoctorPracticeType) {
-  return DOCTOR_PRACTICE_TYPES.find((t) => t.id === type)!;
-}
+export {
+  DOCTOR_PRACTICE_TYPES,
+  getPracticeTypeMeta,
+  isDoctorPracticeType,
+  type DoctorPracticeType,
+} from "@/lib/doctor-practice-shared";
 
 /** Seed per-doctor page toggles from the practice type chosen at signup. */
 export async function applyPracticeTypeFeatures(

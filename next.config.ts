@@ -13,6 +13,32 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "bcryptjs"],
   transpilePackages: ["three", "@react-three/fiber", "@react-three/drei"],
+  turbopack: {
+    root: process.cwd(),
+  },
+  webpack(config, { isServer }) {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "pg-native": false,
+    };
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        "util/types": false,
+      };
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        child_process: false,
+        dns: false,
+        fs: false,
+        net: false,
+        tls: false,
+        util: false,
+        "util/types": false,
+      };
+    }
+    return config;
+  },
   async rewrites() {
     return [
       {

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   resolveClinicFeatureForPath,
   isFeatureExemptPage,
-} from "@/lib/clinic-features";
+} from "@/lib/clinic-features-shared";
 import { useClinicFeatures } from "@/components/clinic/clinic-features-provider";
 
 export function FeatureRouteGuard({ children }: { children: React.ReactNode }) {

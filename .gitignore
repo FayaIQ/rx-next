@@ -52,3 +52,4 @@ prisma/dev.db-journal
 
 # uploaded media (local/server)
 /public/uploads/
+/backups/

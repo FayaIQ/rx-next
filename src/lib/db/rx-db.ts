@@ -217,6 +217,46 @@ export class RxDatabase extends Dexie {
       dental_charts: "patientServerId, synced, updatedAt",
       treatment_cache: "patientServerId, synced, updatedAt",
     });
+    // Some earlier local databases were created before all stores were
+    // declared in a single schema. Re-declaring the complete schema upgrades
+    // them in place and preserves their existing records.
+    this.version(5).stores({
+      patients: "id, serverId, doctorId, name, synced, updatedAt",
+      medicines: "id, serverId, doctorId, name, synced, updatedAt",
+      prescriptions:
+        "id, serverId, doctorId, patientId, prescriptionNumber, synced, updatedAt",
+      appointments:
+        "id, serverId, doctorId, patientId, visitStatus, synced, updatedAt",
+      patient_fields: "id, serverId, doctorId, synced, updatedAt",
+      recipe_settings: "doctorId, updatedAt",
+      default_medicines: "id, categoryId, name",
+      medicine_presets:
+        "id, serverId, doctorId, medicineKey, type, lastUsedAt, updatedAt",
+      dental_charts: "patientServerId, synced, updatedAt",
+      treatment_cache: "patientServerId, synced, updatedAt",
+      sync_queue: "id, entity, status, createdAt, localId",
+      meta: "key",
+    });
+    // Version 5 briefly shipped to some browsers without `sync_queue` in its
+    // physical IndexedDB schema. Bump once more so those databases receive
+    // the missing store without clearing any existing offline data.
+    this.version(6).stores({
+      patients: "id, serverId, doctorId, name, synced, updatedAt",
+      medicines: "id, serverId, doctorId, name, synced, updatedAt",
+      prescriptions:
+        "id, serverId, doctorId, patientId, prescriptionNumber, synced, updatedAt",
+      appointments:
+        "id, serverId, doctorId, patientId, visitStatus, synced, updatedAt",
+      patient_fields: "id, serverId, doctorId, synced, updatedAt",
+      recipe_settings: "doctorId, updatedAt",
+      default_medicines: "id, categoryId, name",
+      medicine_presets:
+        "id, serverId, doctorId, medicineKey, type, lastUsedAt, updatedAt",
+      dental_charts: "patientServerId, synced, updatedAt",
+      treatment_cache: "patientServerId, synced, updatedAt",
+      sync_queue: "id, entity, status, createdAt, localId",
+      meta: "key",
+    });
   }
 }
 

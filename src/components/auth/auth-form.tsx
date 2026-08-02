@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import {
   DOCTOR_PRACTICE_TYPES,
   type DoctorPracticeType,
-} from "@/lib/doctor-practice";
+} from "@/lib/doctor-practice-shared";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";

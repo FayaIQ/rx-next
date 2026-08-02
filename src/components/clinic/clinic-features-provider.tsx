@@ -4,7 +4,7 @@ import { createContext, useContext, useMemo } from "react";
 import {
   CLINIC_FEATURE_KEYS,
   type ClinicFeatureKey,
-} from "@/lib/clinic-features";
+} from "@/lib/clinic-features-shared";
 
 export type ClinicFeatureState = {
   key: ClinicFeatureKey;

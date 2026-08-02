@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiOk, apiError } from "@/lib/api/response";
-import { serializeRecipeSettings, ensureRecipeSettings } from "@/lib/recipe-settings";
+import { serializeRecipeSettings } from "@/lib/recipe-settings";
+import { ensureRecipeSettings } from "@/lib/recipe-settings-server";
 import {
   saveUploadedImage,
   deleteUploadedFile,

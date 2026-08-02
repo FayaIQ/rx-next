@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { fromDbId, toDbId } from "@/lib/bigint";
 import { defaultFieldPosition } from "@/lib/patient-field-layout";
-import type { Decimal } from "@prisma/client/runtime/library";
+import type { Decimal } from "@prisma/client/runtime/client";
 
 function dec(v: Decimal | null | undefined): number | null {
   return v == null ? null : Number(v);

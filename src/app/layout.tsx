@@ -11,8 +11,32 @@ const ibmPlexArabic = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "RX Clinic",
-  description: "Clinic & prescription management — إدارة العيادات والوصفات الطبية",
+  metadataBase: new URL(process.env.APP_URL ?? "https://rx.faya.dev"),
+  title: {
+    default: "RX Clinic | نظام إدارة العيادات",
+    template: "%s | RX Clinic",
+  },
+  description:
+    "نظام RX Clinic لإدارة العيادات والوصفات الطبية والمواعيد والمرضى، مع مزامنة آمنة والعمل دون إنترنت.",
+  keywords: [
+    "نظام إدارة عيادات", "برنامج عيادة", "إدارة المرضى", "إدارة المواعيد",
+    "وصفات طبية إلكترونية", "عيادات الأسنان", "clinic management system",
+    "electronic prescriptions",
+  ],
+  openGraph: {
+    type: "website",
+    locale: "ar_IQ",
+    siteName: "RX Clinic",
+    title: "RX Clinic | نظام إدارة العيادات",
+    description: "إدارة المرضى والمواعيد والوصفات الطبية من مكان واحد.",
+    images: [{ url: "/brand/logo.png", alt: "RX Clinic" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "RX Clinic | نظام إدارة العيادات",
+    description: "إدارة المرضى والمواعيد والوصفات الطبية من مكان واحد.",
+    images: ["/brand/logo.png"],
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

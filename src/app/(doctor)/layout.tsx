@@ -11,8 +11,10 @@ import { DoctorNavPill } from "@/components/layout/doctor-nav-pill";
 import { DoctorShellExtras } from "@/components/layout/doctor-shell-extras";
 import { ClinicFeaturesProvider } from "@/components/clinic/clinic-features-provider";
 import { FeatureRouteGuard } from "@/components/clinic/feature-route-guard";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function DoctorLayout({
   children,
