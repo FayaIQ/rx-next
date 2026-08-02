@@ -25,17 +25,16 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     type: "website",
+    url: "/",
     locale: "ar_IQ",
     siteName: "RX Clinic",
     title: "RX Clinic | نظام إدارة العيادات",
     description: "إدارة المرضى والمواعيد والوصفات الطبية من مكان واحد.",
-    images: [{ url: "/brand/logo.png", alt: "RX Clinic" }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "RX Clinic | نظام إدارة العيادات",
     description: "إدارة المرضى والمواعيد والوصفات الطبية من مكان واحد.",
-    images: ["/brand/logo.png"],
   },
   manifest: "/manifest.json",
   appleWebApp: {
