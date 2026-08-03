@@ -91,6 +91,14 @@ export function DoctorInfoSection({
       </CardHeader>
       <CardContent className="grid gap-3">
         <div className="space-y-1.5">
+          <Label>{t("recipe.clinicName")}</Label>
+          <Input
+            value={form.clinicName ?? ""}
+            onChange={(e) => onPatch("clinicName", e.target.value || null)}
+            placeholder={t("recipe.clinicNamePh")}
+          />
+        </div>
+        <div className="space-y-1.5">
           <Label>{t("recipe.doctorName")}</Label>
           <Input
             value={form.doctorName}
@@ -104,6 +112,34 @@ export function DoctorInfoSection({
             value={form.doctorSpecialty}
             onChange={(e) => onPatch("doctorSpecialty", e.target.value)}
             placeholder={t("recipe.specialtyPh")}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>{t("recipe.professionalTitle")}</Label>
+            <Input
+              value={form.professionalTitle ?? ""}
+              onChange={(e) => onPatch("professionalTitle", e.target.value || null)}
+              placeholder={t("recipe.professionalTitlePh")}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t("recipe.licenseNumber")}</Label>
+            <Input
+              dir="ltr"
+              value={form.licenseNumber ?? ""}
+              onChange={(e) => onPatch("licenseNumber", e.target.value || null)}
+              placeholder={t("recipe.licenseNumberPh")}
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>{t("recipe.services")}</Label>
+          <Textarea
+            rows={3}
+            value={form.services ?? ""}
+            onChange={(e) => onPatch("services", e.target.value || null)}
+            placeholder={t("recipe.servicesPh")}
           />
         </div>
         <div className="space-y-1.5">

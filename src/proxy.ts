@@ -157,6 +157,7 @@ export default auth((req) => {
 
   if (type === "doctor") {
     const doctorPaths = [
+      "/onboarding",
       "/home",
       "/dates",
       "/pharmaceutical",

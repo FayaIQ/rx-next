@@ -11,6 +11,7 @@ import { DoctorNavPill } from "@/components/layout/doctor-nav-pill";
 import { DoctorShellExtras } from "@/components/layout/doctor-shell-extras";
 import { ClinicFeaturesProvider } from "@/components/clinic/clinic-features-provider";
 import { FeatureRouteGuard } from "@/components/clinic/feature-route-guard";
+import { isDoctorOnboardingComplete } from "@/lib/doctor-onboarding";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,17 @@ export default async function DoctorLayout({
   const doctorId = toUserId(session.user.id);
 
   const pathname = (await headers()).get("x-pathname");
+  const onboardingComplete = await isDoctorOnboardingComplete(doctorId);
+
+  if (pathname === "/onboarding") {
+    if (onboardingComplete) redirect("/home");
+    return children;
+  }
+
+  if (!onboardingComplete) {
+    redirect("/onboarding");
+  }
+
   if (pathname && !(await isDoctorPathAllowed(doctorId, pathname))) {
     redirect(await getDoctorFallbackPath(doctorId));
   }

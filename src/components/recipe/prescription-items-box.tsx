@@ -23,43 +23,60 @@ export function PrescriptionItemsContent({
   data: Pick<PrescriptionDocumentData, "diagnosis" | "items">;
   settings: Pick<
     RecipeSettingsDto,
-    "printDiagnosis" | "designImagePath"
+    "printDiagnosis" | "designImagePath" | "designTemplate"
   >;
 }) {
   const { t } = useLocale();
   const usesPublicDemoBackground =
     settings.designImagePath === PUBLIC_DEMO_PRESCRIPTION_BACKGROUND;
+  const isAcademicTemplate = settings.designTemplate === "academic";
 
   return (
-    <div dir="ltr" className="text-left">
+    <div
+      dir={isAcademicTemplate ? "rtl" : "ltr"}
+      className={isAcademicTemplate ? "text-right" : "text-left"}
+    >
       {!usesPublicDemoBackground &&
         settings.printDiagnosis &&
         data.diagnosis && (
         <p
-          className="mb-1 text-left"
-          dir="ltr"
+          className={isAcademicTemplate ? "mb-2 text-right" : "mb-1 text-left"}
+          dir={isAcademicTemplate ? "rtl" : "ltr"}
         >
           <strong>{t("recipe.diagnosis")} </strong>
           {data.diagnosis}
         </p>
       )}
-      <div className="flex min-w-0 items-start gap-[0.65em]">
+      <div
+        className={
+          isAcademicTemplate
+            ? "min-w-0 text-left"
+            : "flex min-w-0 items-start gap-[0.65em]"
+        }
+        dir="ltr"
+      >
         <span
           aria-hidden="true"
-          className="mt-[0.08em] inline-flex shrink-0 select-none items-start font-serif leading-none"
+          className={
+            isAcademicTemplate
+              ? "block w-max select-none font-black leading-none"
+              : "mt-[0.08em] inline-flex shrink-0 select-none items-start font-black leading-none"
+          }
           style={{
-            fontFamily: '"Times New Roman", Georgia, serif',
-            fontSize: "3em",
+            fontFamily: "Arial, sans-serif",
+            fontSize: "2.1em",
+            letterSpacing: "-0.06em",
           }}
         >
-          <span>R</span>
-          <span className="mt-[1.05em] -ms-[0.08em] text-[0.38em] italic">
-            x
-          </span>
+          RX
         </span>
         <MedicineLineList
           items={data.items}
-          className="min-w-0 flex-1 list-none space-y-0.5 p-0 text-left"
+          className={
+            isAcademicTemplate
+              ? "mt-[0.65em] min-w-0 list-none space-y-0.5 p-0 text-left"
+              : "min-w-0 flex-1 list-none space-y-0.5 p-0 text-left"
+          }
         />
       </div>
     </div>

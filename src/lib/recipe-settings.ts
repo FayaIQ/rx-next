@@ -3,12 +3,17 @@ import type { RecipeSettings } from "@prisma/client";
 import type { Decimal } from "@prisma/client/runtime/client";
 
 import { migrateRecipeFontId } from "@/lib/recipe-fonts";
+import { ACADEMIC_RECIPE_TEMPLATE_DEFAULTS } from "@/lib/academic-recipe-template";
 
 export type RecipeSettingsDto = {
   id: number;
   doctorId: number;
+  clinicName: string | null;
   doctorName: string;
   doctorSpecialty: string;
+  professionalTitle: string | null;
+  licenseNumber: string | null;
+  services: string | null;
   additionalText1: string | null;
   phoneNumber: string | null;
   email: string | null;
@@ -90,8 +95,12 @@ export function normalizeRecipeSettingsDto(
   return {
     id: input.id,
     doctorId: input.doctorId,
+    clinicName: input.clinicName?.trim() || null,
     doctorName: nonEmptyStr(input.doctorName, "طبيب"),
     doctorSpecialty: nonEmptyStr(input.doctorSpecialty, "طب عام"),
+    professionalTitle: input.professionalTitle?.trim() || null,
+    licenseNumber: input.licenseNumber?.trim() || null,
+    services: input.services?.trim() || null,
     additionalText1: input.additionalText1?.trim() || null,
     phoneNumber: input.phoneNumber?.trim() || null,
     email: sanitizeEmail(input.email),
@@ -152,8 +161,12 @@ export function serializeRecipeSettings(rs: RecipeSettings): RecipeSettingsDto {
   return normalizeRecipeSettingsDto({
     id: fromDbId(rs.id),
     doctorId: fromDbId(rs.doctorId),
+    clinicName: rs.clinicName,
     doctorName: rs.doctorName,
     doctorSpecialty: rs.doctorSpecialty,
+    professionalTitle: rs.professionalTitle,
+    licenseNumber: rs.licenseNumber,
+    services: rs.services,
     additionalText1: rs.additionalText1,
     phoneNumber: rs.phoneNumber,
     email: rs.email,
@@ -214,32 +227,36 @@ export function defaultRecipeSettingsForDoctor(
   return normalizeRecipeSettingsDto({
     id: 0,
     doctorId,
+    clinicName: null,
     doctorName: profile?.name?.trim() || "د.",
     doctorSpecialty: "طب عام",
+    professionalTitle: null,
+    licenseNumber: null,
+    services: null,
     additionalText1: null,
     phoneNumber: profile?.phoneNumber ?? null,
     email: null,
     address: null,
     fontFamily: "cairo",
-    fontSize: "14",
+    fontSize: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.fontSize,
     opacity: 0.2,
-    paperSize: "A4",
-    color: "#117e65",
+    paperSize: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.paperSize,
+    color: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.color,
     logoPath: null,
     designImagePath: null,
     designMode: "design",
-    designTemplate: "classic",
+    designTemplate: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designTemplate,
     designImageScale: 1,
-    designPatientX: 8,
-    designPatientY: 6,
-    designAgeX: 38,
-    designAgeY: 1,
-    designDateX: 46,
-    designDateY: 1,
-    designItemsX: 8,
-    designItemsY: 15,
-    designItemsWidth: 84,
-    designItemsHeight: 45,
+    designPatientX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designPatientX,
+    designPatientY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designPatientY,
+    designAgeX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designAgeX,
+    designAgeY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designAgeY,
+    designDateX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designDateX,
+    designDateY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designDateY,
+    designItemsX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsX,
+    designItemsY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsY,
+    designItemsWidth: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsWidth,
+    designItemsHeight: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsHeight,
     showGender: true,
     showAge: true,
     showPhone: true,
@@ -249,7 +266,7 @@ export function defaultRecipeSettingsForDoctor(
     printPhone: false,
     printDiagnosis: true,
     printWithoutDesignImage: false,
-    designPhoneX: 88,
-    designPhoneY: 42,
+    designPhoneX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designPhoneX,
+    designPhoneY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designPhoneY,
   });
 }

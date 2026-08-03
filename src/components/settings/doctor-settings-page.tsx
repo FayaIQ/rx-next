@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Dialog from "@radix-ui/react-dialog";
+import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 import {
   Copy,
@@ -12,6 +14,11 @@ import {
   ListChecks,
   UserPlus,
   KeyRound,
+  Loader2,
+  Send,
+  ShieldAlert,
+  Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { AppHeader } from "@/components/layout/app-header";
@@ -30,6 +37,8 @@ import { rxApi } from "@/lib/api/rx-client";
 import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { cn } from "@/lib/utils";
+import { ACCOUNT_DELETE_PHRASES } from "@/lib/account-deletion";
+import { clearAllPrescriptionDrafts } from "@/lib/prescription-draft";
 
 type SettingsTab = "account" | "fields" | "invites" | "language";
 
@@ -91,6 +100,278 @@ function InviteRow({
         </Button>
       )}
     </div>
+  );
+}
+
+function AccountDeletionCard({
+  t,
+  locale,
+}: {
+  t: TranslateFn;
+  locale: "ar" | "en";
+}) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [acknowledgeDataLoss, setAcknowledgeDataLoss] = useState(false);
+  const [acknowledgeIrreversible, setAcknowledgeIrreversible] = useState(false);
+  const [confirmationPhrase, setConfirmationPhrase] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [maskedPhone, setMaskedPhone] = useState("");
+  const [developmentCode, setDevelopmentCode] = useState<string | null>(null);
+  const requiredPhrase = ACCOUNT_DELETE_PHRASES[locale];
+  const confirmationsReady =
+    acknowledgeDataLoss &&
+    acknowledgeIrreversible &&
+    confirmationPhrase.trim() === requiredPhrase;
+
+  function resetFlow() {
+    setAcknowledgeDataLoss(false);
+    setAcknowledgeIrreversible(false);
+    setConfirmationPhrase("");
+    setOtpCode("");
+    setOtpSent(false);
+    setMaskedPhone("");
+    setDevelopmentCode(null);
+  }
+
+  const requestOtp = useMutation({
+    mutationFn: () => rxApi.settings.requestAccountDeletionOtp(),
+    onSuccess: (data) => {
+      setOtpSent(true);
+      setMaskedPhone(data.maskedPhone);
+      setDevelopmentCode(data.developmentCode ?? null);
+      setOtpCode("");
+      toast.success(t("settings.deleteOtpSent"));
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const deleteAccount = useMutation({
+    mutationFn: () =>
+      rxApi.settings.deleteAccount({
+        acknowledgeDataLoss: true,
+        acknowledgeIrreversible: true,
+        confirmationPhrase: confirmationPhrase.trim(),
+        otpCode,
+      }),
+    onSuccess: async () => {
+      clearAllPrescriptionDrafts();
+      try {
+        const { deleteRxDatabase } = await import("@/lib/db/rx-db");
+        await deleteRxDatabase();
+      } catch {
+        // Server deletion succeeded; sign out even if this browser had no cache.
+      }
+      queryClient.clear();
+      await signOut({ redirect: false });
+      window.location.replace("/auth/signin?accountDeleted=1");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <Card className="border-red-200 bg-red-50/35">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base text-red-700">
+          <ShieldAlert size={18} />
+          {t("settings.dangerZone")}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-rx-text">
+            {t("settings.deleteAccount")}
+          </p>
+          <p className="max-w-lg text-sm leading-6 text-rx-muted">
+            {t("settings.deleteAccountHint")}
+          </p>
+        </div>
+
+        <Dialog.Root
+          open={open}
+          onOpenChange={(nextOpen) => {
+            if (deleteAccount.isPending) return;
+            setOpen(nextOpen);
+            if (!nextOpen) resetFlow();
+          }}
+        >
+          <Dialog.Trigger asChild>
+            <Button variant="outline" className="shrink-0 border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800">
+              <Trash2 size={16} />
+              {t("settings.deleteAccount")}
+            </Button>
+          </Dialog.Trigger>
+
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-[2px]" />
+            <Dialog.Content
+              className="fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-red-200 bg-rx-surface p-5 shadow-2xl outline-none sm:p-7"
+              onEscapeKeyDown={(event) => {
+                if (deleteAccount.isPending) event.preventDefault();
+              }}
+              onPointerDownOutside={(event) => {
+                if (deleteAccount.isPending) event.preventDefault();
+              }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-700">
+                    <Trash2 size={21} />
+                  </span>
+                  <div>
+                    <Dialog.Title className="text-lg font-bold text-rx-text">
+                      {t("settings.deleteDialogTitle")}
+                    </Dialog.Title>
+                    <Dialog.Description className="mt-1 text-sm leading-6 text-rx-muted">
+                      {t("settings.deleteDialogDescription")}
+                    </Dialog.Description>
+                  </div>
+                </div>
+                <Dialog.Close asChild>
+                  <button
+                    type="button"
+                    aria-label={t("common.close")}
+                    disabled={deleteAccount.isPending}
+                    className="rounded-lg p-1.5 text-rx-muted transition-colors hover:bg-rx-bg-subtle hover:text-rx-text disabled:opacity-50"
+                  >
+                    <X size={18} />
+                  </button>
+                </Dialog.Close>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900">
+                <p className="font-bold">{t("settings.deleteWarningTitle")}</p>
+                <ul className="mt-2 list-inside list-disc space-y-1">
+                  <li>{t("settings.deleteWarningPatients")}</li>
+                  <li>{t("settings.deleteWarningClinic")}</li>
+                  <li>{t("settings.deleteWarningTeam")}</li>
+                </ul>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-rx-muted">
+                  {t("settings.deleteStepOne")}
+                </p>
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-rx-border bg-rx-bg-subtle/50 p-3 text-sm leading-6 text-rx-text">
+                  <input
+                    type="checkbox"
+                    checked={acknowledgeDataLoss}
+                    onChange={(event) => setAcknowledgeDataLoss(event.target.checked)}
+                    disabled={otpSent || deleteAccount.isPending}
+                    className="mt-1 h-4 w-4 shrink-0 accent-red-600"
+                  />
+                  {t("settings.deleteAckData")}
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-rx-border bg-rx-bg-subtle/50 p-3 text-sm leading-6 text-rx-text">
+                  <input
+                    type="checkbox"
+                    checked={acknowledgeIrreversible}
+                    onChange={(event) => setAcknowledgeIrreversible(event.target.checked)}
+                    disabled={otpSent || deleteAccount.isPending}
+                    className="mt-1 h-4 w-4 shrink-0 accent-red-600"
+                  />
+                  {t("settings.deleteAckFinal")}
+                </label>
+              </div>
+
+              <div className="mt-5 space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-rx-muted">
+                  {t("settings.deleteStepTwo")}
+                </p>
+                <Label htmlFor="delete-account-phrase">
+                  {t("settings.deletePhraseLabel")} {" "}
+                  <span dir="auto" className="select-all font-bold text-red-700">
+                    {requiredPhrase}
+                  </span>
+                </Label>
+                <Input
+                  id="delete-account-phrase"
+                  value={confirmationPhrase}
+                  onChange={(event) => setConfirmationPhrase(event.target.value)}
+                  disabled={otpSent || deleteAccount.isPending}
+                  autoComplete="off"
+                  placeholder={requiredPhrase}
+                  className="focus-visible:border-red-500 focus-visible:ring-red-500/20"
+                />
+              </div>
+
+              {!otpSent ? (
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="mt-5 w-full"
+                  disabled={!confirmationsReady || requestOtp.isPending}
+                  onClick={() => requestOtp.mutate()}
+                >
+                  {requestOtp.isPending ? (
+                    <Loader2 size={17} className="animate-spin" />
+                  ) : (
+                    <Send size={17} />
+                  )}
+                  {requestOtp.isPending
+                    ? t("settings.deleteOtpSending")
+                    : t("settings.deleteSendOtp")}
+                </Button>
+              ) : (
+                <div className="mt-5 space-y-3 rounded-2xl border border-rx-border bg-rx-bg-subtle/50 p-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-rx-muted">
+                      {t("settings.deleteStepThree")}
+                    </p>
+                    <p className="mt-1 text-sm text-rx-text-secondary" dir="auto">
+                      {t("settings.deleteOtpHint", { phone: maskedPhone })}
+                    </p>
+                    {developmentCode && (
+                      <p className="mt-2 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900">
+                        {t("settings.deleteTestOtp", { code: developmentCode })}
+                      </p>
+                    )}
+                  </div>
+                  <Input
+                    value={otpCode}
+                    onChange={(event) =>
+                      setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 8))
+                    }
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    dir="ltr"
+                    maxLength={8}
+                    autoFocus
+                    placeholder="••••••"
+                    className="text-center text-lg font-bold tracking-[0.45em] focus-visible:border-red-500 focus-visible:ring-red-500/20"
+                  />
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                    <button
+                      type="button"
+                      onClick={() => requestOtp.mutate()}
+                      disabled={requestOtp.isPending || deleteAccount.isPending}
+                      className="px-2 py-2 text-sm font-medium text-rx-primary hover:underline disabled:opacity-50"
+                    >
+                      {t("settings.deleteResendOtp")}
+                    </button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      disabled={otpCode.length < 4 || deleteAccount.isPending}
+                      onClick={() => deleteAccount.mutate()}
+                    >
+                      {deleteAccount.isPending && (
+                        <Loader2 size={17} className="animate-spin" />
+                      )}
+                      {deleteAccount.isPending
+                        ? t("settings.deletingAccount")
+                        : t("settings.deleteFinalButton")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -296,6 +577,8 @@ export function DoctorSettingsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <AccountDeletionCard t={t} locale={locale} />
           </div>
         )}
 

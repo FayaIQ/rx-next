@@ -35,11 +35,19 @@ export type PatientSaveResult = {
 
 const FINANCE_SETTINGS_CACHE_KEY = "rx-finance-settings";
 
+export function cacheFinanceSettingsLocally(settings: FinanceSettingsDto) {
+  try {
+    localStorage.setItem(FINANCE_SETTINGS_CACHE_KEY, JSON.stringify(settings));
+  } catch {
+    // Storage may be unavailable; the in-memory query cache still updates.
+  }
+}
+
 export async function fetchFinanceSettingsOfflineFirst(): Promise<FinanceSettingsDto> {
   if (navigator.onLine) {
     try {
       const { settings } = await rxApi.finances.getSettings();
-      localStorage.setItem(FINANCE_SETTINGS_CACHE_KEY, JSON.stringify(settings));
+      cacheFinanceSettingsLocally(settings);
       return settings;
     } catch {
       // Fall through to the last settings snapshot.

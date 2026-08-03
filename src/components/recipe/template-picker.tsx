@@ -40,6 +40,29 @@ function TemplateThumb({
       )}
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-white">
+        {id === "academic" && (
+          <>
+            <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg,#1e293b,${swatch})` }} />
+            <div className="absolute left-2 top-3 h-8 w-7 rounded border border-slate-200 bg-white shadow-sm" />
+            <div className="absolute left-[28%] right-2 top-3 space-y-1 text-center">
+              <div className="mx-auto h-1 w-2/3 rounded" style={{ backgroundColor: swatch }} />
+              <div className="mx-auto h-1.5 w-4/5 rounded bg-slate-800" />
+              <div className="mx-auto h-1 w-1/2 rounded" style={{ backgroundColor: swatch }} />
+            </div>
+            <div className="absolute inset-x-2 top-[25%] border-t-2" style={{ borderColor: swatch }} />
+            <div className="absolute inset-x-2 top-[29%] grid grid-cols-3 gap-1">
+              <div className="h-px bg-slate-300" />
+              <div className="h-px bg-slate-300" />
+              <div className="h-px bg-slate-300" />
+            </div>
+            <div className="absolute inset-x-3 top-[40%] space-y-3 opacity-60">
+              <div className="border-b border-dashed border-slate-200" />
+              <div className="border-b border-dashed border-slate-200" />
+              <div className="border-b border-dashed border-slate-200" />
+            </div>
+            <div className="absolute inset-x-2 bottom-3 border-t" style={{ borderColor: swatch }} />
+          </>
+        )}
         {id === "classic" && (
           <>
             <div className="absolute inset-1 rounded border" style={{ borderColor: `${swatch}44` }} />
@@ -70,7 +93,7 @@ function TemplateThumb({
             <div className="absolute left-2 right-2 top-2 h-px" style={{ background: `linear-gradient(90deg,transparent,${swatch},transparent)` }} />
             <div className="absolute left-2 right-2 bottom-2 h-px" style={{ background: `linear-gradient(90deg,transparent,${swatch},transparent)` }} />
             <div className="absolute inset-x-0 top-[18%] text-center">
-              <div className="text-[10px] font-bold" style={{ color: swatch }}>℞</div>
+              <div className="text-[9px] font-black" style={{ color: swatch }}>RX</div>
               <div className="mx-auto mt-1 h-1.5 w-12 rounded" style={{ backgroundColor: swatch }} />
             </div>
           </>
@@ -123,7 +146,7 @@ export function RecipeTemplatePicker({ selected, designMode, onSelect }: Props) 
         <p className="text-sm font-medium text-rx-text">{t("recipe.templateTitle")}</p>
         <p className="text-xs text-rx-muted">{t("recipe.templateHint")}</p>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {RECIPE_TEMPLATES.map((template) => {
           const localized = tRecipeTemplate(t, template.id);
           return (

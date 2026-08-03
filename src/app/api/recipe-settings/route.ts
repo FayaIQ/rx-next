@@ -43,8 +43,12 @@ export async function PUT(req: Request) {
   const updated = await prisma.recipeSettings.update({
     where: { id: existing.id },
     data: {
+      clinicName: data.clinicName,
       doctorName: data.doctorName,
       doctorSpecialty: data.doctorSpecialty,
+      professionalTitle: data.professionalTitle,
+      licenseNumber: data.licenseNumber,
+      services: data.services,
       additionalText1: data.additionalText1 ?? null,
       phoneNumber: data.phoneNumber ?? null,
       email: data.email || null,

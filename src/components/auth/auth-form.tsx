@@ -33,6 +33,11 @@ import {
   composeInternationalPhone,
   type PhoneCountry,
 } from "@/lib/phone-countries";
+import {
+  DEV_TEST_DOCTOR_PHONE,
+  IS_DEV_TEST_DOCTOR_ENABLED,
+  isDevTestDoctorPhone,
+} from "@/lib/dev-test-doctor";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -94,6 +99,10 @@ export function AuthForm({
   const [password, setPassword] = useState("");
   // Full international number (+9647xx…) sent to every endpoint.
   const fullPhone = composeInternationalPhone(country.dial, phone);
+  const isDevTestDoctor =
+    mode === "signup" &&
+    role === "doctor" &&
+    isDevTestDoctorPhone(fullPhone);
   const [practiceType, setPracticeType] =
     useState<DoctorPracticeType>("general");
   const [step, setStep] = useState<"form" | "otp">("form");
@@ -135,6 +144,9 @@ export function AuthForm({
       toast.info(t("auth.sessionExpired"));
       void signOut({ redirect: false });
     }
+    if (searchParams.get("accountDeleted") === "1") {
+      toast.success(t("auth.accountDeleted"));
+    }
   }, [mode, searchParams, t]);
 
   async function resolveCallbackUrl(): Promise<string> {
@@ -149,6 +161,7 @@ export function AuthForm({
       return "/secretary";
     }
     if (role === "admin") return "/dashboard";
+    if (mode === "signup" && role === "doctor") return "/onboarding";
 
     const session = await getSession();
     if (session?.user?.type === "admin") return "/dashboard";
@@ -205,6 +218,8 @@ export function AuthForm({
   /** Returns "sent" when the OTP step should be shown, "disabled" when the
    *  server has no OTP key, "failed" on error. */
   async function requestOtp(): Promise<"sent" | "disabled" | "failed"> {
+    if (isDevTestDoctor) return "disabled";
+
     const res = await fetch("/api/auth/otp/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -243,7 +258,7 @@ export function AuthForm({
         return;
       }
 
-      if (TURNSTILE_SITE_KEY && !captchaToken) {
+      if (TURNSTILE_SITE_KEY && !captchaToken && !isDevTestDoctor) {
         toast.error(t("auth.captchaRequired"));
         return;
       }
@@ -525,6 +540,15 @@ export function AuthForm({
               />
             </div>
           </div>
+          {mode === "signup" &&
+            role === "doctor" &&
+            IS_DEV_TEST_DOCTOR_ENABLED && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                {t("auth.testDoctorNumber", {
+                  phone: DEV_TEST_DOCTOR_PHONE,
+                })}
+              </p>
+            )}
         </div>
 
         <div className="space-y-2">
@@ -566,7 +590,7 @@ export function AuthForm({
           </div>
         </div>
 
-        {mode === "signup" && TURNSTILE_SITE_KEY && (
+        {mode === "signup" && TURNSTILE_SITE_KEY && !isDevTestDoctor && (
           <TurnstileWidget
             key={captchaNonce}
             siteKey={TURNSTILE_SITE_KEY}
@@ -583,6 +607,7 @@ export function AuthForm({
             loading ||
             Boolean(
               mode === "signup" && TURNSTILE_SITE_KEY && !captchaToken
+                && !isDevTestDoctor
             )
           }
         >

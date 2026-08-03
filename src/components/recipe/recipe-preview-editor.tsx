@@ -43,6 +43,8 @@ export function RecipePreviewEditor({
   >(null);
   const s = data.settings;
   const isImageMode = s.designMode === "image";
+  const usesAcademicTemplate =
+    s.designMode === "design" && s.designTemplate === "academic";
   const itemsSize = itemsBoxSize(s);
   const dims = paperDimensions(s.paperSize);
   const hideDesignBackground =
@@ -108,8 +110,15 @@ export function RecipePreviewEditor({
                   selected={selected === "patient"}
                   onSelect={setSelected}
                   onMove={(x, y) => move("patient", x, y)}
+                  className={
+                    usesAcademicTemplate
+                      ? "w-[21%] text-center text-[0.76em] font-bold"
+                      : undefined
+                  }
                 >
-                  <span className="font-medium">{data.patientName}</span>
+                  <span className="block truncate font-medium">
+                    {data.patientName}
+                  </span>
                 </DraggableBlock>
               )}
 
@@ -122,8 +131,19 @@ export function RecipePreviewEditor({
                   selected={selected === "ageGender"}
                   onSelect={setSelected}
                   onMove={(x, y) => move("ageGender", x, y)}
+                  className={
+                    usesAcademicTemplate
+                      ? "w-[11%] text-center text-[0.76em] font-bold"
+                      : undefined
+                  }
                 >
-                  <span className="flex gap-3 text-sm">
+                  <span
+                    className={
+                      usesAcademicTemplate
+                        ? "flex justify-center gap-2 whitespace-nowrap"
+                        : "flex gap-3 text-sm"
+                    }
+                  >
                     {s.printAge && data.patientBirthdate && (
                       <span>{formatAge(data.patientBirthdate)}</span>
                     )}
@@ -160,8 +180,16 @@ export function RecipePreviewEditor({
                 selected={selected === "date"}
                 onSelect={setSelected}
                 onMove={(x, y) => move("date", x, y)}
+                className={
+                  usesAcademicTemplate
+                    ? "w-[15%] text-center text-[0.76em] font-bold"
+                    : undefined
+                }
               >
-                <span className="text-sm">
+                <span
+                  className={usesAcademicTemplate ? "block truncate" : "text-sm"}
+                  dir="ltr"
+                >
                   {formatPrescriptionDate(data.prescriptionDate)}
                 </span>
               </DraggableBlock>

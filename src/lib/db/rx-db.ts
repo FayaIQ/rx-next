@@ -272,6 +272,13 @@ export function getRxDb(): RxDatabase {
   return dbInstance;
 }
 
+/** Remove every offline record after the owning account is permanently deleted. */
+export async function deleteRxDatabase(): Promise<void> {
+  const db = getRxDb();
+  await db.delete();
+  dbInstance = null;
+}
+
 export async function getMeta(key: string): Promise<string | undefined> {
   const record = await getRxDb().meta.get(key);
   return record?.value;

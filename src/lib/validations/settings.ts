@@ -3,7 +3,35 @@ import { z } from "zod";
 import { RECIPE_TEMPLATE_IDS } from "@/lib/recipe-templates";
 import { migrateRecipeFontId, RECIPE_FONT_IDS } from "@/lib/recipe-fonts";
 
+const optionalTrimmedText = (max: number) =>
+  z.preprocess(
+    (value) => {
+      if (typeof value !== "string") return null;
+      return value.trim() || null;
+    },
+    z.string().max(max, `يجب ألا يتجاوز الحقل ${max} حرفاً`).nullable()
+  );
+
+export const doctorOnboardingSchema = z.object({
+  clinicName: optionalTrimmedText(255),
+  doctorName: z.string().trim().min(2, "اسم الطبيب مطلوب").max(255),
+  doctorSpecialty: z.string().trim().min(2, "التخصص مطلوب").max(255),
+  professionalTitle: optionalTrimmedText(255),
+  licenseNumber: optionalTrimmedText(255),
+  services: optionalTrimmedText(2000),
+  phoneNumber: z.string().trim().min(8, "رقم هاتف العيادة غير صالح").max(255),
+  email: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") return null;
+      return value.trim() || null;
+    },
+    z.string().email("البريد الإلكتروني غير صالح").nullable()
+  ),
+  address: z.string().trim().min(3, "عنوان العيادة مطلوب").max(255),
+});
+
 export const recipeSettingsSchema = z.object({
+  clinicName: optionalTrimmedText(255),
   doctorName: z.preprocess(
     (v) => (typeof v === "string" ? v.trim() : ""),
     z.string().min(1, "اسم الطبيب مطلوب")
@@ -12,6 +40,9 @@ export const recipeSettingsSchema = z.object({
     (v) => (typeof v === "string" ? v.trim() : ""),
     z.string().min(1, "التخصص مطلوب")
   ),
+  professionalTitle: optionalTrimmedText(255),
+  licenseNumber: optionalTrimmedText(255),
+  services: optionalTrimmedText(2000),
   additionalText1: z.string().nullable().optional(),
   phoneNumber: z.string().nullable().optional(),
   email: z.preprocess(
@@ -97,6 +128,7 @@ export const profileSchema = z.object({
 export const profileUpdateSchema = profileSchema.omit({ phoneNumber: true });
 
 export type RecipeSettingsInput = z.infer<typeof recipeSettingsSchema>;
+export type DoctorOnboardingInput = z.infer<typeof doctorOnboardingSchema>;
 export type PatientFieldInput = z.infer<typeof patientFieldSchema>;
 export type ProfileInput = z.infer<typeof profileSchema>;
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;

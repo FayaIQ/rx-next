@@ -8,6 +8,8 @@ import {
 import { activateTrialForDoctor } from "./subscription";
 import { fromDbId, toDbId } from "./bigint";
 import type { UserRole } from "@/types/next-auth";
+import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
+import { ACADEMIC_RECIPE_TEMPLATE_DEFAULTS } from "@/lib/academic-recipe-template";
 
 export interface AuthUser {
   id: number;
@@ -106,7 +108,73 @@ export async function registerDoctor(data: {
   const phoneNumber = normalizePhoneForAuth(data.phone);
   const existing = await findUserByPhone(data.phone);
   if (existing) {
-    throw new Error("رقم الهاتف مستخدم مسبقاً");
+    if (!isDevTestDoctorPhone(phoneNumber)) {
+      throw new Error("رقم الهاتف مستخدم مسبقاً");
+    }
+
+    const hashed = await bcrypt.hash(data.password, 12);
+    const settings = await prisma.recipeSettings.findFirst({
+      where: { doctorId: existing.id },
+    });
+
+    const user = await prisma.$transaction(async (tx) => {
+      const resetUser = await tx.user.update({
+        where: { id: existing.id },
+        data: {
+          name: data.name,
+          phoneNumber,
+          password: hashed,
+          type: "doctor",
+          doctorId: null,
+          isConfirmed: true,
+          activeSessionId: null,
+        },
+      });
+
+      const resetSettings = {
+        ...ACADEMIC_RECIPE_TEMPLATE_DEFAULTS,
+        onboardingCompleted: false,
+        clinicName: null,
+        doctorName: data.name,
+        doctorSpecialty: practiceMeta.specialty,
+        professionalTitle: null,
+        licenseNumber: null,
+        services: null,
+        phoneNumber,
+        email: null,
+        address: null,
+        logoPath: null,
+        designImagePath: null,
+        printName: true,
+        printAge: true,
+        printGender: true,
+        printPhone: false,
+        printDiagnosis: true,
+      };
+
+      if (settings) {
+        await tx.recipeSettings.update({
+          where: { id: settings.id },
+          data: resetSettings,
+        });
+      } else {
+        await tx.recipeSettings.create({
+          data: {
+            doctorId: existing.id,
+            ...resetSettings,
+            fontFamily: "cairo",
+            opacity: 0.2,
+          },
+        });
+      }
+
+      return resetUser;
+    });
+
+    const doctorId = fromDbId(user.id);
+    await activateTrialForDoctor(doctorId);
+    await applyPracticeTypeFeatures(doctorId, practiceType);
+    return user;
   }
 
   const hashed = await bcrypt.hash(data.password, 12);
@@ -120,13 +188,13 @@ export async function registerDoctor(data: {
       createdAt: new Date(),
       recipeSettings: {
         create: {
+          ...ACADEMIC_RECIPE_TEMPLATE_DEFAULTS,
+          onboardingCompleted: false,
           doctorName: data.name,
           phoneNumber,
           doctorSpecialty: practiceMeta.specialty,
           fontFamily: "cairo",
-          fontSize: "14",
           opacity: 0.2,
-          color: "#117e65",
         },
       },
     },

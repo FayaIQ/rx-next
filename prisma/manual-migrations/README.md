@@ -8,5 +8,6 @@ Fresh installs should use `npx prisma db push` (or `prisma migrate deploy` once 
 3. `link-prescriptions-to-finance.sql` — snapshot consultation fees and link each prescription to one finance transaction
 4. Other files in this folder as documented in each file header
 5. `add-clinic-tasks.sql` — internal task assignments, comments, and activity history
+6. `add-doctor-onboarding-fields.sql` — doctor onboarding data and academic prescription header fields
 
 After applying SQL, always run `npx prisma generate`.

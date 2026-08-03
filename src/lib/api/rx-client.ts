@@ -25,6 +25,8 @@ export type TodayTreatmentSessionDto = {
 
 export type PatientDto = {
   id: number;
+  /** Present only for a patient created locally while offline. */
+  localId?: string;
   name: string;
   gender: "male" | "female";
   birthdate: string | null;
@@ -230,8 +232,12 @@ export type ClinicTaskDetailDto = ClinicTaskDto & {
 export type RecipeSettingsDto = {
   id: number;
   doctorId: number;
+  clinicName: string | null;
   doctorName: string;
   doctorSpecialty: string;
+  professionalTitle: string | null;
+  licenseNumber: string | null;
+  services: string | null;
   additionalText1: string | null;
   phoneNumber: string | null;
   email: string | null;
@@ -711,6 +717,26 @@ export const rxApi = {
     createInvite: () =>
       handleResponse<{ invite: { id: number; code: string } }>(
         fetch("/api/settings/secretary-invites", { method: "POST" })
+      ),
+    requestAccountDeletionOtp: () =>
+      handleResponse<{
+        sent: true;
+        maskedPhone: string;
+        expiresAt?: string;
+        developmentCode?: string;
+      }>(fetch("/api/settings/account-deletion", { method: "POST" })),
+    deleteAccount: (body: {
+      acknowledgeDataLoss: true;
+      acknowledgeIrreversible: true;
+      confirmationPhrase: string;
+      otpCode: string;
+    }) =>
+      handleResponse<{ deleted: true }>(
+        fetch("/api/settings/account-deletion", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
       ),
   },
   prescriptions: {

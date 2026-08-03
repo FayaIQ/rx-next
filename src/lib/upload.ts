@@ -30,6 +30,18 @@ function uploadDir(doctorId: number, kind: UploadKind): string {
   return path.join(getUploadRoot(), String(doctorId), kind);
 }
 
+/** Optimize uploads without destroying the alpha channel of transparent PNGs. */
+export async function optimizeUploadedImage(
+  buffer: Buffer,
+  maxWidth = 1200
+): Promise<Buffer> {
+  return sharp(buffer)
+    .rotate()
+    .resize({ width: maxWidth, withoutEnlargement: true })
+    .webp({ quality: 88, alphaQuality: 100, effort: 4 })
+    .toBuffer();
+}
+
 export async function saveUploadedImage(
   file: File,
   doctorId: number,
@@ -44,13 +56,9 @@ export async function saveUploadedImage(
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const processed = await sharp(buffer)
-    .rotate()
-    .resize({ width: maxWidth, withoutEnlargement: true })
-    .jpeg({ quality: 85 })
-    .toBuffer();
+  const processed = await optimizeUploadedImage(buffer, maxWidth);
 
-  const filename = `${randomUUID()}.jpg`;
+  const filename = `${randomUUID()}.webp`;
   const storedPath = `/uploads/${doctorId}/${kind}/${filename}`;
 
   if (isS3Configured()) {
@@ -59,7 +67,7 @@ export async function saveUploadedImage(
     await uploadToS3({
       key,
       body: processed,
-      contentType: "image/jpeg",
+      contentType: "image/webp",
     });
     return storedPath;
   }

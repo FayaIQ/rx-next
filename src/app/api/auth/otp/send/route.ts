@@ -9,6 +9,7 @@ import {
 import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
 import { getPhoneLookupVariants } from "@/lib/patient-utils";
 import { prisma } from "@/lib/prisma";
+import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
 
 const CAPTCHA_PROOF_TTL_MS = 15 * 60 * 1000;
 
@@ -25,6 +26,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const data = schema.parse(body);
+
+    if (isDevTestDoctorPhone(data.phone)) {
+      return apiOk({ enabled: false, testDoctor: true });
+    }
 
     // No key configured → tell the client to use the password-only flow.
     if (!isOtpEnabled()) {

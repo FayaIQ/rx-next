@@ -369,8 +369,13 @@ model PrescriptionFieldValue {
 model RecipeSettings {
   id                      BigInt    @id @default(autoincrement())
   doctorId                BigInt    @map("doctor_id")
+  clinicName              String?   @map("clinic_name") @db.VarChar(255)
   doctorName              String    @map("doctor_name") @db.VarChar(255)
   doctorSpecialty         String    @map("doctor_specialty") @db.VarChar(255)
+  professionalTitle       String?   @map("professional_title") @db.VarChar(255)
+  licenseNumber           String?   @map("license_number") @db.VarChar(255)
+  services                String?
+  onboardingCompleted     Boolean   @default(true) @map("onboarding_completed")
   additionalText1         String?   @map("additional_text_1")
   phoneNumber             String?   @map("phone_number") @db.VarChar(255)
   email                   String?   @db.VarChar(255)

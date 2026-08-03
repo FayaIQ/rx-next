@@ -1,6 +1,8 @@
 /** Subtle system credit on printed / previewed prescriptions. */
 import { FAYA_DEV_URL } from "@/components/faya-dev-link";
 
+export const RX_CLINIC_URL = "https://rx.faya.dev";
+
 export function PrescriptionSystemCredit({
   color,
 }: {
@@ -17,15 +19,23 @@ export function PrescriptionSystemCredit({
           color: color ? `${color}55` : "rgba(15, 23, 42, 0.28)",
         }}
       >
+        <span>RX Clinic · </span>
+        <a
+          href={RX_CLINIC_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pointer-events-auto font-medium underline-offset-2 hover:underline"
+        >
+          rx.faya.dev
+        </a>
+        <span className="mx-1 opacity-60">·</span>
         <a
           href={FAYA_DEV_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="pointer-events-auto font-medium underline-offset-2 hover:underline"
         >
-          <span>rx.faya.dev</span>
-          <span className="mx-1 opacity-60">by</span>
-          <span>Faya Dev</span>
+          Faya Dev
         </a>
       </p>
     </footer>
@@ -33,7 +43,7 @@ export function PrescriptionSystemCredit({
 }
 
 export function prescriptionSystemCreditHtml(color: string): string {
-  return `<footer class="rx-credit" style="color:${color}55" aria-label="RX Clinic"><a href="${FAYA_DEV_URL}" target="_blank" rel="noopener noreferrer"><span class="rx-credit-site">rx.faya.dev</span><span class="rx-credit-by"> by </span><span>Faya Dev</span></a></footer>`;
+  return `<footer class="rx-credit" style="color:${color}55" aria-label="RX Clinic"><span>RX Clinic · </span><a class="rx-credit-site" href="${RX_CLINIC_URL}" target="_blank" rel="noopener noreferrer">rx.faya.dev</a><span class="rx-credit-by"> · </span><a href="${FAYA_DEV_URL}" target="_blank" rel="noopener noreferrer">Faya Dev</a></footer>`;
 }
 
 export const PRESCRIPTION_SYSTEM_CREDIT_STYLES = `

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -31,12 +31,16 @@ import {
   MedicineRowEditor,
   type MedicineRowData,
 } from "@/components/prescription/medicine-row-editor";
-import { PatientForm } from "@/components/patients/patient-form";
+import {
+  PatientForm,
+  type PatientFormHandle,
+} from "@/components/patients/patient-form";
 import {
   fetchPatientsOfflineFirst,
   fetchMedicinesOfflineFirst,
   fetchMedicinePresetsOfflineFirst,
   fetchFinanceSettingsOfflineFirst,
+  cacheFinanceSettingsLocally,
   createPrescriptionOffline,
   updatePrescriptionOffline,
 } from "@/lib/data/offline-api";
@@ -76,6 +80,14 @@ import { formatMoney } from "@/lib/finance/constants";
 import { PrescriptionLivePreview } from "@/components/prescription/prescription-live-preview";
 import { DoctorQueuePanel } from "@/components/waiting-room/doctor-queue-panel";
 import { TodayTreatmentSessionsPanel } from "@/components/treatment/today-sessions-panel";
+import {
+  clearPrescriptionDraft,
+  prescriptionDraftHasContent,
+  readPrescriptionDraft,
+  writePrescriptionDraft,
+  type NewPatientDraft,
+  type PrescriptionComposerDraft,
+} from "@/lib/prescription-draft";
 
 function emptyRow(key = "medicine-row-0"): MedicineRowData {
   return {
@@ -155,7 +167,9 @@ export function PrescriptionComposer() {
   const nextRowKeyRef = useRef(1);
   const diagnosisRef = useRef<HTMLTextAreaElement>(null);
   const composerRootRef = useRef<HTMLDivElement>(null);
-  const pendingPatientSyncRef = useRef<Promise<PatientDto> | null>(null);
+  const patientFormRef = useRef<PatientFormHandle>(null);
+  const draftPersistencePausedRef = useRef(false);
+  const latestDraftRef = useRef<PrescriptionComposerDraft | null>(null);
 
   useFieldsOnlyTab(composerRootRef);
 
@@ -192,9 +206,14 @@ export function PrescriptionComposer() {
   );
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [newPatientInitialName, setNewPatientInitialName] = useState("");
+  const [newPatientDraft, setNewPatientDraft] =
+    useState<NewPatientDraft | null>(null);
   const [diagnosis, setDiagnosis] = useState("");
   const [consultationFee, setConsultationFee] = useState(0);
   const [consultationFeeWaived, setConsultationFeeWaived] = useState(false);
+  const [showConsultationFeeEditor, setShowConsultationFeeEditor] =
+    useState(false);
+  const [consultationFeeDraft, setConsultationFeeDraft] = useState("");
   const [items, setItems] = useState<MedicineRowData[]>([emptyRow()]);
   const [activeMedicineRowKey, setActiveMedicineRowKey] = useState<string | null>(
     null
@@ -207,6 +226,9 @@ export function PrescriptionComposer() {
   const [analysisImage, setAnalysisImage] = useState<string | null>(null);
   const [pendingXray, setPendingXray] = useState<File | null>(null);
   const [pendingAnalysis, setPendingAnalysis] = useState<File | null>(null);
+  const [draftReadyDoctorId, setDraftReadyDoctorId] = useState<number | null>(
+    null
+  );
 
   const { data: patientsData } = useQuery({
     queryKey: ["patients", patientSearch],
@@ -284,7 +306,7 @@ export function PrescriptionComposer() {
   useEffect(() => {
     if (!editId) {
       rxApi.prescriptions.nextNumber().then((d) => {
-        setPrescriptionNumber(d.prescriptionNumber);
+        setPrescriptionNumber((current) => current ?? d.prescriptionNumber);
       });
     }
   }, [editId]);
@@ -343,6 +365,143 @@ export function PrescriptionComposer() {
     enabled: !!preselectPatientId && !editId,
   });
 
+  const doctorId = recipeSettingsData?.settings.doctorId ?? null;
+
+  useEffect(() => {
+    if (!doctorId || draftReadyDoctorId === doctorId) return;
+
+    // An explicit edit URL should load the saved prescription first instead
+    // of replacing it with the general composer draft.
+    if (editId) {
+      if (!editData?.prescription) return;
+      setDraftReadyDoctorId(doctorId);
+      return;
+    }
+
+    // Opening the composer for a specific patient intentionally starts a new
+    // prescription for that patient.
+    if (preselectPatientId) {
+      setDraftReadyDoctorId(doctorId);
+      return;
+    }
+
+    const draft = readPrescriptionDraft(doctorId);
+    if (draft) {
+      setCurrentPrescriptionId(draft.currentPrescriptionId);
+      setPrescriptionNumber(draft.prescriptionNumber);
+      setPrescriptionDate(draft.prescriptionDate);
+      setPatientSearch(draft.patientSearch);
+      setSelectedPatient(draft.selectedPatient);
+      setShowNewPatient(draft.showNewPatient);
+      setNewPatientInitialName(draft.newPatientInitialName);
+      setNewPatientDraft(draft.newPatientDraft);
+      setDiagnosis(draft.diagnosis);
+      setConsultationFee(draft.consultationFee);
+      setConsultationFeeWaived(draft.consultationFeeWaived);
+      setItems(draft.items.length ? draft.items : [emptyRow()]);
+      setFieldValues(draft.fieldValues);
+      setXrayImage(draft.xrayImage);
+      setAnalysisImage(draft.analysisImage);
+
+      const highestRowNumber = draft.items.reduce((highest, item) => {
+        const match = item.key.match(/^medicine-row-(\d+)$/);
+        return match ? Math.max(highest, Number(match[1])) : highest;
+      }, 0);
+      nextRowKeyRef.current = highestRowNumber + 1;
+      toast.info(t("composer.draftRestored"));
+    }
+
+    draftPersistencePausedRef.current = false;
+    setDraftReadyDoctorId(doctorId);
+  }, [
+    doctorId,
+    draftReadyDoctorId,
+    editId,
+    editData,
+    preselectPatientId,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (!doctorId || draftReadyDoctorId !== doctorId) return;
+    if (draftPersistencePausedRef.current) return;
+
+    const draft: PrescriptionComposerDraft = {
+      version: 1,
+      doctorId,
+      savedAt: new Date().toISOString(),
+      currentPrescriptionId,
+      prescriptionNumber,
+      prescriptionDate,
+      patientSearch,
+      selectedPatient,
+      showNewPatient,
+      newPatientInitialName,
+      newPatientDraft,
+      diagnosis,
+      consultationFee,
+      consultationFeeWaived,
+      items,
+      fieldValues,
+      xrayImage,
+      analysisImage,
+    };
+    latestDraftRef.current = draft;
+
+    const timer = window.setTimeout(() => {
+      if (prescriptionDraftHasContent(draft)) {
+        writePrescriptionDraft(draft);
+      } else {
+        clearPrescriptionDraft(doctorId);
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    doctorId,
+    draftReadyDoctorId,
+    currentPrescriptionId,
+    prescriptionNumber,
+    prescriptionDate,
+    patientSearch,
+    selectedPatient,
+    showNewPatient,
+    newPatientInitialName,
+    newPatientDraft,
+    diagnosis,
+    consultationFee,
+    consultationFeeWaived,
+    items,
+    fieldValues,
+    xrayImage,
+    analysisImage,
+  ]);
+
+  useEffect(() => {
+    if (!doctorId || draftReadyDoctorId !== doctorId) return;
+
+    const persistLatestDraft = () => {
+      const draft = latestDraftRef.current;
+      if (!draft || draftPersistencePausedRef.current) return;
+      if (prescriptionDraftHasContent(draft)) {
+        writePrescriptionDraft(draft);
+      } else {
+        clearPrescriptionDraft(doctorId);
+      }
+    };
+
+    window.addEventListener("pagehide", persistLatestDraft);
+    return () => {
+      window.removeEventListener("pagehide", persistLatestDraft);
+      persistLatestDraft();
+    };
+  }, [doctorId, draftReadyDoctorId]);
+
+  const handleNewPatientDraftChange = useCallback(
+    (draft: NewPatientDraft) => setNewPatientDraft(draft),
+    [setNewPatientDraft]
+  );
+
   const personalFields = useMemo(
     () => activePersonalFields(fieldsData),
     [fieldsData]
@@ -364,21 +523,40 @@ export function PrescriptionComposer() {
     return map;
   }, [personalFields]);
 
+  const saveConsultationFeeMutation = useMutation({
+    mutationFn: async () => {
+      const amount = Number(consultationFeeDraft);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error(t("composer.consultationFeeRequired"));
+      }
+      if (!financeSettingsData) {
+        throw new Error(t("composer.consultationFeeLoadError"));
+      }
+
+      return rxApi.finances.saveSettings({
+        consultationFee: amount,
+        followUpFee: financeSettingsData.followUpFee,
+        procedureFee: financeSettingsData.procedureFee,
+        currency: financeSettingsData.currency,
+      });
+    },
+    onSuccess: ({ settings }) => {
+      setConsultationFee(settings.consultationFee);
+      setConsultationFeeDraft("");
+      setShowConsultationFeeEditor(false);
+      cacheFinanceSettingsLocally(settings);
+      queryClient.setQueryData(
+        ["finance-settings", "prescription-snapshot"],
+        settings
+      );
+      void queryClient.invalidateQueries({ queryKey: ["finance-settings"] });
+      toast.success(t("composer.consultationFeeSaved"));
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const saveMutation = useMutation({
     mutationFn: async (action: "save" | "save_and_print") => {
-      if (!selectedPatient) throw new Error(t("composer.selectPatient"));
-
-      let patientId = selectedPatient.id;
-      if (!patientId && pendingPatientSyncRef.current) {
-        const synced = await pendingPatientSyncRef.current;
-        patientId = synced.id;
-        setSelectedPatient(synced);
-        setPatientSearch(synced.name);
-      }
-      if (!patientId) {
-        throw new Error(t("composer.savingPatient"));
-      }
-
       const savedItems = items
         .filter((i) => i.name.trim())
         .map((i) => ({
@@ -390,8 +568,25 @@ export function PrescriptionComposer() {
           period: i.period || null,
           timeOfUse: i.timeOfUse || null,
         }));
+      if (savedItems.length === 0) {
+        throw new Error(t("composer.addOneMedicine"));
+      }
+
+      let patient = selectedPatient;
+      if (!patient && showNewPatient) {
+        patient = (await patientFormRef.current?.submit()) ?? null;
+      }
+      if (!patient) throw new Error(t("composer.selectPatient"));
+
+      const patientId = patient.id;
+      const patientLocalId = patient.localId;
+      if (!patientId && !patientLocalId) {
+        throw new Error(t("composer.savingPatient"));
+      }
+
       const payload = {
         patientId,
+        patientLocalId,
         prescriptionDate: new Date(prescriptionDate).toISOString(),
         diagnosis: diagnosis || null,
         // The fee itself is snapshotted server-side from clinic settings at
@@ -405,10 +600,6 @@ export function PrescriptionComposer() {
             value,
           })),
       };
-
-      if (payload.items.length === 0) {
-        throw new Error(t("composer.addOneMedicine"));
-      }
 
       const result = currentPrescriptionId
         ? await updatePrescriptionOffline(currentPrescriptionId, payload)
@@ -429,6 +620,9 @@ export function PrescriptionComposer() {
       xrayFile,
       analysisFile,
     }) => {
+      if (doctorId) clearPrescriptionDraft(doctorId);
+      draftPersistencePausedRef.current = true;
+      latestDraftRef.current = null;
       const rx = result.prescription as {
         id: number;
         prescriptionNumber?: number | null;
@@ -508,6 +702,7 @@ export function PrescriptionComposer() {
     setPatientSearch(patient.name);
     setShowNewPatient(false);
     setNewPatientInitialName("");
+    setNewPatientDraft(null);
     if (patient.diagnosis) {
       toast.info(t("composer.lastDiagnosis", { diagnosis: patient.diagnosis }), { duration: 4000 });
     }
@@ -533,6 +728,7 @@ export function PrescriptionComposer() {
     if (!trimmed) return;
     setSelectedPatient(null);
     setNewPatientInitialName(trimmed);
+    setNewPatientDraft(null);
     setShowNewPatient(true);
     toast.info(t("composer.newPatientHint"));
   }
@@ -557,12 +753,17 @@ export function PrescriptionComposer() {
   }
 
   function resetComposer() {
+    if (doctorId) clearPrescriptionDraft(doctorId);
+    draftPersistencePausedRef.current = true;
+    latestDraftRef.current = null;
     setCurrentPrescriptionId(null);
     setSelectedPatient(null);
     setPatientSearch("");
     setDiagnosis("");
     setConsultationFee(financeSettingsData?.consultationFee ?? 0);
     setConsultationFeeWaived(false);
+    setShowConsultationFeeEditor(false);
+    setConsultationFeeDraft("");
     nextRowKeyRef.current = 1;
     setItems([emptyRow()]);
     setFieldValues({});
@@ -573,7 +774,7 @@ export function PrescriptionComposer() {
     setPrescriptionDate(toDateInputValue(new Date()));
     setShowNewPatient(false);
     setNewPatientInitialName("");
-    pendingPatientSyncRef.current = null;
+    setNewPatientDraft(null);
     setActiveMedicineRowKey(null);
     router.replace("/home");
     rxApi.prescriptions.nextNumber().then((d) => {
@@ -729,67 +930,102 @@ export function PrescriptionComposer() {
   );
 
   return (
-    <div ref={composerRootRef}>
+    <div
+      ref={composerRootRef}
+      onInputCapture={() => {
+        draftPersistencePausedRef.current = false;
+      }}
+      onPointerDownCapture={() => {
+        draftPersistencePausedRef.current = false;
+      }}
+    >
       <AppHeader
         title={t("home.title")}
         subtitle={editId ? t("home.editSubtitle") : t("home.subtitle")}
-        meta={
-          <span className="hidden text-xs text-rx-muted sm:inline">
-            <span className="font-mono font-medium text-rx-text">
-              #{prescriptionNumber ?? "—"}
-            </span>
-            <span className="mx-1.5 opacity-50">·</span>
-            {formatPrescriptionDateTime(prescriptionDate, locale)}
-          </span>
-        }
-        actions={
-          <>
+      />
+
+      <section
+        aria-label={t("composer.actionsTitle")}
+        className="sticky top-[var(--rx-header-height)] z-20 border-b border-rx-border bg-rx-surface/95 shadow-[0_8px_20px_-18px_rgba(15,23,42,0.7)] backdrop-blur-sm"
+      >
+        <div className="flex min-h-[4.5rem] items-center justify-between gap-3 px-3 py-2 lg:px-6">
+          <div className="hidden min-w-0 sm:block">
+            <p className="text-sm font-bold text-rx-text">
+              {t("composer.actionsTitle")}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-rx-muted">
+              <span className="font-mono font-semibold text-rx-text">
+                #{prescriptionNumber ?? "—"}
+              </span>
+              <span className="mx-1.5 opacity-50">·</span>
+              {formatPrescriptionDateTime(prescriptionDate, locale)}
+            </p>
+          </div>
+
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none">
+            <div className="hidden items-center gap-1.5 md:flex">
+              {currentPrescriptionId && (
+                <Button size="sm" variant="ghost" asChild>
+                  <Link href={`/prescriptions/${currentPrescriptionId}/preview`}>
+                    <FileText size={15} />
+                    {t("composer.preview")}
+                  </Link>
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={resetComposer}>
+                <RotateCcw size={15} />
+                {t("composer.newPrescription")}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                asChild
+                title={t("composer.prescriptionsLog")}
+              >
+                <Link href="/prescriptions" aria-label={t("composer.prescriptionsLog")}>
+                  <FileText size={16} />
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                asChild
+                title={t("composer.prescriptionSettings")}
+              >
+                <Link href="/recipe-settings" aria-label={t("composer.prescriptionSettings")}>
+                  <Settings size={16} />
+                </Link>
+              </Button>
+            </div>
+
+            <span className="hidden h-8 w-px bg-rx-border md:block" />
+
             <Button
-              size="sm"
-              tabIndex={-1}
+              className="min-w-0 flex-1 px-4 shadow-sm sm:min-w-28 sm:flex-none"
               onClick={() => saveMutation.mutate("save")}
               disabled={saveMutation.isPending}
             >
-              <Save size={14} />
-              {t("composer.save")}
+              <Save size={17} />
+              {saveMutation.isPending && saveMutation.variables === "save"
+                ? t("common.saving")
+                : t("composer.save")}
             </Button>
             <Button
-              size="sm"
+              className="min-w-0 flex-1 border-rx-primary/35 bg-rx-primary/5 px-4 text-rx-primary shadow-sm hover:bg-rx-primary/10 sm:min-w-36 sm:flex-none"
               variant="outline"
-              tabIndex={-1}
               onClick={() => saveMutation.mutate("save_and_print")}
               disabled={saveMutation.isPending}
             >
-              <Printer size={14} />
-              {t("composer.print")}
+              <Printer size={17} />
+              {saveMutation.isPending &&
+              saveMutation.variables === "save_and_print"
+                ? t("common.saving")
+                : t("composer.saveAndPrint")}
             </Button>
-            {currentPrescriptionId && (
-              <Button size="sm" variant="outline" asChild>
-                <Link
-                  tabIndex={-1}
-                  href={`/prescriptions/${currentPrescriptionId}/preview`}
-                >
-                  {t("composer.preview")}
-                </Link>
-              </Button>
-            )}
-            <Button size="sm" variant="ghost" tabIndex={-1} onClick={resetComposer}>
-              <RotateCcw size={14} />
-            </Button>
-            <span className="hidden h-4 w-px bg-rx-border lg:inline" />
-            <Button variant="ghost" size="sm" asChild className="hidden lg:inline-flex">
-              <Link tabIndex={-1} href="/prescriptions">
-                <FileText size={14} />
-              </Link>
-            </Button>
-            <Button variant="ghost" size="sm" asChild className="hidden lg:inline-flex">
-              <Link tabIndex={-1} href="/recipe-settings">
-                <Settings size={14} />
-              </Link>
-            </Button>
-          </>
-        }
-      />
+          </div>
+        </div>
+      </section>
+
       <PageContent wide className="px-3 py-2 pb-3 lg:px-4">
         <div className="grid gap-4 xl:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] xl:items-start">
           <div className="min-w-0 space-y-4 xl:col-start-2">
@@ -829,6 +1065,7 @@ export function PrescriptionComposer() {
                         if (showNewPatient) {
                           setShowNewPatient(false);
                           setNewPatientInitialName("");
+                          setNewPatientDraft(null);
                         }
                       }}
                       onKeyDown={(e) => {
@@ -845,6 +1082,7 @@ export function PrescriptionComposer() {
                     tabIndex={-1}
                     onClick={() => {
                       setNewPatientInitialName(patientSearch.trim());
+                      setNewPatientDraft(null);
                       setShowNewPatient(true);
                     }}
                   >
@@ -888,28 +1126,22 @@ export function PrescriptionComposer() {
                 {showNewPatient && (
                   <div className="rounded-lg border border-rx-border/60 bg-rx-bg-subtle/40 p-3">
                     <PatientForm
+                      ref={patientFormRef}
                       key={newPatientInitialName || "new-patient"}
                       compact={false}
+                      embedded
                       initialName={newPatientInitialName}
+                      initialDraft={newPatientDraft}
+                      onDraftChange={handleNewPatientDraftChange}
                       autoFocusField={newPatientAutoFocus}
                       fieldVisibility={patientFieldVisibility}
                       onSuccess={(p) => {
                         selectPatient(p, { focusDiagnosis: true });
                       }}
-                      onSyncStart={(promise) => {
-                        pendingPatientSyncRef.current = promise;
-                      }}
-                      onPatientSynced={(real) => {
-                        pendingPatientSyncRef.current = null;
-                        setSelectedPatient(real);
-                        setPatientSearch(real.name);
-                      }}
-                      onCancel={() => {
-                        pendingPatientSyncRef.current = null;
-                        setShowNewPatient(false);
-                        setNewPatientInitialName("");
-                      }}
                     />
+                    <p className="mt-3 rounded-md bg-cyan-50 px-3 py-2 text-xs font-medium text-cyan-800">
+                      {t("composer.patientAutoSaveHint")}
+                    </p>
                   </div>
                 )}
 
@@ -993,19 +1225,107 @@ export function PrescriptionComposer() {
                   <p className="text-sm font-semibold text-rx-text">
                     {t("composer.consultationFee")}
                   </p>
-                  <span className="rounded-full bg-rx-surface px-3 py-1.5 text-sm font-bold text-rx-primary ring-1 ring-rx-border">
-                    {consultationFeeWaived
-                      ? t("composer.freeConsultation")
-                      : formatMoney(consultationFee, "IQD", locale)}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1.5 text-sm font-bold ring-1 ${
+                        !consultationFeeWaived &&
+                        financeSettingsData &&
+                        consultationFee <= 0
+                          ? "bg-amber-50 text-amber-800 ring-amber-200"
+                          : "bg-rx-surface text-rx-primary ring-rx-border"
+                      }`}
+                    >
+                      {consultationFeeWaived
+                        ? t("composer.freeConsultation")
+                        : !financeSettingsData
+                          ? "…"
+                          : consultationFee > 0
+                            ? formatMoney(consultationFee, "IQD", locale)
+                            : t("composer.noConsultationFee")}
+                    </span>
+                    {!consultationFeeWaived &&
+                      financeSettingsData &&
+                      consultationFee <= 0 &&
+                      !showConsultationFeeEditor && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            setConsultationFeeDraft("");
+                            setShowConsultationFeeEditor(true);
+                          }}
+                        >
+                          <Plus size={14} />
+                          {t("composer.enterConsultationFee")}
+                        </Button>
+                      )}
+                  </div>
                 </div>
+
+                {showConsultationFeeEditor && !consultationFeeWaived && (
+                  <form
+                    className="mt-3 flex flex-col gap-2 rounded-lg border border-rx-primary/20 bg-rx-surface p-3 sm:flex-row sm:items-end"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      saveConsultationFeeMutation.mutate();
+                    }}
+                  >
+                    <label className="min-w-0 flex-1 space-y-1.5">
+                      <span className="block text-xs font-semibold text-rx-text">
+                        {t("composer.consultationFeeAmount")}
+                      </span>
+                      <Input
+                        autoFocus
+                        type="number"
+                        min={1}
+                        step={1}
+                        inputMode="numeric"
+                        dir="ltr"
+                        value={consultationFeeDraft}
+                        onChange={(event) =>
+                          setConsultationFeeDraft(event.target.value)
+                        }
+                        placeholder="25000"
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={saveConsultationFeeMutation.isPending}
+                      >
+                        <Save size={14} />
+                        {saveConsultationFeeMutation.isPending
+                          ? t("common.saving")
+                          : t("common.save")}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={saveConsultationFeeMutation.isPending}
+                        onClick={() => {
+                          setConsultationFeeDraft("");
+                          setShowConsultationFeeEditor(false);
+                        }}
+                      >
+                        {t("common.cancel")}
+                      </Button>
+                    </div>
+                  </form>
+                )}
                 <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-lg bg-rx-surface px-3 py-2.5 text-sm font-medium text-rx-text ring-1 ring-rx-border/70">
                   <input
                     type="checkbox"
                     checked={consultationFeeWaived}
-                    onChange={(event) =>
-                      setConsultationFeeWaived(event.target.checked)
-                    }
+                    onChange={(event) => {
+                      const waived = event.target.checked;
+                      setConsultationFeeWaived(waived);
+                      if (waived) {
+                        setShowConsultationFeeEditor(false);
+                        setConsultationFeeDraft("");
+                      }
+                    }}
                     className="size-4 accent-rx-primary"
                   />
                   {t("composer.waiveConsultationFee")}
@@ -1082,7 +1402,7 @@ export function PrescriptionComposer() {
           </div>
 
           {livePreviewData ? (
-            <aside className="min-h-0 xl:sticky xl:col-start-1 xl:row-start-1 xl:self-start xl:top-[calc(var(--rx-header-height)+0.5rem)]">
+            <aside className="min-h-0 xl:sticky xl:col-start-1 xl:row-start-1 xl:self-start xl:top-[calc(var(--rx-header-height)+5rem)]">
               <PrescriptionLivePreview
                 data={livePreviewData}
                 className="w-full"

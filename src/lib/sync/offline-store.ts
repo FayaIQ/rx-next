@@ -581,6 +581,7 @@ export function localPatientToDto(
   const visits = localPatientVisitStats(p, prescriptions);
   return {
     id: p.serverId ?? 0,
+    localId: p.serverId == null ? p.id : undefined,
     name: p.name,
     gender: p.gender,
     birthdate: p.birthdate ?? null,

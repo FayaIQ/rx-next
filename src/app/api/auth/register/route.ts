@@ -4,6 +4,7 @@ import { fromDbId } from "@/lib/bigint";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
 import { isOtpEnabled, verifyOtpToken } from "@/lib/otp";
 import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
+import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
 
 const schema = z.object({
   name: z.string().min(2, "الاسم مطلوب"),
@@ -20,13 +21,15 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const data = schema.parse(body);
+    const isDevTestDoctor = isDevTestDoctorPhone(data.phone);
 
-    if (isOtpEnabled()) {
+    if (isOtpEnabled() && !isDevTestDoctor) {
       if (!(await verifyOtpToken(data.phone, data.otpToken))) {
         return apiError("يجب التحقق من رقم الهاتف أولاً", 401);
       }
     } else if (
       isTurnstileEnabled() &&
+      !isDevTestDoctor &&
       !(await verifyTurnstileToken(data.turnstileToken))
     ) {
       // Password-only flow — the captcha token wasn't consumed by /otp/send.

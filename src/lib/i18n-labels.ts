@@ -36,6 +36,7 @@ const RECIPE_TEMPLATE_KEYS: Record<
   string,
   { name: string; desc: string }
 > = {
+  academic: { name: "recipe.tplAcademic", desc: "recipe.tplAcademicDesc" },
   classic: { name: "recipe.tplClassic", desc: "recipe.tplClassicDesc" },
   modern: { name: "recipe.tplModern", desc: "recipe.tplModernDesc" },
   elegant: { name: "recipe.tplElegant", desc: "recipe.tplElegantDesc" },

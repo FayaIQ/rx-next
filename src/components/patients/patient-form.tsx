@@ -15,7 +15,6 @@ import { useLocale } from "@/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { createPatientOffline, updatePatientOffline } from "@/lib/data/offline-api";
 import {
   birthdateToFormInput,
@@ -38,6 +37,7 @@ import {
 } from "@/components/patients/patient-dynamic-fields";
 import { usePatientFields } from "@/hooks/use-patient-fields";
 import { activePersonalFields } from "@/lib/patient-field-display";
+import type { NewPatientDraft } from "@/lib/prescription-draft";
 
 type FocusField = CoreFocusField;
 
@@ -53,6 +53,8 @@ interface PatientFormProps {
   compact?: boolean;
   /** داخل نموذج آخر — يمنع form متداخل */
   embedded?: boolean;
+  initialDraft?: NewPatientDraft | null;
+  onDraftChange?: (draft: NewPatientDraft) => void;
 }
 
 export type PatientFormHandle = {
@@ -72,6 +74,8 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
       onCancel,
       compact,
       embedded = false,
+      initialDraft,
+      onDraftChange,
     },
     ref
   ) {
@@ -81,18 +85,28 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
   const genderRef = useRef<HTMLSelectElement>(null);
   const ageRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState(patient?.name ?? initialName ?? "");
+  const submitPromiseRef = useRef<Promise<PatientDto | null> | null>(null);
+  const initialDraftRef = useRef(initialDraft);
+  const [name, setName] = useState(
+    patient?.name ?? initialDraft?.name ?? initialName ?? ""
+  );
   const [gender, setGender] = useState<"male" | "female">(
-    patient?.gender ?? "male"
+    patient?.gender ?? initialDraft?.gender ?? "male"
   );
   const [birthdateInput, setBirthdateInput] = useState(() =>
-    birthdateToFormInput(patient?.birthdate)
+    patient
+      ? birthdateToFormInput(patient.birthdate)
+      : initialDraft?.birthdateInput ?? ""
   );
-  const [phone, setPhone] = useState(patient?.phone ?? "");
-  const [diagnosis, setDiagnosis] = useState(patient?.diagnosis ?? "");
-  const [allergies, setAllergies] = useState(patient?.allergies ?? "");
+  const [phone, setPhone] = useState(patient?.phone ?? initialDraft?.phone ?? "");
+  const [diagnosis, setDiagnosis] = useState(
+    patient?.diagnosis ?? initialDraft?.diagnosis ?? ""
+  );
+  const [allergies, setAllergies] = useState(
+    patient?.allergies ?? initialDraft?.allergies ?? ""
+  );
   const [currentMedications, setCurrentMedications] = useState(
-    patient?.currentMedications ?? ""
+    patient?.currentMedications ?? initialDraft?.currentMedications ?? ""
   );
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [phoneDuplicateHint, setPhoneDuplicateHint] = useState<string | null>(
@@ -104,7 +118,11 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
   const [isSaving, setIsSaving] = useState(false);
   const [dynamicFieldValues, setDynamicFieldValues] = useState<
     Record<number, string>
-  >(() => recordFromPatientFieldValues(patient?.fieldValues));
+  >(() =>
+    patient
+      ? recordFromPatientFieldValues(patient.fieldValues)
+      : initialDraft?.dynamicFieldValues ?? {}
+  );
 
   const { data: fieldsData } = usePatientFields();
 
@@ -114,18 +132,54 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
   );
 
   useEffect(() => {
-    setName(patient?.name ?? initialName ?? "");
-    setGender(patient?.gender ?? "male");
-    setBirthdateInput(birthdateToFormInput(patient?.birthdate));
-    setPhone(patient?.phone ?? "");
-    setDiagnosis(patient?.diagnosis ?? "");
-    setAllergies(patient?.allergies ?? "");
-    setCurrentMedications(patient?.currentMedications ?? "");
-    setDynamicFieldValues(recordFromPatientFieldValues(patient?.fieldValues));
+    const draft = initialDraftRef.current;
+    setName(patient?.name ?? draft?.name ?? initialName ?? "");
+    setGender(patient?.gender ?? draft?.gender ?? "male");
+    setBirthdateInput(
+      patient
+        ? birthdateToFormInput(patient.birthdate)
+        : draft?.birthdateInput ?? ""
+    );
+    setPhone(patient?.phone ?? draft?.phone ?? "");
+    setDiagnosis(patient?.diagnosis ?? draft?.diagnosis ?? "");
+    setAllergies(patient?.allergies ?? draft?.allergies ?? "");
+    setCurrentMedications(
+      patient?.currentMedications ?? draft?.currentMedications ?? ""
+    );
+    setDynamicFieldValues(
+      patient
+        ? recordFromPatientFieldValues(patient.fieldValues)
+        : draft?.dynamicFieldValues ?? {}
+    );
     setPhoneError(null);
     setPhoneDuplicateHint(null);
     setPhoneDuplicateName(null);
   }, [patient, initialName]);
+
+  useEffect(() => {
+    if (patient || !onDraftChange) return;
+    onDraftChange({
+      name,
+      gender,
+      birthdateInput,
+      phone,
+      diagnosis,
+      allergies,
+      currentMedications,
+      dynamicFieldValues,
+    });
+  }, [
+    patient,
+    onDraftChange,
+    name,
+    gender,
+    birthdateInput,
+    phone,
+    diagnosis,
+    allergies,
+    currentMedications,
+    dynamicFieldValues,
+  ]);
 
   const visibility = useMemo(
     () => ({
@@ -230,7 +284,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
     void checkPhoneDuplicate(phone);
   }, [phone, validatePhone, checkPhoneDuplicate]);
 
-  async function submitPatient(options?: { quiet?: boolean }): Promise<PatientDto | null> {
+  async function submitPatientOnce(options?: { quiet?: boolean }): Promise<PatientDto | null> {
     if (!name.trim()) {
       toast.error(t("patients.formNameRequired"));
       nameRef.current?.focus();
@@ -329,6 +383,20 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function submitPatient(options?: {
+    quiet?: boolean;
+  }): Promise<PatientDto | null> {
+    if (submitPromiseRef.current) return submitPromiseRef.current;
+
+    const request = submitPatientOnce(options).finally(() => {
+      if (submitPromiseRef.current === request) {
+        submitPromiseRef.current = null;
+      }
+    });
+    submitPromiseRef.current = request;
+    return request;
   }
 
   function finishPatientSave(
@@ -481,37 +549,6 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
             <p className="text-xs text-amber-700">{phoneDuplicateHint}</p>
           )}
         </div>
-      )}
-      {!compact && (
-        <div className="space-y-2 sm:col-span-2">
-          <Label>{t("patients.diagnosis")}</Label>
-          <Textarea
-            value={diagnosis}
-            onChange={(e) => setDiagnosis(e.target.value)}
-          />
-        </div>
-      )}
-      {!compact && (
-        <>
-          <div className="space-y-2 sm:col-span-2">
-            <Label>{t("patients.allergies")}</Label>
-            <Textarea
-              value={allergies}
-              onChange={(e) => setAllergies(e.target.value)}
-              placeholder={t("patients.formAllergiesPlaceholder")}
-              rows={2}
-            />
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label>{t("patients.formCurrentMeds")}</Label>
-            <Textarea
-              value={currentMedications}
-              onChange={(e) => setCurrentMedications(e.target.value)}
-              placeholder={t("patients.formCurrentMedsPlaceholder")}
-              rows={2}
-            />
-          </div>
-        </>
       )}
       {personalFields.length > 0 && (
         <div className={compact ? "sm:col-span-2" : "sm:col-span-2"}>

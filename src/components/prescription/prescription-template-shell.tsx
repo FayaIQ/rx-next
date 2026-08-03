@@ -75,6 +75,119 @@ function DoctorBlock({
   );
 }
 
+function AcademicShell({ settings, logoUrl }: Props) {
+  const { t } = useLocale();
+  const color = settings.color;
+  const services = settings.services
+    ?.split(/\r?\n/)
+    .map((service) => service.trim())
+    .filter(Boolean)
+    .slice(0, 5)
+    .join(" • ");
+  const contact = [settings.phoneNumber, settings.address || settings.email]
+    .filter(Boolean)
+    .join(" • ");
+
+  return (
+    <>
+      <div
+        className="absolute inset-x-0 top-0 h-[0.65%]"
+        style={{ background: `linear-gradient(90deg, #1e293b, ${color})` }}
+      />
+
+      {logoUrl && (
+        <div className="absolute left-[7%] top-[4.6%] flex h-[10%] w-[14%] items-center justify-center rounded-[10px] border border-slate-300 bg-white p-2 shadow-sm">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={logoUrl}
+            alt={t("home.logoAlt")}
+            className="max-h-full max-w-full object-contain"
+          />
+        </div>
+      )}
+
+      <header className="absolute left-[22%] right-[8%] top-[2.6%] text-center">
+        <p className="truncate text-[0.86em] font-extrabold" style={{ color }}>
+          {settings.clinicName || "RX Clinic"}
+        </p>
+        <h1 className="mt-0.5 truncate text-[1.5em] font-black leading-[1.12] text-slate-900">
+          {settings.doctorName}
+        </h1>
+        <p className="mt-0.5 truncate text-[0.86em] font-extrabold" style={{ color }}>
+          {settings.doctorSpecialty}
+        </p>
+        {settings.professionalTitle && (
+          <p className="mx-auto mt-0.5 max-w-[94%] truncate text-[0.62em] leading-tight text-slate-600">
+            {settings.professionalTitle}
+          </p>
+        )}
+      </header>
+
+      {settings.licenseNumber && (
+        <div className="absolute left-[22%] right-[8%] top-[15.2%] text-center">
+          <p className="inline-flex max-w-full truncate rounded border border-slate-200 bg-slate-50 px-1.5 py-px text-[0.59em] font-bold leading-tight text-slate-600">
+            {t("recipe.academicLicense")}&nbsp;
+            <span dir="ltr">{settings.licenseNumber}</span>
+          </p>
+        </div>
+      )}
+
+      {services && (
+        <p className="absolute left-[8%] right-[8%] top-[18.5%] truncate text-center text-[0.59em] leading-tight text-slate-500">
+          {services}
+        </p>
+      )}
+
+      <div className="absolute left-[8%] right-[8%] top-[20.8%] h-px bg-slate-300" />
+      <div
+        className="absolute left-[8%] right-[8%] top-[21.5%] h-0.5"
+        style={{ backgroundColor: color }}
+      />
+
+      <div
+        className="absolute left-[8%] right-[8%] top-[23.55%] grid grid-cols-[1.45fr_1fr_1.05fr] gap-[1.8%] text-[0.68em] font-bold text-slate-700"
+        dir="rtl"
+      >
+        <AcademicPatientField label={t("recipe.labelPatient")} />
+        <AcademicPatientField label={t("recipe.labelAgeGender")} />
+        <AcademicPatientField label={t("recipe.labelDate")} />
+      </div>
+      <div className="absolute left-[8%] right-[8%] top-[26.5%] h-px bg-slate-200" />
+      {[43, 56, 69].map((top) => (
+        <div
+          key={top}
+          className="absolute left-[8%] right-[8%] border-b border-dashed border-slate-200"
+          style={{ top: `${top}%` }}
+        />
+      ))}
+
+      {contact && (
+        <footer
+          className="absolute bottom-[4.3%] left-[8%] right-[8%] truncate border-t pt-1 text-center text-[0.63em] leading-tight text-slate-500"
+          style={{ borderColor: color }}
+        >
+          {settings.phoneNumber && (
+            <strong className="text-sky-900" dir="ltr">
+              {settings.phoneNumber}
+            </strong>
+          )}
+          {settings.phoneNumber && (settings.address || settings.email) && " • "}
+          {settings.address || settings.email}
+        </footer>
+      )}
+    </>
+  );
+}
+
+function AcademicPatientField({ label }: { label: string }) {
+  return (
+    <div className="flex min-w-0 items-end gap-1 whitespace-nowrap">
+      <span>{label}:</span>
+      <span className="h-[1em] min-w-0 flex-1 border-b border-dotted border-slate-400" />
+    </div>
+  );
+}
+
 function ClassicShell({ settings, logoUrl }: Props) {
   const color = settings.color;
   return (
@@ -148,7 +261,7 @@ function ElegantShell({ settings, logoUrl }: Props) {
         <div className="mb-2 flex items-center justify-center gap-2">
           <span className="h-px w-8 sm:w-10" style={{ backgroundColor: color }} />
           <span className="text-lg font-bold" style={{ color }}>
-            ℞
+            RX
           </span>
           <span className="h-px w-8 sm:w-10" style={{ backgroundColor: color }} />
         </div>
@@ -213,11 +326,14 @@ function MinimalShell({ settings, logoUrl }: Props) {
 }
 
 export function PrescriptionTemplateShell({ settings, logoUrl, className }: Props) {
-  const templateId = (settings.designTemplate ?? "classic") as RecipeTemplateId;
-  getRecipeTemplate(templateId);
+  const requestedTemplate = (settings.designTemplate ?? "classic") as RecipeTemplateId;
+  const templateId = getRecipeTemplate(requestedTemplate).id;
 
   return (
     <div className={cn("pointer-events-none absolute inset-0 z-[5]", className)}>
+      {templateId === "academic" && (
+        <AcademicShell settings={settings} logoUrl={logoUrl} />
+      )}
       {templateId === "modern" && (
         <ModernShell settings={settings} logoUrl={logoUrl} />
       )}

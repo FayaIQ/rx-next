@@ -20,6 +20,17 @@ export function PositionedPrescriptionBlocks({
   const valueOnlyFields = settings.designMode === "image";
   const usesPublicDemoBackground =
     settings.designImagePath === PUBLIC_DEMO_PRESCRIPTION_BACKGROUND;
+  const usesAcademicTemplate =
+    settings.designMode === "design" &&
+    settings.designTemplate === "academic";
+  const academicCoreValueStyle = {
+    fontSize: "0.76em",
+    fontWeight: 700,
+    lineHeight: 1.2,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    textAlign: "center" as const,
+  };
   const demoValueStyle = usesPublicDemoBackground
     ? {
         backgroundColor: "rgba(255,255,255,0.94)",
@@ -42,6 +53,9 @@ export function PositionedPrescriptionBlocks({
             maxWidth: usesPublicDemoBackground ? "23%" : undefined,
             overflow: usesPublicDemoBackground ? "hidden" : undefined,
             textOverflow: usesPublicDemoBackground ? "ellipsis" : undefined,
+            ...(usesAcademicTemplate
+              ? { width: "21%", ...academicCoreValueStyle }
+              : {}),
             ...demoValueStyle,
           }}
         >
@@ -51,11 +65,18 @@ export function PositionedPrescriptionBlocks({
 
       {(settings.printAge || settings.printGender) && (
         <div
-          className="absolute z-10 flex gap-3 whitespace-nowrap text-[length:inherit]"
+          className="absolute z-10 flex gap-2 whitespace-nowrap text-[length:inherit]"
           style={{
             left: `${settings.designAgeX}%`,
             top: `${settings.designAgeY}%`,
             transform: "translate(-50%, -50%)",
+            ...(usesAcademicTemplate
+              ? {
+                  width: "11%",
+                  justifyContent: "center",
+                  ...academicCoreValueStyle,
+                }
+              : {}),
             ...demoValueStyle,
           }}
         >
@@ -86,10 +107,14 @@ export function PositionedPrescriptionBlocks({
 
       <div
         className="absolute z-10 whitespace-nowrap text-[length:inherit]"
+        dir="ltr"
         style={{
           left: `${settings.designDateX}%`,
           top: `${settings.designDateY}%`,
           transform: "translate(-50%, -50%)",
+          ...(usesAcademicTemplate
+            ? { width: "15%", ...academicCoreValueStyle }
+            : {}),
           ...demoValueStyle,
         }}
       >

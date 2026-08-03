@@ -3,8 +3,13 @@ import {
   DEFAULT_ITEMS_BOX_HEIGHT,
   DEFAULT_ITEMS_BOX_WIDTH,
 } from "@/components/recipe/prescription-items-box";
+import {
+  ACADEMIC_RECIPE_TEMPLATE_DEFAULTS,
+  ACADEMIC_RECIPE_TEMPLATE_ID,
+} from "@/lib/academic-recipe-template";
 
 export const RECIPE_TEMPLATE_IDS = [
+  ACADEMIC_RECIPE_TEMPLATE_ID,
   "classic",
   "modern",
   "elegant",
@@ -38,6 +43,27 @@ export type RecipeTemplateDefinition = {
 };
 
 export const RECIPE_TEMPLATES: RecipeTemplateDefinition[] = [
+  {
+    id: ACADEMIC_RECIPE_TEMPLATE_ID,
+    name: "أكاديمي",
+    description: "القالب الرسمي الافتراضي للطبيب والعيادة",
+    swatch: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.color,
+    defaults: {
+      color: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.color,
+      designPatientX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designPatientX,
+      designPatientY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designPatientY,
+      designAgeX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designAgeX,
+      designAgeY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designAgeY,
+      designDateX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designDateX,
+      designDateY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designDateY,
+      designPhoneX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designPhoneX,
+      designPhoneY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designPhoneY,
+      designItemsX: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsX,
+      designItemsY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsY,
+      designItemsWidth: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsWidth,
+      designItemsHeight: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsHeight,
+    },
+  },
   {
     id: "classic",
     name: "كلاسيكي",
@@ -166,6 +192,12 @@ export function applyRecipeTemplate(
     designMode: "design",
     designTemplate: templateId,
     ...template.defaults,
+    ...(templateId === ACADEMIC_RECIPE_TEMPLATE_ID
+      ? {
+          paperSize: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.paperSize,
+          fontSize: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.fontSize,
+        }
+      : {}),
     designItemsWidth:
       template.defaults.designItemsWidth ?? DEFAULT_ITEMS_BOX_WIDTH,
     designItemsHeight:
@@ -188,6 +220,29 @@ export function templatePrintStyles(
   `;
 
   switch (id) {
+    case "academic":
+      return `${base}
+        .tpl-academic-top { position:absolute; top:0; left:0; right:0; height:7px; background:linear-gradient(90deg,#1e293b,${color}); }
+        .tpl-academic-logo { position:absolute; top:4.6%; left:7%; width:14%; height:10%; display:flex; align-items:center; justify-content:center; padding:8px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; box-shadow:0 2px 7px #0f172a14; }
+        .tpl-academic-logo .tpl-logo { max-width:100%; max-height:100%; }
+        .tpl-academic-head { position:absolute; top:2.6%; left:22%; right:8%; text-align:center; color:#0f172a; }
+        .tpl-academic-clinic { margin:0; overflow:hidden; color:${color}; font-size:.86rem; font-weight:800; letter-spacing:.01em; white-space:nowrap; text-overflow:ellipsis; }
+        .tpl-academic-head h1 { margin:3px 0 0; overflow:hidden; color:#0f172a; font-size:1.5rem; font-weight:900; line-height:1.12; white-space:nowrap; text-overflow:ellipsis; }
+        .tpl-academic-specialty { margin:2px 0 0; overflow:hidden; color:${color}; font-size:.86rem; font-weight:800; white-space:nowrap; text-overflow:ellipsis; }
+        .tpl-academic-title { margin:2px auto 0; max-width:94%; overflow:hidden; color:#475569; font-size:.62rem; line-height:1.2; white-space:nowrap; text-overflow:ellipsis; }
+        .tpl-academic-license-wrap { position:absolute; top:15.2%; left:22%; right:8%; text-align:center; }
+        .tpl-academic-license { display:inline-block; max-width:100%; margin:0; padding:1px 6px; overflow:hidden; border:1px solid #dbe3ee; border-radius:4px; background:#f8fafc; color:#475569; font-size:.59rem; font-weight:700; line-height:1.2; white-space:nowrap; text-overflow:ellipsis; }
+        .tpl-academic-services { position:absolute; top:18.5%; left:8%; right:8%; overflow:hidden; color:#64748b; font-size:.59rem; line-height:1.2; text-align:center; white-space:nowrap; text-overflow:ellipsis; }
+        .tpl-academic-rule-light { position:absolute; top:20.8%; left:8%; right:8%; height:1px; background:#cbd5e1; }
+        .tpl-academic-rule-strong { position:absolute; top:21.5%; left:8%; right:8%; height:2px; background:${color}; }
+        .tpl-academic-patient { position:absolute; top:23.55%; left:8%; right:8%; display:grid; grid-template-columns:1.45fr 1fr 1.05fr; gap:1.8%; direction:rtl; color:#334155; font-size:.68rem; font-weight:700; }
+        .tpl-academic-field { display:flex; align-items:flex-end; gap:5px; min-width:0; white-space:nowrap; }
+        .tpl-academic-dots { min-width:0; flex:1; height:1em; border-bottom:1px dotted #94a3b8; }
+        .tpl-academic-patient-bottom { position:absolute; top:26.5%; left:8%; right:8%; height:1px; background:#dbe3ee; }
+        .tpl-academic-writing-line { position:absolute; left:8%; right:8%; border-bottom:1px dashed #dbe3ee; }
+        .tpl-academic-footer { position:absolute; left:8%; right:8%; bottom:4.3%; padding-top:5px; border-top:1.5px solid ${color}; color:#64748b; font-size:.63rem; line-height:1.25; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .tpl-academic-footer strong { color:#0c4a6e; }
+      `;
     case "modern":
       return `${base}
         .tpl-bar { position:absolute; top:0; right:0; width:6%; height:100%; background:${color}; }
@@ -227,7 +282,16 @@ export function templatePrintHeaderHtml(
   templateId: string,
   settings: Pick<
     RecipeSettingsDto,
-    "doctorName" | "doctorSpecialty" | "phoneNumber" | "email" | "address" | "additionalText1"
+    | "clinicName"
+    | "doctorName"
+    | "doctorSpecialty"
+    | "professionalTitle"
+    | "licenseNumber"
+    | "services"
+    | "phoneNumber"
+    | "email"
+    | "address"
+    | "additionalText1"
   >,
   logoUrl: string | null,
   escapeHtml: (s: string) => string
@@ -248,7 +312,17 @@ export function templatePrintHeaderHtml(
     .map((v) => escapeHtml(v!))
     .join(" · ");
 
+  const services = settings.services
+    ?.split(/\r?\n/)
+    .map((service) => service.trim())
+    .filter(Boolean)
+    .slice(0, 5)
+    .map(escapeHtml)
+    .join(" • ");
+
   switch (id) {
+    case "academic":
+      return `<div class="tpl-shell"><div class="tpl-academic-top"></div>${logo ? `<div class="tpl-academic-logo">${logo}</div>` : ""}<div class="tpl-academic-head"><p class="tpl-academic-clinic">${escapeHtml(settings.clinicName || "RX Clinic")}</p><h1>${name}</h1><p class="tpl-academic-specialty">${specialty}</p>${settings.professionalTitle ? `<p class="tpl-academic-title">${escapeHtml(settings.professionalTitle)}</p>` : ""}</div>${settings.licenseNumber ? `<div class="tpl-academic-license-wrap"><p class="tpl-academic-license">رقم الإجازة أو النقابة: <span dir="ltr">${escapeHtml(settings.licenseNumber)}</span></p></div>` : ""}${services ? `<div class="tpl-academic-services">${services}</div>` : ""}<div class="tpl-academic-rule-light"></div><div class="tpl-academic-rule-strong"></div><div class="tpl-academic-patient"><div class="tpl-academic-field"><span>اسم المريض:</span><span class="tpl-academic-dots"></span></div><div class="tpl-academic-field"><span>العمر / الجنس:</span><span class="tpl-academic-dots"></span></div><div class="tpl-academic-field"><span>التاريخ:</span><span class="tpl-academic-dots"></span></div></div><div class="tpl-academic-patient-bottom"></div><div class="tpl-academic-writing-line" style="top:43%"></div><div class="tpl-academic-writing-line" style="top:56%"></div><div class="tpl-academic-writing-line" style="top:69%"></div>${contact ? `<div class="tpl-academic-footer">${settings.phoneNumber ? `<strong dir="ltr">${escapeHtml(settings.phoneNumber)}</strong>` : ""}${settings.phoneNumber && (settings.address || settings.email) ? " • " : ""}${escapeHtml(settings.address || settings.email || "")}</div>` : ""}</div>`;
     case "modern":
       return `<div class="tpl-shell"><div class="tpl-bar"></div><div class="tpl-frame"></div><div class="tpl-header"><div><h1 style="color:inherit">${name}</h1><p>${specialty}</p>${contact ? `<small>${contact}</small>` : ""}</div>${logo}</div></div>`;
     case "elegant":
