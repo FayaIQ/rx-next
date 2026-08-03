@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo } from "react";
 import {
   CLINIC_FEATURE_KEYS,
+  isClinicFeatureEffectivelyEnabled,
   type ClinicFeatureKey,
 } from "@/lib/clinic-features-shared";
 
@@ -32,11 +33,17 @@ export function ClinicFeaturesProvider({
   children: React.ReactNode;
 }) {
   const value = useMemo(() => {
-    const enabledMap = Object.fromEntries(
+    const rawEnabledMap = Object.fromEntries(
       CLINIC_FEATURE_KEYS.map((key) => {
         const row = features.find((f) => f.key === key);
         return [key, row?.enabled ?? true];
       })
+    ) as Record<ClinicFeatureKey, boolean>;
+    const enabledMap = Object.fromEntries(
+      CLINIC_FEATURE_KEYS.map((key) => [
+        key,
+        isClinicFeatureEffectivelyEnabled(rawEnabledMap, key),
+      ])
     ) as Record<ClinicFeatureKey, boolean>;
     return { features, enabledMap };
   }, [features]);

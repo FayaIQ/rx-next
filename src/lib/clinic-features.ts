@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { toDbId } from "@/lib/bigint";
 import { apiError } from "@/lib/api/response";
+import { isClinicFeatureEffectivelyEnabled } from "@/lib/clinic-features-shared";
 
 export const CLINIC_FEATURE_KEYS = [
   "home",
@@ -80,7 +81,6 @@ export const CLINIC_FEATURE_DEFINITIONS: ClinicFeatureDefinition[] = [
     apiPatterns: [
       /^\/api\/patients\/\d+\/dental-chart/,
       /^\/api\/patients\/\d+\/tooth-images/,
-      /^\/api\/patients\/\d+\/treatment-plans/,
     ],
     navHref: "/dental",
   },
@@ -129,7 +129,10 @@ export const CLINIC_FEATURE_DEFINITIONS: ClinicFeatureDefinition[] = [
     label: "خطة العلاج",
     description: "جلسات العلاج والتقويم الأسبوعي",
     routes: ["/treatment"],
-    apiPatterns: [/^\/api\/treatment-(plans|sessions)(\/|$)/],
+    apiPatterns: [
+      /^\/api\/treatment-(plans|sessions)(\/|$)/,
+      /^\/api\/patients\/\d+\/treatment-plans/,
+    ],
     navHref: "/dates",
   },
   {
@@ -311,15 +314,15 @@ export async function isClinicFeatureEnabled(
   key: ClinicFeatureKey
 ): Promise<boolean> {
   const map = await getClinicFeatureMap(doctorId);
-  return map[key];
+  return isClinicFeatureEffectivelyEnabled(map, key);
 }
 
 export function resolveClinicFeatureForPath(
   pathname: string
 ): ClinicFeatureKey | null {
   if (/^\/print\/prescriptions\//.test(pathname)) return "prescriptions";
-  if (/^\/print\/patients\/\d+\/dental/.test(pathname)) return "dental";
-  if (/^\/print\/patients\/\d+\/summary/.test(pathname)) return "patients";
+  if (/^\/(?:print\/)?patients\/\d+\/dental/.test(pathname)) return "dental";
+  if (/^\/(?:print\/)?patients\/\d+\/summary/.test(pathname)) return "patients";
 
   for (const def of CLINIC_FEATURE_DEFINITIONS) {
     if (
@@ -338,6 +341,17 @@ export function resolveClinicFeatureForApi(
 ): ClinicFeatureKey | null {
   if (FEATURE_EXEMPT_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return null;
+  }
+
+  // Patient APIs have a broad parent pattern, so resolve their feature-specific
+  // children before the general patients module.
+  if (
+    /^\/api\/patients\/\d+\/(dental-chart|tooth-images)(\/|$)/.test(pathname)
+  ) {
+    return "dental";
+  }
+  if (/^\/api\/patients\/\d+\/treatment-plans(\/|$)/.test(pathname)) {
+    return "treatment";
   }
 
   for (const def of CLINIC_FEATURE_DEFINITIONS) {
@@ -384,7 +398,7 @@ export async function getDoctorFallbackPath(doctorId: number): Promise<string> {
   ];
 
   for (const key of priority) {
-    if (!map[key]) continue;
+    if (!isClinicFeatureEffectivelyEnabled(map, key)) continue;
     const def = DEFINITION_BY_KEY[key];
     if (def.navHref) return def.navHref;
     if (def.routes[0]) return def.routes[0];
@@ -418,5 +432,5 @@ export function filterNavHref(
 ) {
   const def = CLINIC_FEATURE_DEFINITIONS.find((item) => item.navHref === href);
   if (!def) return true;
-  return enabledMap[def.key];
+  return isClinicFeatureEffectivelyEnabled(enabledMap, def.key);
 }

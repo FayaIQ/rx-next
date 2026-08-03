@@ -31,6 +31,7 @@ import {
 import { usePatientFields } from "@/hooks/use-patient-fields";
 import { useLocale } from "@/i18n/locale-provider";
 import { useSyncStore } from "@/stores/sync-store";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 export function PatientsPageClient({
   title,
@@ -40,6 +41,7 @@ export function PatientsPageClient({
   showRecordLink?: boolean;
 }) {
   const { t, locale } = useLocale();
+  const dentalEnabled = useClinicFeatureEnabled("dental");
   const online = useSyncStore((state) => state.online);
   const pageTitle = title ?? t("patients.title");
   const queryClient = useQueryClient();
@@ -213,7 +215,7 @@ export function PatientsPageClient({
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex gap-1">
-                            {patient.id > 0 && (
+                            {dentalEnabled && patient.id > 0 && (
                               <Button variant="ghost" size="sm" asChild>
                                 <Link href={`/dental/${patient.id}`}>
                                   <Smile size={14} />

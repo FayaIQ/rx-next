@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 type Props = {
   patientId: number;
@@ -22,6 +23,7 @@ type Props = {
 
 export function PatientQueueSummary({ patientId, className }: Props) {
   const { t, locale } = useLocale();
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
   const dateLocale = locale === "en" ? "en-GB" : "ar-IQ";
 
   const { data, isLoading } = useQuery({
@@ -87,7 +89,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
             </div>
           ) : null}
 
-          {data.nextSession ? (
+          {treatmentEnabled && data.nextSession ? (
             <div className="rounded-lg border border-white/80 bg-white/70 px-3 py-2">
               <p className="flex items-center gap-1 font-semibold text-slate-800">
                 <Smile size={12} />
@@ -131,7 +133,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
           </div>
         </div>
 
-        {data.activeTreatments?.length > 0 ? (
+        {treatmentEnabled && data.activeTreatments?.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {data.activeTreatments.map(
               (treatment: {

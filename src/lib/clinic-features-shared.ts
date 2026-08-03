@@ -18,6 +18,16 @@ export const CLINIC_FEATURE_KEYS = [
 
 export type ClinicFeatureKey = (typeof CLINIC_FEATURE_KEYS)[number];
 
+export function isClinicFeatureEffectivelyEnabled(
+  enabledMap: Record<ClinicFeatureKey, boolean>,
+  key: ClinicFeatureKey
+) {
+  if (key === "treatment") {
+    return enabledMap.dental && enabledMap.treatment;
+  }
+  return enabledMap[key];
+}
+
 const FEATURE_ROUTES: ReadonlyArray<{ key: ClinicFeatureKey; route: string }> = [
   { key: "home", route: "/home" },
   { key: "queue", route: "/queue" },
@@ -53,8 +63,8 @@ export function resolveClinicFeatureForPath(
   pathname: string
 ): ClinicFeatureKey | null {
   if (/^\/print\/prescriptions\//.test(pathname)) return "prescriptions";
-  if (/^\/print\/patients\/\d+\/dental/.test(pathname)) return "dental";
-  if (/^\/print\/patients\/\d+\/summary/.test(pathname)) return "patients";
+  if (/^\/(?:print\/)?patients\/\d+\/dental/.test(pathname)) return "dental";
+  if (/^\/(?:print\/)?patients\/\d+\/summary/.test(pathname)) return "patients";
 
   for (const { key, route } of FEATURE_ROUTES) {
     if (pathname === route || pathname.startsWith(`${route}/`)) return key;
@@ -71,5 +81,5 @@ export function filterNavHref(
   enabledMap: Record<ClinicFeatureKey, boolean>
 ) {
   const key = NAV_FEATURE_BY_HREF[href];
-  return !key || enabledMap[key];
+  return !key || isClinicFeatureEffectivelyEnabled(enabledMap, key);
 }

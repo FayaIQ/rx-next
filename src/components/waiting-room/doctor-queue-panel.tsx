@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
 import { useSyncStore } from "@/stores/sync-store";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 function todayKey() {
   const d = new Date();
@@ -53,6 +54,7 @@ type TodaySession = {
 export function DoctorQueuePanel(
   /*i18n*/{ onSelectPatient }: Props) {
   const { t } = useLocale();
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
   const queryClient = useQueryClient();
   const online = useSyncStore((state) => state.online);
   const day = todayKey();
@@ -72,12 +74,12 @@ export function DoctorQueuePanel(
   const { data: sessionsData } = useQuery({
     queryKey: ["treatment-sessions-today", day],
     queryFn: () => rxApi.treatment.todaySessions(day),
-    enabled: online,
+    enabled: online && treatmentEnabled,
     refetchInterval: online ? 30_000 : false,
   });
 
   const appointments = data?.appointments ?? [];
-  const todaySessions = sessionsData?.sessions ?? [];
+  const todaySessions = treatmentEnabled ? (sessionsData?.sessions ?? []) : [];
 
   const sessionsByPatient = useMemo(() => {
     const map = new Map<number, TodaySession[]>();

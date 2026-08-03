@@ -36,6 +36,7 @@ import { genderLabel } from "@/lib/patient-utils";
 import { monthBookingRange, paginateSlice } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import { useLocale, type Locale } from "@/i18n/locale-provider";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 type Props = {
   title?: string;
@@ -219,6 +220,8 @@ export function AppointmentsPageClient({
   showTreatmentLinks = true,
 }: Props) {
   const { t, locale } = useLocale();
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
+  const treatmentLinksVisible = showTreatmentLinks && treatmentEnabled;
   const pageTitle = title ?? t("appointments.title");
   const queryClient = useQueryClient();
   const todayKey = toDateKey(new Date());
@@ -374,7 +377,7 @@ export function AppointmentsPageClient({
         subtitle={`${stats.total} · ${formatDayLabel(selectedDate, locale)}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {showTreatmentLinks ? (
+            {treatmentLinksVisible ? (
               <Button size="sm" variant="outline" asChild>
                 <Link href="/treatment/week">
                   {t("appointments.treatmentCalendar")}
@@ -482,7 +485,7 @@ export function AppointmentsPageClient({
                       onDelete={(id) => deleteMutation.mutate(id)}
                       onToggle={(id) => toggleMutation.mutate(id)}
                       togglePending={toggleMutation.isPending}
-                      showTreatmentLinks={showTreatmentLinks}
+                      showTreatmentLinks={treatmentLinksVisible}
                     />
                   ))}
                 </ul>

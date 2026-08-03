@@ -11,6 +11,7 @@ import {
 } from "@/lib/pagination";
 import { endOfDayUtc } from "@/lib/treatment/plan-utils";
 import { z } from "zod";
+import { isClinicFeatureEnabled } from "@/lib/clinic-features";
 
 export async function GET(request: Request) {
   const ctx = await requireClinicApi();
@@ -83,7 +84,13 @@ export async function GET(request: Request) {
     ? await prisma.appointment.count({ where })
     : appointments.length;
 
-  const toothMap = await loadTreatmentToothMap(appointments.map((a) => a.id));
+  const treatmentEnabled = await isClinicFeatureEnabled(
+    ctx.doctorId,
+    "treatment"
+  );
+  const toothMap = treatmentEnabled
+    ? await loadTreatmentToothMap(appointments.map((a) => a.id))
+    : new Map<string, number>();
 
   return apiOk({
     appointments: appointments.map((a) =>

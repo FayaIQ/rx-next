@@ -3,6 +3,7 @@ import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiOk, apiError } from "@/lib/api/response";
 import { toDbId, fromDbId } from "@/lib/bigint";
 import { treatmentTypeLabel } from "@/lib/treatment/constants";
+import { isClinicFeatureEnabled } from "@/lib/clinic-features";
 
 export async function GET(request: Request) {
   const ctx = await requireDoctorApi();
@@ -14,6 +15,10 @@ export async function GET(request: Request) {
 
   const doctorDbId = toDbId(ctx.doctorId);
   const contains = { contains: q, mode: "insensitive" as const };
+  const treatmentEnabled = await isClinicFeatureEnabled(
+    ctx.doctorId,
+    "treatment"
+  );
 
   const [patients, prescriptions, appointments, sessions] = await Promise.all([
     prisma.patient.findMany({
@@ -51,18 +56,20 @@ export async function GET(request: Request) {
       take: 8,
       orderBy: { appointmentDatetime: "desc" },
     }),
-    prisma.treatmentSession.findMany({
-      where: {
-        doctorId: doctorDbId,
-        OR: [{ notes: contains }, { plan: { notes: contains } }],
-      },
-      include: {
-        patient: { select: { id: true, name: true } },
-        plan: { select: { toothFdi: true, treatmentType: true } },
-      },
-      take: 8,
-      orderBy: { updatedAt: "desc" },
-    }),
+    treatmentEnabled
+      ? prisma.treatmentSession.findMany({
+          where: {
+            doctorId: doctorDbId,
+            OR: [{ notes: contains }, { plan: { notes: contains } }],
+          },
+          include: {
+            patient: { select: { id: true, name: true } },
+            plan: { select: { toothFdi: true, treatmentType: true } },
+          },
+          take: 8,
+          orderBy: { updatedAt: "desc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   return apiOk({

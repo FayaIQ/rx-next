@@ -15,9 +15,12 @@ import {
 } from "lucide-react";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { useLocale } from "@/i18n/locale-provider";
+import { useClinicFeatures } from "@/components/clinic/clinic-features-provider";
+import { filterNavHref } from "@/lib/clinic-features-shared";
 
 export function DoctorSidebar() {
   const { t } = useLocale();
+  const { enabledMap } = useClinicFeatures();
 
   const navItems = [
     { href: "/home", label: t("nav.writePrescription"), icon: Home },
@@ -37,7 +40,7 @@ export function DoctorSidebar() {
     <SidebarShell
       theme="doctor"
       brandSubtitle={t("nav.doctorPanel")}
-      items={navItems}
+      items={navItems.filter((item) => filterNavHref(item.href, enabledMap))}
     />
   );
 }

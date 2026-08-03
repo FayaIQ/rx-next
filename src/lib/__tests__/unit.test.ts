@@ -25,6 +25,11 @@ import {
   prescriptionDraftHasContent,
   type PrescriptionComposerDraft,
 } from "../prescription-draft";
+import {
+  CLINIC_FEATURE_KEYS,
+  isClinicFeatureEffectivelyEnabled,
+  resolveClinicFeatureForPath,
+} from "../clinic-features-shared";
 
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;
@@ -200,6 +205,29 @@ describe("prescription drafts", () => {
       }),
       true
     );
+  });
+});
+
+describe("clinic feature dependencies", () => {
+  it("hides treatment everywhere when dental is disabled", () => {
+    const enabledMap = Object.fromEntries(
+      CLINIC_FEATURE_KEYS.map((key) => [key, true])
+    ) as Record<(typeof CLINIC_FEATURE_KEYS)[number], boolean>;
+
+    enabledMap.dental = false;
+    assert.equal(
+      isClinicFeatureEffectivelyEnabled(enabledMap, "treatment"),
+      false
+    );
+    assert.equal(isClinicFeatureEffectivelyEnabled(enabledMap, "patients"), true);
+
+    enabledMap.dental = true;
+    enabledMap.treatment = false;
+    assert.equal(
+      isClinicFeatureEffectivelyEnabled(enabledMap, "treatment"),
+      false
+    );
+    assert.equal(resolveClinicFeatureForPath("/patients/9/dental"), "dental");
   });
 });
 

@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContent } from "@/components/ui/page-shell";
 import { useLocale } from "@/i18n/locale-provider";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 function StatCard({
   label,
@@ -33,6 +34,7 @@ function StatCard({
 
 export function ReportsPageClient() {
   const { t, locale } = useLocale();
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
   const month = new Date().toISOString().slice(0, 7);
   const numberLocale = locale === "en" ? "en-GB" : "ar-IQ";
 
@@ -70,11 +72,13 @@ export function ReportsPageClient() {
                 value={data.summary.prescriptions}
                 icon={FileText}
               />
-              <StatCard
-                label={t("reports.completedSessions")}
-                value={data.summary.completedSessions}
-                icon={Smile}
-              />
+              {treatmentEnabled ? (
+                <StatCard
+                  label={t("reports.completedSessions")}
+                  value={data.summary.completedSessions}
+                  icon={Smile}
+                />
+              ) : null}
               <StatCard
                 label={t("reports.cancelledAppointments")}
                 value={data.summary.cancelledAppointments}
@@ -96,7 +100,7 @@ export function ReportsPageClient() {
               />
             </div>
 
-            <Card>
+            {treatmentEnabled ? <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
                   {t("reports.treatmentByType")}
@@ -135,7 +139,7 @@ export function ReportsPageClient() {
                   )
                 )}
               </CardContent>
-            </Card>
+            </Card> : null}
           </>
         )}
       </PageContent>

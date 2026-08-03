@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { CompleteSessionNoteDialog } from "@/components/treatment/complete-session-note-dialog";
 import { rxApi, type TodayTreatmentSessionDto } from "@/lib/api/rx-client";
 import { todayDateKey } from "@/lib/treatment/constants";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 type Props = {
   onSelectPatient?: (patientId: number) => void;
@@ -17,6 +18,7 @@ type Props = {
 
 export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
   const { t } = useLocale();
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
   const queryClient = useQueryClient();
   const day = todayDateKey();
   const [completingSession, setCompletingSession] =
@@ -26,6 +28,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
     queryKey: ["treatment-sessions-today", day],
     queryFn: () => rxApi.treatment.todaySessions(day),
     refetchInterval: 60_000,
+    enabled: treatmentEnabled,
   });
 
   const sessions = data?.sessions ?? [];
@@ -53,7 +56,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (isLoading || sessions.length === 0) return null;
+  if (!treatmentEnabled || isLoading || sessions.length === 0) return null;
 
   return (
     <>

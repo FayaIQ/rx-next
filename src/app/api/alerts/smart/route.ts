@@ -3,6 +3,7 @@ import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiOk } from "@/lib/api/response";
 import { toDbId } from "@/lib/bigint";
 import { treatmentTypeLabel } from "@/lib/treatment/constants";
+import { isClinicFeatureEnabled } from "@/lib/clinic-features";
 
 function daysAgo(n: number): Date {
   const d = new Date();
@@ -14,6 +15,18 @@ function daysAgo(n: number): Date {
 export async function GET() {
   const ctx = await requireDoctorApi();
   if (isApiError(ctx)) return ctx;
+
+  if (!(await isClinicFeatureEnabled(ctx.doctorId, "treatment"))) {
+    return apiOk({
+      count: 0,
+      alerts: [],
+      summary: {
+        unscheduledSessions: 0,
+        incompletePlans: 0,
+        allergyPatients: 0,
+      },
+    });
+  }
 
   const doctorId = toDbId(ctx.doctorId);
   const weekAgo = daysAgo(7);

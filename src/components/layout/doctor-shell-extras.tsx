@@ -7,11 +7,12 @@ import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-pro
 export function DoctorShellExtras() {
   const searchEnabled = useClinicFeatureEnabled("search");
   const alertsEnabled = useClinicFeatureEnabled("alerts");
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
 
   return (
     <>
       {searchEnabled ? <GlobalSearch /> : null}
-      {alertsEnabled ? (
+      {alertsEnabled && treatmentEnabled ? (
         <div className="pointer-events-none fixed left-3 top-20 z-40 hidden w-72 max-xl:hidden xl:block">
           <div className="pointer-events-auto">
             <SmartAlertsPanel compact />

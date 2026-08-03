@@ -10,6 +10,7 @@ import { PatientFileClient } from "@/components/patient-file/patient-file-client
 import { resolvePatientRecordReturn } from "@/lib/patient-record-navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useLocale } from "@/i18n/locale-provider";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 const RETURN_LABEL_KEYS = {
   home: "patientFile.backToHome",
@@ -24,7 +25,12 @@ export default function PatientRecordPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const patientId = Number(params.id);
-  const back = resolvePatientRecordReturn(searchParams.get("returnTo"));
+  const resolvedBack = resolvePatientRecordReturn(searchParams.get("returnTo"));
+  const dentalEnabled = useClinicFeatureEnabled("dental");
+  const back =
+    !dentalEnabled && resolvedBack.labelKey === "dental"
+      ? { href: "/patients", labelKey: "patients" as const }
+      : resolvedBack;
   const { t } = useLocale();
 
   const { data, isError } = useQuery({

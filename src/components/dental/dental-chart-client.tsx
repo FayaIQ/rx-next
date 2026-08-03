@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
 import { tToothQuadrant, tToothStatus } from "@/lib/i18n-labels";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 function DentalViewerLoading() {
   const { t } = useLocale();
@@ -56,6 +57,7 @@ type Props = {
 
 export function DentalChartClient({ patientId }: Props) {
   const { t } = useLocale();
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedFdi, setSelectedFdi] = useState<number | null>(null);
@@ -72,11 +74,15 @@ export function DentalChartClient({ patientId }: Props) {
   const { data: plansData } = useQuery({
     queryKey: ["treatment-plans", patientId],
     queryFn: () => fetchTreatmentPlansOfflineFirst(patientId),
+    enabled: treatmentEnabled,
   });
 
   const treatmentPlanMarkers = useMemo(
-    () => buildTreatmentPlanMarkers(plansData?.plans ?? []),
-    [plansData?.plans]
+    () =>
+      treatmentEnabled
+        ? buildTreatmentPlanMarkers(plansData?.plans ?? [])
+        : [],
+    [plansData?.plans, treatmentEnabled]
   );
 
   useEffect(() => {
@@ -270,10 +276,12 @@ export function DentalChartClient({ patientId }: Props) {
                         placeholder={t("dental.toothNotesPlaceholder")}
                       />
                     </div>
-                    <ToothSessionsPanel
-                      patientId={patientId}
-                      toothFdi={selectedFdi}
-                    />
+                    {treatmentEnabled ? (
+                      <ToothSessionsPanel
+                        patientId={patientId}
+                        toothFdi={selectedFdi}
+                      />
+                    ) : null}
                   </>
                 ) : (
                   <p className="text-sm text-rx-muted">{t("dental.selectHint")}</p>

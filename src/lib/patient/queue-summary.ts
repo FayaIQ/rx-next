@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
 import { treatmentTypeLabel } from "@/lib/treatment/constants";
+import { isClinicFeatureEnabled } from "@/lib/clinic-features";
 
 export async function loadPatientQueueSummary(
   doctorId: number,
@@ -8,6 +9,7 @@ export async function loadPatientQueueSummary(
 ) {
   const doctorDbId = toDbId(doctorId);
   const patientDbId = toDbId(patientId);
+  const treatmentEnabled = await isClinicFeatureEnabled(doctorId, "treatment");
 
   const patient = await prisma.patient.findFirst({
     where: { id: patientDbId, doctorId: doctorDbId },
@@ -32,13 +34,15 @@ export async function loadPatientQueueSummary(
         diagnosis: true,
       },
     }),
-    prisma.treatmentPlan.findMany({
-      where: { patientId: patientDbId, doctorId: doctorDbId, status: "active" },
-      include: {
-        sessions: { orderBy: { sessionNumber: "asc" } },
-      },
-      take: 3,
-    }),
+    treatmentEnabled
+      ? prisma.treatmentPlan.findMany({
+          where: { patientId: patientDbId, doctorId: doctorDbId, status: "active" },
+          include: {
+            sessions: { orderBy: { sessionNumber: "asc" } },
+          },
+          take: 3,
+        })
+      : Promise.resolve([]),
     prisma.appointment.findFirst({
       where: {
         patientId: patientDbId,
@@ -61,16 +65,18 @@ export async function loadPatientQueueSummary(
     balance += row.type === "income" ? amount : -amount;
   }
 
-  const nextSession = await prisma.treatmentSession.findFirst({
-    where: {
-      patientId: patientDbId,
-      doctorId: doctorDbId,
-      status: "planned",
-      scheduledDate: { not: null },
-    },
-    include: { plan: { select: { toothFdi: true, treatmentType: true } } },
-    orderBy: { scheduledDate: "asc" },
-  });
+  const nextSession = treatmentEnabled
+    ? await prisma.treatmentSession.findFirst({
+        where: {
+          patientId: patientDbId,
+          doctorId: doctorDbId,
+          status: "planned",
+          scheduledDate: { not: null },
+        },
+        include: { plan: { select: { toothFdi: true, treatmentType: true } } },
+        orderBy: { scheduledDate: "asc" },
+      })
+    : null;
 
   return {
     patient: {

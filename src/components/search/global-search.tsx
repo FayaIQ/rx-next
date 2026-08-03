@@ -7,6 +7,7 @@ import { Search, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 type SearchResults = {
   patients: Array<{ id: number; name: string; phone: string | null; href: string }>;
@@ -34,6 +35,7 @@ type SearchResults = {
 
 export function GlobalSearch() {
   const { t, locale } = useLocale();
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const router = useRouter();
@@ -50,7 +52,7 @@ export function GlobalSearch() {
   }, []);
 
   const { data, isFetching } = useQuery({
-    queryKey: ["global-search", q],
+    queryKey: ["global-search", q, treatmentEnabled],
     queryFn: async () => {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       const json = await res.json();
@@ -79,7 +81,7 @@ export function GlobalSearch() {
     (data.patients.length > 0 ||
       data.prescriptions.length > 0 ||
       data.appointments.length > 0 ||
-      data.treatments.length > 0);
+      (treatmentEnabled && data.treatments.length > 0));
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[12vh]">
@@ -134,7 +136,7 @@ export function GlobalSearch() {
                   router={router}
                 />
               ) : null}
-              {data!.treatments.length > 0 ? (
+              {treatmentEnabled && data!.treatments.length > 0 ? (
                 <SearchGroup
                   title={t("search.treatments")}
                   items={data!.treatments.map((tr) => ({

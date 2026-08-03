@@ -7,6 +7,7 @@ import { AlertTriangle, Bell, ChevronLeft, Info, X } from "lucide-react";
 import { rxApi } from "@/lib/api/rx-client";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 const SEVERITY_STYLES = {
   danger: "border-red-200 bg-red-50 text-red-900",
@@ -34,6 +35,7 @@ function writeDismissedIds(ids: Set<string>) {
 
 export function SmartAlertsPanel({ compact = false }: { compact?: boolean }) {
   const { t } = useLocale();
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
   const [collapsed, setCollapsed] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
   const [ready, setReady] = useState(false);
@@ -42,6 +44,7 @@ export function SmartAlertsPanel({ compact = false }: { compact?: boolean }) {
     queryKey: ["smart-alerts"],
     queryFn: () => rxApi.alerts.smart(),
     refetchInterval: 5 * 60_000,
+    enabled: treatmentEnabled,
   });
 
   useEffect(() => {
@@ -79,7 +82,7 @@ export function SmartAlertsPanel({ compact = false }: { compact?: boolean }) {
     collapsePanel();
   }
 
-  if (!ready || isLoading) return null;
+  if (!treatmentEnabled || !ready || isLoading) return null;
   if (alerts.length === 0 && !(data?.count ?? 0)) return null;
 
   const totalCount = data?.count ?? alerts.length;

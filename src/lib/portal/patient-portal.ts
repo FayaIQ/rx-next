@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
 import { treatmentTypeLabel } from "@/lib/treatment/constants";
+import { isClinicFeatureEnabled } from "@/lib/clinic-features";
 
 export function generatePortalToken(): string {
   return randomBytes(24).toString("hex");
@@ -34,6 +35,10 @@ export async function loadPatientPortalByToken(token: string) {
 
   const patientDbId = patient.id;
   const doctorDbId = patient.doctorId;
+  const treatmentEnabled = await isClinicFeatureEnabled(
+    fromDbId(doctorDbId),
+    "treatment"
+  );
   const today = new Date(new Date().toISOString().slice(0, 10));
 
   const [appointments, sessions] = await Promise.all([
@@ -47,17 +52,19 @@ export async function loadPatientPortalByToken(token: string) {
       orderBy: { bookingDate: "asc" },
       take: 8,
     }),
-    prisma.treatmentSession.findMany({
-      where: {
-        patientId: patientDbId,
-        doctorId: doctorDbId,
-        status: "planned",
-        scheduledDate: { gte: today },
-      },
-      include: { plan: { select: { toothFdi: true, treatmentType: true } } },
-      orderBy: { scheduledDate: "asc" },
-      take: 8,
-    }),
+    treatmentEnabled
+      ? prisma.treatmentSession.findMany({
+          where: {
+            patientId: patientDbId,
+            doctorId: doctorDbId,
+            status: "planned",
+            scheduledDate: { gte: today },
+          },
+          include: { plan: { select: { toothFdi: true, treatmentType: true } } },
+          orderBy: { scheduledDate: "asc" },
+          take: 8,
+        })
+      : Promise.resolve([]),
   ]);
 
   return {

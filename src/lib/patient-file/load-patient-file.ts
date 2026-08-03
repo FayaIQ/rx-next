@@ -6,10 +6,15 @@ import { serializeTreatmentPlan } from "@/lib/treatment/serializer";
 import { serializePatientVisit } from "@/lib/visit/serializer";
 import { serializeToothImage } from "@/lib/dental/tooth-image-serializer";
 import { toothStatusLabel } from "@/lib/dental/constants";
+import { isClinicFeatureEnabled } from "@/lib/clinic-features";
 
 export async function loadPatientFile(doctorId: number, patientId: number) {
   const doctorDbId = toDbId(doctorId);
   const patientDbId = toDbId(patientId);
+  const [dentalEnabled, treatmentEnabled] = await Promise.all([
+    isClinicFeatureEnabled(doctorId, "dental"),
+    isClinicFeatureEnabled(doctorId, "treatment"),
+  ]);
 
   const patient = await prisma.patient.findFirst({
     where: { id: patientDbId, doctorId: doctorDbId },
@@ -37,24 +42,30 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
       orderBy: { appointmentDatetime: "desc" },
       take: 30,
     }),
-    prisma.dentalChart.findUnique({
-      where: { patientId: patientDbId },
-      include: { teeth: true },
-    }),
-    prisma.treatmentPlan.findMany({
-      where: { patientId: patientDbId, doctorId: doctorDbId },
-      include: { sessions: { orderBy: { sessionNumber: "asc" } } },
-      orderBy: { updatedAt: "desc" },
-    }),
+    dentalEnabled
+      ? prisma.dentalChart.findUnique({
+          where: { patientId: patientDbId },
+          include: { teeth: true },
+        })
+      : Promise.resolve(null),
+    treatmentEnabled
+      ? prisma.treatmentPlan.findMany({
+          where: { patientId: patientDbId, doctorId: doctorDbId },
+          include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+          orderBy: { updatedAt: "desc" },
+        })
+      : Promise.resolve([]),
     prisma.patientVisit.findMany({
       where: { patientId: patientDbId, doctorId: doctorDbId },
       orderBy: [{ visitDate: "desc" }, { createdAt: "desc" }],
       take: 50,
     }),
-    prisma.dentalToothImage.findMany({
-      where: { patientId: patientDbId, doctorId: doctorDbId },
-      orderBy: { createdAt: "desc" },
-    }),
+    dentalEnabled
+      ? prisma.dentalToothImage.findMany({
+          where: { patientId: patientDbId, doctorId: doctorDbId },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
     prisma.financeTransaction.findMany({
       where: { patientId: patientDbId, doctorId: doctorDbId },
       orderBy: { transactionDate: "desc" },

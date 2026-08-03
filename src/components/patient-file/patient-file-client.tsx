@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
 import {
@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
 import { tToothStatus, tTreatmentType } from "@/lib/i18n-labels";
+import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 type TabId =
   | "overview"
@@ -119,6 +120,8 @@ type PatientFile = {
 
 export function PatientFileClient({ patientId }: { patientId: number }) {
   const { t, locale } = useLocale();
+  const dentalEnabled = useClinicFeatureEnabled("dental");
+  const treatmentEnabled = useClinicFeatureEnabled("treatment");
   const dateLocale = locale === "ar" ? "ar-IQ" : "en-GB";
   const [tab, setTab] = useState<TabId>("overview");
   const queryClient = useQueryClient();
@@ -152,6 +155,21 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const visibleTabs = TAB_DEFS.filter((item) => {
+    if (item.id === "dental" || item.id === "images") return dentalEnabled;
+    if (item.id === "treatment") return treatmentEnabled;
+    return true;
+  });
+
+  useEffect(() => {
+    if (
+      ((!dentalEnabled && (tab === "dental" || tab === "images")) ||
+        (!treatmentEnabled && tab === "treatment"))
+    ) {
+      setTab("overview");
+    }
+  }, [dentalEnabled, treatmentEnabled, tab]);
+
   if (isLoading) {
     return <div className="h-40 animate-pulse rounded-xl bg-slate-100" />;
   }
@@ -182,14 +200,16 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
             {t("patientFile.newPrescription")}
           </Link>
         </Button>
+        {dentalEnabled ? (
+          <Button size="sm" variant="outline" asChild>
+            <Link href={`/dental/${patientId}`}>
+              <Smile size={14} />
+              {t("patientFile.dentalChart")}
+            </Link>
+          </Button>
+        ) : null}
         <Button size="sm" variant="outline" asChild>
-          <Link href={`/dental/${patientId}`}>
-            <Smile size={14} />
-            {t("patientFile.dentalChart")}
-          </Link>
-        </Button>
-        <Button size="sm" variant="outline" asChild>
-          <Link href={`/print/patients/${patientId}/summary`} target="_blank">
+          <Link href={`/patients/${patientId}/summary`} target="_blank">
             <Printer size={14} />
             {t("patientFile.printSummary")}
           </Link>
@@ -197,7 +217,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
       </div>
 
       <div className="flex gap-1 overflow-x-auto border-b border-rx-border pb-1 [scrollbar-width:none]">
-        {TAB_DEFS.map((item) => (
+        {visibleTabs.map((item) => (
           <button
             key={item.id}
             type="button"
@@ -268,14 +288,18 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
                 <span className="text-rx-muted">{t("patientFile.prescriptionsCount")} </span>
                 {data.prescriptions.length}
               </p>
-              <p>
-                <span className="text-rx-muted">{t("patientFile.treatmentPlansCount")} </span>
-                {data.treatmentPlans.length}
-              </p>
-              <p>
-                <span className="text-rx-muted">{t("patientFile.recordedTeeth")} </span>
-                {recordedTeeth.length}
-              </p>
+              {treatmentEnabled ? (
+                <p>
+                  <span className="text-rx-muted">{t("patientFile.treatmentPlansCount")} </span>
+                  {data.treatmentPlans.length}
+                </p>
+              ) : null}
+              {dentalEnabled ? (
+                <p>
+                  <span className="text-rx-muted">{t("patientFile.recordedTeeth")} </span>
+                  {recordedTeeth.length}
+                </p>
+              ) : null}
               <PatientPortalSection patientId={patientId} data={data} t={t} />
             </CardContent>
           </Card>
@@ -338,7 +362,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
         </div>
       ) : null}
 
-      {tab === "dental" ? (
+      {dentalEnabled && tab === "dental" ? (
         <div className="space-y-3">
           <Button size="sm" asChild>
             <Link href={`/dental/${patientId}`}>
@@ -346,7 +370,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
             </Link>
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <Link href={`/print/patients/${patientId}/dental`} target="_blank">
+            <Link href={`/patients/${patientId}/dental`} target="_blank">
               {t("patientFile.printChart")}
             </Link>
           </Button>
@@ -368,7 +392,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
         </div>
       ) : null}
 
-      {tab === "treatment" ? (
+      {treatmentEnabled && tab === "treatment" ? (
         <div className="space-y-3">
           {data.treatmentPlans.length === 0 ? (
             <p className="text-sm text-rx-muted">{t("patientFile.noTreatmentPlans")}</p>
@@ -415,7 +439,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
         />
       ) : null}
 
-      {tab === "images" ? (
+      {dentalEnabled && tab === "images" ? (
         <div className="space-y-4">
           <ToothImageCompare images={data.toothImages} />
           <ToothImagesSection patientId={patientId} images={data.toothImages} t={t} />
