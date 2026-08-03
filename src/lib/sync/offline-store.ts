@@ -26,6 +26,7 @@ import {
   mergePatients,
   mergePrescriptions,
 } from "@/lib/sync/hydration-merge";
+import { readPrescriptionDocumentMeta } from "@/lib/prescription-document-kind";
 
 export async function persistHydration(data: {
   patients: PatientDto[];
@@ -112,6 +113,7 @@ export async function persistHydration(data: {
             diagnosis?: string;
             consultationFee?: number;
             consultationFeeWaived?: boolean;
+            additionalInfo?: Record<string, unknown>;
             prescriptionNumber?: number;
             items: Array<Record<string, unknown>>;
             fieldValues: Array<{ patientFieldId: number; value: string }>;
@@ -127,6 +129,7 @@ export async function persistHydration(data: {
             diagnosis: r.diagnosis,
             consultationFee: r.consultationFee ?? 0,
             consultationFeeWaived: r.consultationFeeWaived ?? false,
+            additionalInfo: r.additionalInfo,
             prescriptionNumber: r.prescriptionNumber,
             items: (r.items ?? []).map((item) => {
               const i = item as { id: number; name: string; type?: string; dosage?: string; quantity?: string; period?: string; timeOfUse?: string };
@@ -341,6 +344,7 @@ export async function mergePartialHydration(data: {
           diagnosis?: string;
           consultationFee?: number;
           consultationFeeWaived?: boolean;
+          additionalInfo?: Record<string, unknown>;
           prescriptionNumber?: number;
           items: Array<Record<string, unknown>>;
           fieldValues: Array<{ patientFieldId: number; value: string }>;
@@ -356,6 +360,7 @@ export async function mergePartialHydration(data: {
           diagnosis: r.diagnosis,
           consultationFee: r.consultationFee ?? 0,
           consultationFeeWaived: r.consultationFeeWaived ?? false,
+          additionalInfo: r.additionalInfo,
           prescriptionNumber: r.prescriptionNumber,
           items: (r.items ?? []).map((item) => {
             const i = item as {
@@ -889,6 +894,7 @@ function localPrescriptionToDto(
     consultationFeeWaived: rx.consultationFeeWaived ?? false,
     xrayImage: rx.xrayImage ?? null,
     analysisImage: rx.analysisImage ?? null,
+    additionalInfo: rx.additionalInfo ?? null,
     prescriptionNumber: rx.prescriptionNumber ?? 0,
     patientName: patient?.name,
     items: rx.items.map((item, index) => ({
@@ -921,10 +927,14 @@ export async function getLocalPrescriptions(q?: string): Promise<PrescriptionDto
         : undefined;
       const patientName = patient?.name ?? "";
       const diagnosis = rx.diagnosis ?? "";
+      const messageText = readPrescriptionDocumentMeta(
+        rx.additionalInfo
+      ).messageText;
       const rxNumber = rx.prescriptionNumber?.toString() ?? "";
       return (
         patientName.toLowerCase().includes(term) ||
         diagnosis.toLowerCase().includes(term) ||
+        messageText.toLowerCase().includes(term) ||
         rxNumber.includes(term)
       );
     });
@@ -960,6 +970,7 @@ export async function syncLocalPrescriptionFromDto(
     consultationFeeWaived: prescription.consultationFeeWaived ?? false,
     xrayImage: prescription.xrayImage ?? undefined,
     analysisImage: prescription.analysisImage ?? undefined,
+    additionalInfo: prescription.additionalInfo ?? undefined,
     prescriptionNumber: prescription.prescriptionNumber,
     items: prescription.items.map((item) => ({
       id: `srv-item-${item.id}`,

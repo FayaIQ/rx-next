@@ -30,6 +30,16 @@ import {
   isClinicFeatureEffectivelyEnabled,
   resolveClinicFeatureForPath,
 } from "../clinic-features-shared";
+import {
+  buildPrescriptionAdditionalInfo,
+  readPrescriptionDocumentMeta,
+} from "../prescription-document-kind";
+import { prescriptionSchema } from "../validations/rx";
+import { composeInternationalPhone } from "../phone-countries";
+import {
+  getPhoneLookupVariants,
+  normalizePhoneForAuth,
+} from "../patient-utils";
 
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;
@@ -123,12 +133,46 @@ describe("doctor onboarding", () => {
   });
 });
 
-describe("development test doctor", () => {
-  it("recognizes Iraqi local and international formats only outside production", () => {
-    const enabled = process.env.NODE_ENV !== "production";
-    assert.equal(isDevTestDoctorPhone(DEV_TEST_DOCTOR_PHONE), enabled);
-    assert.equal(isDevTestDoctorPhone("+964 770 000 0000"), enabled);
-    assert.equal(isDevTestDoctorPhone("07711111111"), false);
+describe("repeatable test doctor", () => {
+  it("recognizes Iraqi local and international formats in production", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+
+    try {
+      assert.equal(isDevTestDoctorPhone(DEV_TEST_DOCTOR_PHONE), true);
+      assert.equal(isDevTestDoctorPhone("+964 770 000 0000"), true);
+      assert.equal(isDevTestDoctorPhone("07711111111"), false);
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
+});
+
+describe("Iraqi auth phone numbers", () => {
+  it("accepts Zain 078 numbers in local and international forms", () => {
+    assert.equal(
+      composeInternationalPhone("+964", "0780 123 4567"),
+      "+9647801234567"
+    );
+    assert.equal(normalizePhoneForAuth("07801234567"), "+9647801234567");
+    assert.equal(
+      normalizePhoneForAuth("+964 780 123 4567"),
+      "+9647801234567"
+    );
+    assert.ok(
+      getPhoneLookupVariants("07801234567").includes("+9647801234567")
+    );
+  });
+
+  it("normalizes pasted full and Arabic-digit phone numbers", () => {
+    assert.equal(
+      composeInternationalPhone("+964", "+964 780 123 4567"),
+      "+9647801234567"
+    );
+    assert.equal(
+      composeInternationalPhone("+964", "٠٧٨٠١٢٣٤٥٦٧"),
+      "+9647801234567"
+    );
   });
 });
 
@@ -205,6 +249,30 @@ describe("prescription drafts", () => {
       }),
       true
     );
+  });
+});
+
+describe("prescription and message documents", () => {
+  it("allows a selected patient to be saved without medicines", () => {
+    const result = prescriptionSchema.safeParse({
+      patientId: 7,
+      prescriptionDate: new Date().toISOString(),
+      items: [],
+    });
+    assert.equal(result.success, true);
+  });
+
+  it("stores message mode and keeps unrelated additional information", () => {
+    const info = buildPrescriptionAdditionalInfo(
+      { source: "composer" },
+      "message",
+      "راجع العيادة بعد أسبوع"
+    );
+    assert.deepEqual(readPrescriptionDocumentMeta(info), {
+      documentKind: "message",
+      messageText: "راجع العيادة بعد أسبوع",
+    });
+    assert.equal(info.source, "composer");
   });
 });
 

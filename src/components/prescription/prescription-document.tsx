@@ -8,11 +8,14 @@ import { fontFamilyCss } from "@/lib/recipe-settings";
 import { paperDimensions } from "@/lib/recipe-paper";
 import { resolveImageUrl } from "@/lib/image-url";
 import { useLocale } from "@/i18n/locale-provider";
+import type { PrescriptionDocumentKind } from "@/lib/prescription-document-kind";
 
 export type PrescriptionDocumentData = {
   prescriptionNumber: number;
   prescriptionDate: string;
   diagnosis: string | null;
+  documentKind?: PrescriptionDocumentKind;
+  messageText?: string | null;
   patientName: string;
   patientGender: string;
   patientBirthdate: string | null;

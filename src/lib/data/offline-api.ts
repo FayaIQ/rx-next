@@ -430,6 +430,10 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
         body.consultationFee ?? cachedSettings.consultationFee ?? 0
       ),
       consultationFeeWaived: Boolean(body.consultationFeeWaived),
+      additionalInfo:
+        body.additionalInfo && typeof body.additionalInfo === "object"
+          ? (body.additionalInfo as Record<string, unknown>)
+          : undefined,
       items: ((body.items as Array<Record<string, unknown>>) ?? []).map((item) => ({
         id: uuidv4(),
         name: String(item.name),
@@ -504,6 +508,10 @@ export async function updatePrescriptionOffline(
       consultationFeeWaived: Boolean(
         body.consultationFeeWaived ?? existing?.consultationFeeWaived
       ),
+      additionalInfo:
+        body.additionalInfo && typeof body.additionalInfo === "object"
+          ? (body.additionalInfo as Record<string, unknown>)
+          : existing?.additionalInfo,
       prescriptionNumber: existing?.prescriptionNumber,
       items: ((body.items as Array<Record<string, unknown>>) ?? []).map((item) => ({
         id: uuidv4(),

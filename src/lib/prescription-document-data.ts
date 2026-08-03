@@ -3,6 +3,7 @@ import { toDbId, fromDbId } from "@/lib/bigint";
 import { serializeRecipeSettings } from "@/lib/recipe-settings";
 import { defaultFieldPosition } from "@/lib/patient-field-layout";
 import type { PrescriptionDocumentData } from "@/components/prescription/prescription-document";
+import { readPrescriptionDocumentMeta } from "@/lib/prescription-document-kind";
 
 export async function loadPrescriptionDocument(
   doctorId: number,
@@ -37,6 +38,10 @@ export async function loadPrescriptionDocument(
 
   if (!prescription || !settings) return null;
 
+  const documentMeta = readPrescriptionDocumentMeta(
+    prescription.additionalInfo
+  );
+
   const valueMap = new Map(
     prescription.fieldValues.map((fv) => [
       fromDbId(fv.patientFieldId),
@@ -63,6 +68,8 @@ export async function loadPrescriptionDocument(
     prescriptionDate:
       prescription.prescriptionDate?.toISOString() ?? new Date().toISOString(),
     diagnosis: prescription.diagnosis,
+    documentKind: documentMeta.documentKind,
+    messageText: documentMeta.messageText,
     patientName: prescription.patient.name,
     patientGender: prescription.patient.gender,
     patientBirthdate: prescription.patient.birthdate?.toISOString() ?? null,

@@ -72,10 +72,16 @@ import { useMedicineGroups } from "@/lib/medicine-utils";
 import { mergePresetsFromItems } from "@/lib/medicine-preset-utils";
 import { resolveImageUrl } from "@/lib/image-url";
 import { patientRecordHref } from "@/lib/patient-record-navigation";
+import { cn } from "@/lib/utils";
 import { upsertLocalMedicinePresets, upsertLocalMedicinesFromPrescription, syncLocalPrescriptionFromDto } from "@/lib/sync/offline-store";
 import { queryKeys } from "@/lib/query-keys";
 import { useFieldsOnlyTab } from "@/lib/fields-only-tab";
 import { buildPrescriptionPreviewData } from "@/lib/prescription-preview-data";
+import {
+  buildPrescriptionAdditionalInfo,
+  readPrescriptionDocumentMeta,
+  type PrescriptionDocumentKind,
+} from "@/lib/prescription-document-kind";
 import { formatMoney } from "@/lib/finance/constants";
 import { PrescriptionLivePreview } from "@/components/prescription/prescription-live-preview";
 import { DoctorQueuePanel } from "@/components/waiting-room/doctor-queue-panel";
@@ -209,6 +215,12 @@ export function PrescriptionComposer() {
   const [newPatientDraft, setNewPatientDraft] =
     useState<NewPatientDraft | null>(null);
   const [diagnosis, setDiagnosis] = useState("");
+  const [documentKind, setDocumentKind] =
+    useState<PrescriptionDocumentKind>("prescription");
+  const [messageText, setMessageText] = useState("");
+  const [savedAdditionalInfo, setSavedAdditionalInfo] = useState<
+    Record<string, unknown> | null
+  >(null);
   const [consultationFee, setConsultationFee] = useState(0);
   const [consultationFeeWaived, setConsultationFeeWaived] = useState(false);
   const [showConsultationFeeEditor, setShowConsultationFeeEditor] =
@@ -229,6 +241,10 @@ export function PrescriptionComposer() {
   const [draftReadyDoctorId, setDraftReadyDoctorId] = useState<number | null>(
     null
   );
+  const [directPrintRequest, setDirectPrintRequest] = useState<{
+    prescriptionId: number;
+    nonce: number;
+  } | null>(null);
 
   const { data: patientsData } = useQuery({
     queryKey: ["patients", patientSearch],
@@ -318,6 +334,10 @@ export function PrescriptionComposer() {
     setPrescriptionNumber(p.prescriptionNumber);
     setPrescriptionDate(toDateInputValue(p.prescriptionDate));
     setDiagnosis(p.diagnosis ?? "");
+    const documentMeta = readPrescriptionDocumentMeta(p.additionalInfo);
+    setDocumentKind(documentMeta.documentKind);
+    setMessageText(documentMeta.messageText);
+    setSavedAdditionalInfo(p.additionalInfo ?? null);
     setConsultationFee(p.consultationFee);
     setConsultationFeeWaived(p.consultationFeeWaived);
     setItems(
@@ -396,6 +416,8 @@ export function PrescriptionComposer() {
       setNewPatientInitialName(draft.newPatientInitialName);
       setNewPatientDraft(draft.newPatientDraft);
       setDiagnosis(draft.diagnosis);
+      setDocumentKind(draft.documentKind ?? "prescription");
+      setMessageText(draft.messageText ?? "");
       setConsultationFee(draft.consultationFee);
       setConsultationFeeWaived(draft.consultationFeeWaived);
       setItems(draft.items.length ? draft.items : [emptyRow()]);
@@ -439,6 +461,8 @@ export function PrescriptionComposer() {
       newPatientInitialName,
       newPatientDraft,
       diagnosis,
+      documentKind,
+      messageText,
       consultationFee,
       consultationFeeWaived,
       items,
@@ -469,6 +493,8 @@ export function PrescriptionComposer() {
     newPatientInitialName,
     newPatientDraft,
     diagnosis,
+    documentKind,
+    messageText,
     consultationFee,
     consultationFeeWaived,
     items,
@@ -557,20 +583,20 @@ export function PrescriptionComposer() {
 
   const saveMutation = useMutation({
     mutationFn: async (action: "save" | "save_and_print") => {
-      const savedItems = items
-        .filter((i) => i.name.trim())
-        .map((i) => ({
-          id: i.id,
-          name: i.name,
-          type: i.type || null,
-          dosage: i.dosage || null,
-          quantity: i.quantity || null,
-          period: i.period || null,
-          timeOfUse: i.timeOfUse || null,
-        }));
-      if (savedItems.length === 0) {
-        throw new Error(t("composer.addOneMedicine"));
-      }
+      const savedItems =
+        documentKind === "prescription"
+          ? items
+              .filter((i) => i.name.trim())
+              .map((i) => ({
+                id: i.id,
+                name: i.name,
+                type: i.type || null,
+                dosage: i.dosage || null,
+                quantity: i.quantity || null,
+                period: i.period || null,
+                timeOfUse: i.timeOfUse || null,
+              }))
+          : [];
 
       let patient = selectedPatient;
       if (!patient && showNewPatient) {
@@ -592,6 +618,11 @@ export function PrescriptionComposer() {
         // The fee itself is snapshotted server-side from clinic settings at
         // creation time; the client only controls the waived flag.
         consultationFeeWaived,
+        additionalInfo: buildPrescriptionAdditionalInfo(
+          savedAdditionalInfo,
+          documentKind,
+          messageText
+        ),
         items: savedItems,
         fieldValues: Object.entries(fieldValues)
           .filter(([id, v]) => v.trim() && recipeFieldIds.has(Number(id)))
@@ -609,6 +640,8 @@ export function PrescriptionComposer() {
         action,
         result,
         savedItems,
+        savedDocumentKind: documentKind,
+        savedAdditionalInfo: payload.additionalInfo,
         xrayFile: pendingXray,
         analysisFile: pendingAnalysis,
       };
@@ -617,6 +650,8 @@ export function PrescriptionComposer() {
       action,
       result,
       savedItems,
+      savedDocumentKind,
+      savedAdditionalInfo: persistedAdditionalInfo,
       xrayFile,
       analysisFile,
     }) => {
@@ -631,16 +666,32 @@ export function PrescriptionComposer() {
 
       if (rx.id) {
         setCurrentPrescriptionId(rx.id);
+        setSavedAdditionalInfo(persistedAdditionalInfo);
         if (action === "save_and_print") {
-          router.push(`/prescriptions/${rx.id}/print`);
+          setDirectPrintRequest({
+            prescriptionId: rx.id,
+            nonce: Date.now(),
+          });
         }
       } else {
-        toast.info(t("composer.savedOffline"));
+        toast.info(
+          t(
+            savedDocumentKind === "message"
+              ? "composer.messageSavedOffline"
+              : "composer.savedOffline"
+          )
+        );
       }
       if (rx.prescriptionNumber) {
         setPrescriptionNumber(rx.prescriptionNumber);
       }
-      toast.success(t("composer.saved"));
+      toast.success(
+        t(
+          savedDocumentKind === "message"
+            ? "composer.messageSaved"
+            : "composer.saved"
+        )
+      );
 
       queryClient.setQueryData<MedicinePresetDto[]>(
         ["medicine-presets"],
@@ -752,7 +803,9 @@ export function PrescriptionComposer() {
     startNewPatientFromSearch(q);
   }
 
-  function resetComposer() {
+  function resetComposer(
+    nextDocumentKind: PrescriptionDocumentKind = "prescription"
+  ) {
     if (doctorId) clearPrescriptionDraft(doctorId);
     draftPersistencePausedRef.current = true;
     latestDraftRef.current = null;
@@ -760,6 +813,9 @@ export function PrescriptionComposer() {
     setSelectedPatient(null);
     setPatientSearch("");
     setDiagnosis("");
+    setDocumentKind(nextDocumentKind);
+    setMessageText("");
+    setSavedAdditionalInfo(null);
     setConsultationFee(financeSettingsData?.consultationFee ?? 0);
     setConsultationFeeWaived(false);
     setShowConsultationFeeEditor(false);
@@ -804,6 +860,8 @@ export function PrescriptionComposer() {
       patientBirthdate: selectedPatient?.birthdate ?? null,
       patientPhone: selectedPatient?.phone ?? undefined,
       diagnosis,
+      documentKind,
+      messageText,
       items,
       recipeFields,
       fieldValues,
@@ -817,6 +875,8 @@ export function PrescriptionComposer() {
     selectedPatient,
     patientSearch,
     diagnosis,
+    documentKind,
+    messageText,
     items,
     recipeFields,
     fieldValues,
@@ -940,95 +1000,31 @@ export function PrescriptionComposer() {
       }}
     >
       <AppHeader
-        title={t("home.title")}
-        subtitle={editId ? t("home.editSubtitle") : t("home.subtitle")}
+        title={t(documentKind === "message" ? "home.messageTitle" : "home.title")}
+        subtitle={
+          editId
+            ? t(
+                documentKind === "message"
+                  ? "home.editMessageSubtitle"
+                  : "home.editSubtitle"
+              )
+            : t(
+                documentKind === "message"
+                  ? "home.messageSubtitle"
+                  : "home.subtitle"
+              )
+        }
       />
 
-      <section
-        aria-label={t("composer.actionsTitle")}
-        className="sticky top-[var(--rx-header-height)] z-20 border-b border-rx-border bg-rx-surface/95 shadow-[0_8px_20px_-18px_rgba(15,23,42,0.7)] backdrop-blur-sm"
-      >
-        <div className="flex min-h-[4.5rem] items-center justify-between gap-3 px-3 py-2 lg:px-6">
-          <div className="hidden min-w-0 sm:block">
-            <p className="text-sm font-bold text-rx-text">
-              {t("composer.actionsTitle")}
-            </p>
-            <p className="mt-0.5 truncate text-xs text-rx-muted">
-              <span className="font-mono font-semibold text-rx-text">
-                #{prescriptionNumber ?? "—"}
-              </span>
-              <span className="mx-1.5 opacity-50">·</span>
-              {formatPrescriptionDateTime(prescriptionDate, locale)}
-            </p>
-          </div>
-
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none">
-            <div className="hidden items-center gap-1.5 md:flex">
-              {currentPrescriptionId && (
-                <Button size="sm" variant="ghost" asChild>
-                  <Link href={`/prescriptions/${currentPrescriptionId}/preview`}>
-                    <FileText size={15} />
-                    {t("composer.preview")}
-                  </Link>
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={resetComposer}>
-                <RotateCcw size={15} />
-                {t("composer.newPrescription")}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                title={t("composer.prescriptionsLog")}
-              >
-                <Link href="/prescriptions" aria-label={t("composer.prescriptionsLog")}>
-                  <FileText size={16} />
-                </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                title={t("composer.prescriptionSettings")}
-              >
-                <Link href="/recipe-settings" aria-label={t("composer.prescriptionSettings")}>
-                  <Settings size={16} />
-                </Link>
-              </Button>
-            </div>
-
-            <span className="hidden h-8 w-px bg-rx-border md:block" />
-
-            <Button
-              className="min-w-0 flex-1 px-4 shadow-sm sm:min-w-28 sm:flex-none"
-              onClick={() => saveMutation.mutate("save")}
-              disabled={saveMutation.isPending}
-            >
-              <Save size={17} />
-              {saveMutation.isPending && saveMutation.variables === "save"
-                ? t("common.saving")
-                : t("composer.save")}
-            </Button>
-            <Button
-              className="min-w-0 flex-1 border-rx-primary/35 bg-rx-primary/5 px-4 text-rx-primary shadow-sm hover:bg-rx-primary/10 sm:min-w-36 sm:flex-none"
-              variant="outline"
-              onClick={() => saveMutation.mutate("save_and_print")}
-              disabled={saveMutation.isPending}
-            >
-              <Printer size={17} />
-              {saveMutation.isPending &&
-              saveMutation.variables === "save_and_print"
-                ? t("common.saving")
-                : t("composer.saveAndPrint")}
-            </Button>
-          </div>
-        </div>
-      </section>
-
       <PageContent wide className="px-3 py-2 pb-3 lg:px-4">
-        <div className="grid gap-4 xl:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] xl:items-start">
-          <div className="min-w-0 space-y-4 xl:col-start-2">
+        <div
+          data-prescription-layout
+          className="grid gap-4 lg:grid-cols-[minmax(260px,32vw)_minmax(0,1fr)] lg:items-start"
+        >
+          <div
+            data-prescription-editor
+            className="min-w-0 space-y-4 lg:col-start-2"
+          >
             <TodayTreatmentSessionsPanel
               onSelectPatient={async (patientId) => {
                 try {
@@ -1219,7 +1215,13 @@ export function PrescriptionComposer() {
               </div>
             </ComposerPanel>
 
-            <ComposerPanel title={t("composer.prescription")}>
+            <ComposerPanel
+              title={t(
+                documentKind === "message"
+                  ? "composer.messageDocument"
+                  : "composer.prescription"
+              )}
+            >
               <section className="rounded-xl border border-rx-border bg-rx-bg-subtle/50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-rx-text">
@@ -1358,43 +1360,105 @@ export function PrescriptionComposer() {
               </section>
 
               <section className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <FieldLabel>{t("composer.medicines")}</FieldLabel>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    tabIndex={-1}
-                    onClick={() => setItems((rows) => [...rows, newEmptyRow()])}
+                <div
+                  role="tablist"
+                  aria-label={t("composer.documentType")}
+                  className="grid grid-cols-2 rounded-xl bg-rx-bg-subtle p-1 ring-1 ring-rx-border/70"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={documentKind === "prescription"}
+                    onClick={() => setDocumentKind("prescription")}
+                    className={cn(
+                      "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                      documentKind === "prescription"
+                        ? "bg-rx-surface text-rx-primary shadow-sm"
+                        : "text-rx-muted hover:text-rx-text"
+                    )}
                   >
-                    <Plus size={14} />
-                    {t("composer.addMedicine")}
-                  </Button>
+                    {t("composer.medicines")}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={documentKind === "message"}
+                    onClick={() => setDocumentKind("message")}
+                    className={cn(
+                      "rounded-lg px-3 py-2 text-sm font-semibold transition",
+                      documentKind === "message"
+                        ? "bg-rx-surface text-rx-primary shadow-sm"
+                        : "text-rx-muted hover:text-rx-text"
+                    )}
+                  >
+                    {t("composer.messageTab")}
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  {items.map((row, index) => (
-                    <MedicineRowEditor
-                      key={row.key}
-                      row={row}
-                      rowKey={row.key}
-                      groups={medicineGroups}
-                      presets={medicinePresets}
-                      isOpen={activeMedicineRowKey === row.key}
-                      onOpen={() => setActiveMedicineRowKey(row.key)}
-                      onClose={() => setActiveMedicineRowKey(null)}
-                      onChange={(updated) =>
-                        setItems((rows) =>
-                          rows.map((r) => (r.key === row.key ? updated : r))
-                        )
-                      }
-                      onRemove={() =>
-                        setItems((rows) => rows.filter((r) => r.key !== row.key))
-                      }
-                      canRemove={items.length > 1}
-                      isLastRow={index === items.length - 1}
-                      onAddRow={addMedicineRowAndFocus}
+
+                {documentKind === "prescription" ? (
+                  <div className="space-y-3" role="tabpanel">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-rx-muted">
+                        {t("composer.medicinesOptional")}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        tabIndex={-1}
+                        onClick={() =>
+                          setItems((rows) => [...rows, newEmptyRow()])
+                        }
+                      >
+                        <Plus size={14} />
+                        {t("composer.addMedicine")}
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {items.map((row, index) => (
+                        <MedicineRowEditor
+                          key={row.key}
+                          row={row}
+                          rowKey={row.key}
+                          groups={medicineGroups}
+                          presets={medicinePresets}
+                          isOpen={activeMedicineRowKey === row.key}
+                          onOpen={() => setActiveMedicineRowKey(row.key)}
+                          onClose={() => setActiveMedicineRowKey(null)}
+                          onChange={(updated) =>
+                            setItems((rows) =>
+                              rows.map((r) =>
+                                r.key === row.key ? updated : r
+                              )
+                            )
+                          }
+                          onRemove={() =>
+                            setItems((rows) =>
+                              rows.filter((r) => r.key !== row.key)
+                            )
+                          }
+                          canRemove={items.length > 1}
+                          isLastRow={index === items.length - 1}
+                          onAddRow={addMedicineRowAndFocus}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2" role="tabpanel">
+                    <FieldLabel>{t("composer.messageText")}</FieldLabel>
+                    <Textarea
+                      rows={9}
+                      dir="auto"
+                      value={messageText}
+                      onChange={(event) => setMessageText(event.target.value)}
+                      placeholder={t("composer.messagePlaceholder")}
+                      className="min-h-52 resize-y leading-7"
                     />
-                  ))}
-                </div>
+                    <p className="text-xs leading-5 text-rx-muted">
+                      {t("composer.messageHint")}
+                    </p>
+                  </div>
+                )}
               </section>
 
               {attachmentsSection}
@@ -1402,20 +1466,144 @@ export function PrescriptionComposer() {
           </div>
 
           {livePreviewData ? (
-            <aside className="min-h-0 xl:sticky xl:col-start-1 xl:row-start-1 xl:self-start xl:top-[calc(var(--rx-header-height)+5rem)]">
+            <aside
+              data-prescription-preview
+              className="min-h-0 space-y-3 lg:sticky lg:col-start-1 lg:row-start-1 lg:self-start lg:top-[calc(var(--rx-header-height)+1rem)]"
+            >
               <PrescriptionLivePreview
                 data={livePreviewData}
                 className="w-full"
                 label={t("composer.livePreview")}
               />
+
+              <section
+                aria-label={t(
+                  documentKind === "message"
+                    ? "composer.messageActionsTitle"
+                    : "composer.actionsTitle"
+                )}
+                className="rounded-xl border border-rx-border bg-rx-surface p-3 shadow-sm"
+              >
+                <div className="mb-3 flex items-center justify-between gap-3 border-b border-rx-border pb-2.5">
+                  <p className="text-sm font-bold text-rx-text">
+                    {t(
+                      documentKind === "message"
+                        ? "composer.messageActionsTitle"
+                        : "composer.actionsTitle"
+                    )}
+                  </p>
+                  <p className="truncate text-xs text-rx-muted">
+                    <span className="font-mono font-semibold text-rx-text">
+                      #{prescriptionNumber ?? "—"}
+                    </span>
+                    <span className="mx-1.5 opacity-50">·</span>
+                    {formatPrescriptionDateTime(prescriptionDate, locale)}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    className="w-full shadow-sm"
+                    onClick={() => saveMutation.mutate("save")}
+                    disabled={saveMutation.isPending}
+                  >
+                    <Save size={17} />
+                    {saveMutation.isPending && saveMutation.variables === "save"
+                      ? t("common.saving")
+                      : t("composer.save")}
+                  </Button>
+                  <Button
+                    className="w-full border-rx-primary/35 bg-rx-primary/5 text-rx-primary shadow-sm hover:bg-rx-primary/10"
+                    variant="outline"
+                    onClick={() => saveMutation.mutate("save_and_print")}
+                    disabled={saveMutation.isPending}
+                  >
+                    <Printer size={17} />
+                    {saveMutation.isPending &&
+                    saveMutation.variables === "save_and_print"
+                      ? t("common.saving")
+                      : t("composer.saveAndPrint")}
+                  </Button>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {currentPrescriptionId && (
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link href={`/prescriptions/${currentPrescriptionId}/preview`}>
+                        <FileText size={15} />
+                        {t("composer.preview")}
+                      </Link>
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => resetComposer(documentKind)}
+                  >
+                    <RotateCcw size={15} />
+                    {t(
+                      documentKind === "message"
+                        ? "composer.newMessage"
+                        : "composer.newPrescription"
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    asChild
+                    title={t("composer.prescriptionsLog")}
+                  >
+                    <Link
+                      href="/prescriptions"
+                      aria-label={t("composer.prescriptionsLog")}
+                    >
+                      <FileText size={16} />
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    asChild
+                    title={t("composer.prescriptionSettings")}
+                  >
+                    <Link
+                      href="/recipe-settings"
+                      aria-label={t("composer.prescriptionSettings")}
+                    >
+                      <Settings size={16} />
+                    </Link>
+                  </Button>
+                </div>
+              </section>
             </aside>
           ) : (
-            <p className="text-sm text-rx-muted xl:col-start-1 xl:row-start-1">
+            <p
+              data-prescription-preview
+              className="text-sm text-rx-muted lg:col-start-1 lg:row-start-1"
+            >
               {t("composer.loadingPreview")}
             </p>
           )}
         </div>
       </PageContent>
+
+      {directPrintRequest && (
+        <iframe
+          key={directPrintRequest.nonce}
+          src={`/prescriptions/${directPrintRequest.prescriptionId}/print?auto=0`}
+          title={t("composer.saveAndPrint")}
+          aria-hidden="true"
+          className="fixed bottom-0 left-[-10000px] size-px border-0 opacity-0"
+          onLoad={(event) => {
+            const printWindow = event.currentTarget.contentWindow;
+            window.setTimeout(() => {
+              printWindow?.focus();
+              printWindow?.print();
+              setDirectPrintRequest(null);
+            }, 250);
+          }}
+        />
+      )}
     </div>
   );
 }

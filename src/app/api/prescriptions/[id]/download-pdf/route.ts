@@ -65,6 +65,8 @@ export async function GET(req: Request, { params }: Params) {
   const templateId = s.designTemplate ?? "classic";
   const usesAcademicTemplate = !isImageMode && templateId === "academic";
   const academicCoreClass = usesAcademicTemplate ? " academic-core" : "";
+  const documentLabel =
+    data.documentKind === "message" ? "رسالة" : "وصفة";
 
   const itemsHtml = data.items
     .map(
@@ -72,6 +74,13 @@ export async function GET(req: Request, { params }: Params) {
         `<li><span class="med-num">${index + 1}.</span> ${formatMedicineLineHtml(item as MedicineLineItem, escapeHtml)}</li>`
     )
     .join("");
+  const documentContentHtml =
+    data.documentKind === "message"
+      ? `<div class="message-text" dir="auto">${escapeHtml(data.messageText ?? "")}</div>`
+      : `<div class="medication-content${usesAcademicTemplate ? " academic-medication" : ""}">
+          <span class="rx-mark" aria-hidden="true">RX</span>
+          <ol class="med-list">${itemsHtml}</ol>
+        </div>`;
 
   const ageGenderHtml =
     s.printAge || s.printGender
@@ -97,10 +106,7 @@ export async function GET(req: Request, { params }: Params) {
         .join("")}
       <div class="pos items-box" style="left:${s.designItemsX}%;top:${s.designItemsY}%;width:${itemsSize.width}%;height:${itemsSize.height}%">
         ${s.printDiagnosis && data.diagnosis ? `<p><strong>التشخيص:</strong> ${escapeHtml(data.diagnosis)}</p>` : ""}
-        <div class="medication-content${usesAcademicTemplate ? " academic-medication" : ""}">
-          <span class="rx-mark" aria-hidden="true">RX</span>
-          <ol class="med-list">${itemsHtml}</ol>
-        </div>
+        ${documentContentHtml}
       </div>`;
 
   const classicExtras =
@@ -119,7 +125,7 @@ export async function GET(req: Request, { params }: Params) {
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8"/>
-  <title>وصفة #${data.prescriptionNumber}</title>
+  <title>${documentLabel} #${data.prescriptionNumber}</title>
   <style>
     ${fontFacesCss}
     @page { size: ${paperPageSizeCss(s.paperSize)}; margin: 0; }
@@ -147,6 +153,7 @@ export async function GET(req: Request, { params }: Params) {
     .academic-medication .med-list { margin-top: .65em; }
     .rx-mark { display: inline-flex; flex: none; align-items: flex-start; margin-top: .08em; font-family: Arial, sans-serif; font-size: 2.1em; font-weight: 900; letter-spacing: -.06em; line-height: 1; user-select: none; }
     .med-list { min-width: 0; flex: 1; list-style: none; margin: 0; padding: 0; direction: ltr; text-align: left; }
+    .message-text { white-space: pre-wrap; line-height: 1.7; text-align: start; word-break: break-word; overflow-wrap: anywhere; }
     .age-row { display: flex; gap: .5em; }
     img.attach { max-height: 180px; max-width: 100%; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; }
     ${!isImageMode && showBackground ? templatePrintStyles(templateId, s.color) : ""}
@@ -174,7 +181,7 @@ export async function GET(req: Request, { params }: Params) {
   return new Response(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Content-Disposition": `inline; filename="prescription-${data.prescriptionNumber}.html"`,
+      "Content-Disposition": `inline; filename="${data.documentKind === "message" ? "message" : "prescription"}-${data.prescriptionNumber}.html"`,
     },
   });
 }

@@ -1,3 +1,5 @@
+import { normalizeDigits } from "./patient-utils";
+
 /** Country codes selectable on the auth pages. Iraq is the default. */
 export interface PhoneCountry {
   iso: string;
@@ -35,6 +37,14 @@ export const DEFAULT_PHONE_COUNTRY = PHONE_COUNTRIES[0];
 
 /** Combine a dial code and a local number into E.164-ish input (+9647…). */
 export function composeInternationalPhone(dial: string, local: string): string {
-  const digits = local.replace(/\D/g, "").replace(/^0+/, "");
-  return `${dial}${digits}`;
+  const dialDigits = dial.replace(/\D/g, "");
+  const digits = normalizeDigits(local).replace(/\D/g, "");
+  const withoutInternationalPrefix = digits.replace(/^00/, "");
+
+  // A pasted full number must not receive the selected dial code twice.
+  if (withoutInternationalPrefix.startsWith(dialDigits)) {
+    return `+${withoutInternationalPrefix}`;
+  }
+
+  return `${dial}${withoutInternationalPrefix.replace(/^0+/, "")}`;
 }

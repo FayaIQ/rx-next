@@ -95,6 +95,7 @@ export type PrescriptionDto = {
   consultationFeeWaived: boolean;
   xrayImage: string | null;
   analysisImage: string | null;
+  additionalInfo?: Record<string, unknown> | null;
   prescriptionNumber: number;
   patientName?: string;
   items: Array<{

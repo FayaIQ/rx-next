@@ -45,6 +45,15 @@ export function otpPhoneKey(phone: string): string {
   return normalizePhoneForAuth(phone);
 }
 
+function cflowPhone(phone: string): string {
+  try {
+    return otpPhoneKey(phone);
+  } catch {
+    // Preserve the upstream error response for malformed direct API calls.
+    return phone;
+  }
+}
+
 async function cflowRequest(
   path: string,
   body: Record<string, unknown>
@@ -112,8 +121,9 @@ export interface OtpSendResult {
 }
 
 export async function sendOtp(phone: string, ref?: string): Promise<OtpSendResult> {
+  const phoneKey = cflowPhone(phone);
   const { status, data, transportError } = await cflowRequest("/send", {
-    phone,
+    phone: phoneKey,
     ...(ref ? { ref } : {}),
   });
 
@@ -166,8 +176,9 @@ export async function verifyOtp(
   phone: string,
   code: string
 ): Promise<OtpVerifyResult> {
+  const phoneKey = cflowPhone(phone);
   const { status, data, transportError } = await cflowRequest("/verify", {
-    phone,
+    phone: phoneKey,
     code,
   });
 

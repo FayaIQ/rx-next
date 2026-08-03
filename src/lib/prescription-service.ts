@@ -6,6 +6,7 @@ import {
   filterFieldValuesByIds,
   getRecipeFieldIdsForDoctor,
 } from "@/lib/patient-field-value-service";
+import { readPrescriptionDocumentMeta } from "@/lib/prescription-document-kind";
 
 export async function getNextPrescriptionNumber(doctorId: number): Promise<number> {
   const last = await prisma.prescription.findFirst({
@@ -50,6 +51,7 @@ export async function createPrescription(
 
   const prescriptionDate = new Date(data.prescriptionDate);
   const consultationFeeWaived = data.consultationFeeWaived ?? false;
+  const documentMeta = readPrescriptionDocumentMeta(data.additionalInfo);
   const recipeFieldIds = await getRecipeFieldIdsForDoctor(doctorId);
   const recipeFieldValues = filterFieldValuesByIds(
     data.fieldValues ?? [],
@@ -118,7 +120,7 @@ export async function createPrescription(
         category: "consultation",
         amount: consultationFeeWaived ? 0 : consultationFee,
         paymentMethod: "cash",
-        description: `وصفة #${prescriptionNumber}`,
+        description: `${documentMeta.documentKind === "message" ? "رسالة" : "وصفة"} #${prescriptionNumber}`,
         transactionDate: prescriptionDate,
         createdById: doctorDbId,
       },

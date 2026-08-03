@@ -1,4 +1,5 @@
 import type { PatientDto } from "@/lib/api/rx-client";
+import type { PrescriptionDocumentKind } from "@/lib/prescription-document-kind";
 
 const DRAFT_STORAGE_PREFIX = "rx:prescription-draft:v1:";
 
@@ -37,6 +38,8 @@ export type PrescriptionComposerDraft = {
   newPatientInitialName: string;
   newPatientDraft: NewPatientDraft | null;
   diagnosis: string;
+  documentKind?: PrescriptionDocumentKind;
+  messageText?: string;
   consultationFee: number;
   consultationFeeWaived: boolean;
   items: PrescriptionDraftMedicineRow[];
@@ -106,6 +109,7 @@ export function prescriptionDraftHasContent(draft: PrescriptionComposerDraft) {
       draft.selectedPatient ||
       draft.patientSearch.trim() ||
       draft.diagnosis.trim() ||
+      draft.messageText?.trim() ||
       draft.items.some((item) =>
         [
           item.name,

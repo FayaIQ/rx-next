@@ -222,18 +222,20 @@ export function parsePatientPhoneInput(raw: string): {
   const trimmed = normalizeDigits(raw).replace(/[\s\-().]/g, "").trim();
   if (!trimmed) return { normalized: null, error: null };
 
+  // Iraqi mobile numbers are deliberately normalized before libphonenumber.
+  // This keeps all valid operator prefixes (including Zain 078) accepted even
+  // when the installed metadata is older or unavailable in a test bundle.
+  const digits = trimmed.replace(/\D/g, "");
+  const iraqiLocal = digits.replace(/^00/, "").replace(/^964/, "").replace(/^0+/, "");
+  if (/^7\d{9}$/.test(iraqiLocal)) {
+    return { normalized: `+964${iraqiLocal}`, error: null };
+  }
+
   for (const region of PHONE_REGIONS) {
     const parsed = parseRegionalPhone(trimmed, region);
     if (parsed?.isValid()) {
       return { normalized: parsed.format("E.164"), error: null };
     }
-  }
-
-  const digits = trimmed.replace(/\D/g, "");
-
-  const iraqiLocal = digits.replace(/^964/, "").replace(/^0+/, "");
-  if (/^7\d{9}$/.test(iraqiLocal)) {
-    return { normalized: `+964${iraqiLocal}`, error: null };
   }
 
   return {

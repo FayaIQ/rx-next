@@ -173,7 +173,7 @@ export function ComposerPageLoading() {
     <>
       <PageLoadingHeader />
       <PageContent className="space-y-6 pb-8">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(260px,32vw)_minmax(0,1fr)]">
           <div className="space-y-5">
             <div className="space-y-2">
               <Skeleton className="h-4 w-24" />

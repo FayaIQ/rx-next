@@ -33,11 +33,7 @@ import {
   composeInternationalPhone,
   type PhoneCountry,
 } from "@/lib/phone-countries";
-import {
-  DEV_TEST_DOCTOR_PHONE,
-  IS_DEV_TEST_DOCTOR_ENABLED,
-  isDevTestDoctorPhone,
-} from "@/lib/dev-test-doctor";
+import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -513,7 +509,7 @@ export function AuthForm({
 
         <div className="space-y-2">
           <Label htmlFor="phone">{t("auth.phone")}</Label>
-          <div className="flex gap-2">
+          <div className="flex gap-2" dir="ltr">
             <CountryCodeSelect
               value={country}
               onChange={setCountry}
@@ -540,15 +536,6 @@ export function AuthForm({
               />
             </div>
           </div>
-          {mode === "signup" &&
-            role === "doctor" &&
-            IS_DEV_TEST_DOCTOR_ENABLED && (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
-                {t("auth.testDoctorNumber", {
-                  phone: DEV_TEST_DOCTOR_PHONE,
-                })}
-              </p>
-            )}
         </div>
 
         <div className="space-y-2">

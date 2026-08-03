@@ -133,22 +133,49 @@ export async function DELETE(request: Request) {
       : (await verifyOtp(user.phoneNumber, parsed.data.otpCode)).valid;
     if (!otpValid) return apiError("رمز التحقق غير صحيح أو منتهي الصلاحية");
 
+    const phoneVariants = getPhoneLookupVariants(user.phoneNumber);
+    const matchingAccounts = await prisma.user.findMany({
+      where: {
+        OR: [
+          { id: doctorDbId },
+          ...(phoneVariants.length > 0
+            ? [{ phoneNumber: { in: phoneVariants } }]
+            : []),
+        ],
+      },
+      select: { id: true, type: true },
+    });
+    const doctorIds = Array.from(
+      new Set([
+        doctorDbId,
+        ...matchingAccounts
+          .filter((account) => account.type === "doctor")
+          .map((account) => account.id),
+      ])
+    );
+    const matchingAccountIds = matchingAccounts.map((account) => account.id);
+
     const [clinicUsers, recipeFiles, prescriptionFiles, toothFiles] =
       await Promise.all([
         prisma.user.findMany({
-          where: { OR: [{ id: doctorDbId }, { doctorId: doctorDbId }] },
+          where: {
+            OR: [
+              { id: { in: matchingAccountIds } },
+              { doctorId: { in: doctorIds } },
+            ],
+          },
           select: { id: true, phoneNumber: true, profileImage: true },
         }),
         prisma.recipeSettings.findMany({
-          where: { doctorId: doctorDbId },
+          where: { doctorId: { in: doctorIds } },
           select: { logoPath: true, designImagePath: true },
         }),
         prisma.prescription.findMany({
-          where: { doctorId: doctorDbId },
+          where: { doctorId: { in: doctorIds } },
           select: { xrayImage: true, analysisImage: true },
         }),
         prisma.dentalToothImage.findMany({
-          where: { doctorId: doctorDbId },
+          where: { doctorId: { in: doctorIds } },
           select: { imageUrl: true },
         }),
       ]);
@@ -171,7 +198,7 @@ export async function DELETE(request: Request) {
       await tx.clinicTask.deleteMany({
         where: {
           OR: [
-            { doctorId: doctorDbId },
+            { doctorId: { in: doctorIds } },
             { createdById: { in: clinicUserIds } },
           ],
         },
@@ -184,7 +211,7 @@ export async function DELETE(request: Request) {
       await tx.secretaryInvite.deleteMany({
         where: {
           OR: [
-            { doctorId: doctorDbId },
+            { doctorId: { in: doctorIds } },
             { secretaryId: { in: clinicUserIds } },
           ],
         },
@@ -195,7 +222,12 @@ export async function DELETE(request: Request) {
           where: { phone_number: { in: clinicPhones } },
         });
       }
-      await tx.user.delete({ where: { id: doctorDbId } });
+      const deletedUsers = await tx.user.deleteMany({
+        where: { id: { in: clinicUserIds } },
+      });
+      if (deletedUsers.count === 0) {
+        throw new Error("Account deletion did not remove any users");
+      }
     });
 
     const uploadedPaths = [

@@ -5,6 +5,7 @@ import {
   normalizeRecipeSettingsDto,
   type RecipeSettingsDto,
 } from "@/lib/recipe-settings";
+import type { PrescriptionDocumentKind } from "@/lib/prescription-document-kind";
 
 type PreviewItem = {
   id?: number;
@@ -25,6 +26,8 @@ export function buildPrescriptionPreviewData(options: {
   patientBirthdate: string | null;
   patientPhone?: string | null;
   diagnosis: string;
+  documentKind?: PrescriptionDocumentKind;
+  messageText?: string;
   items: PreviewItem[];
   recipeFields: PatientFieldDto[];
   fieldValues: Record<number, string>;
@@ -51,6 +54,8 @@ export function buildPrescriptionPreviewData(options: {
     prescriptionNumber: options.prescriptionNumber ?? 0,
     prescriptionDate: options.prescriptionDate,
     diagnosis: options.diagnosis || null,
+    documentKind: options.documentKind ?? "prescription",
+    messageText: options.messageText ?? "",
     patientName: options.patientName,
     patientGender: options.patientGender,
     patientBirthdate: options.patientBirthdate,

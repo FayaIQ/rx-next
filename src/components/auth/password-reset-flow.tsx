@@ -232,7 +232,7 @@ export function PasswordResetFlow({
         <form onSubmit={handlePhoneSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="reset-phone">{t("auth.phone")}</Label>
-            <div className="flex gap-2">
+            <div className="flex gap-2" dir="ltr">
               <CountryCodeSelect
                 value={country}
                 onChange={setCountry}

@@ -20,7 +20,10 @@ export function PrescriptionItemsContent({
   data,
   settings,
 }: {
-  data: Pick<PrescriptionDocumentData, "diagnosis" | "items">;
+  data: Pick<
+    PrescriptionDocumentData,
+    "diagnosis" | "documentKind" | "messageText" | "items"
+  >;
   settings: Pick<
     RecipeSettingsDto,
     "printDiagnosis" | "designImagePath" | "designTemplate"
@@ -47,38 +50,47 @@ export function PrescriptionItemsContent({
           {data.diagnosis}
         </p>
       )}
-      <div
-        className={
-          isAcademicTemplate
-            ? "min-w-0 text-left"
-            : "flex min-w-0 items-start gap-[0.65em]"
-        }
-        dir="ltr"
-      >
-        <span
-          aria-hidden="true"
-          className={
-            isAcademicTemplate
-              ? "block w-max select-none font-black leading-none"
-              : "mt-[0.08em] inline-flex shrink-0 select-none items-start font-black leading-none"
-          }
-          style={{
-            fontFamily: "Arial, sans-serif",
-            fontSize: "2.1em",
-            letterSpacing: "-0.06em",
-          }}
+      {data.documentKind === "message" ? (
+        <p
+          className="whitespace-pre-wrap break-words text-start leading-relaxed [overflow-wrap:anywhere]"
+          dir="auto"
         >
-          RX
-        </span>
-        <MedicineLineList
-          items={data.items}
+          {data.messageText}
+        </p>
+      ) : (
+        <div
           className={
             isAcademicTemplate
-              ? "mt-[0.65em] min-w-0 list-none space-y-0.5 p-0 text-left"
-              : "min-w-0 flex-1 list-none space-y-0.5 p-0 text-left"
+              ? "min-w-0 text-left"
+              : "flex min-w-0 items-start gap-[0.65em]"
           }
-        />
-      </div>
+          dir="ltr"
+        >
+          <span
+            aria-hidden="true"
+            className={
+              isAcademicTemplate
+                ? "block w-max select-none font-black leading-none"
+                : "mt-[0.08em] inline-flex shrink-0 select-none items-start font-black leading-none"
+            }
+            style={{
+              fontFamily: "Arial, sans-serif",
+              fontSize: "2.1em",
+              letterSpacing: "-0.06em",
+            }}
+          >
+            RX
+          </span>
+          <MedicineLineList
+            items={data.items}
+            className={
+              isAcademicTemplate
+                ? "mt-[0.65em] min-w-0 list-none space-y-0.5 p-0 text-left"
+                : "min-w-0 flex-1 list-none space-y-0.5 p-0 text-left"
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }

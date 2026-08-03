@@ -30,6 +30,7 @@ import {
   getFieldValue,
 } from "@/lib/patient-field-display";
 import { useSyncStore } from "@/stores/sync-store";
+import { readPrescriptionDocumentMeta } from "@/lib/prescription-document-kind";
 
 function PrescriptionActions({ rx }: { rx: PrescriptionDto }) {
   const { t } = useLocale();
@@ -189,7 +190,7 @@ export function PrescriptionsLogPage() {
                           </th>
                         ))}
                         <th className="px-4 py-3.5 text-right font-medium">
-                          {t("prescriptions.medicines")}
+                          {t("prescriptions.content")}
                         </th>
                         <th className="px-4 py-3.5 text-right font-medium">
                           {t("prescriptions.actions")}
@@ -207,6 +208,9 @@ export function PrescriptionsLogPage() {
                           .map((item) => item.name)
                           .join(" · ");
                         const moreCount = Math.max(0, rx.items.length - 3);
+                        const documentMeta = readPrescriptionDocumentMeta(
+                          rx.additionalInfo
+                        );
 
                         return (
                           <tr
@@ -240,8 +244,21 @@ export function PrescriptionsLogPage() {
                               </td>
                             ))}
                             <td className="max-w-[16rem] px-4 py-3.5 text-xs text-rx-muted">
-                              {medicinePreview}
-                              {moreCount > 0 ? ` · +${moreCount}` : ""}
+                              {documentMeta.documentKind === "message" ? (
+                                <div className="flex items-start gap-2">
+                                  <span className="shrink-0 rounded-full bg-sky-50 px-2 py-0.5 font-semibold text-sky-700">
+                                    {t("prescriptions.message")}
+                                  </span>
+                                  <span className="line-clamp-2 whitespace-pre-line">
+                                    {documentMeta.messageText || "—"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <>
+                                  {medicinePreview || "—"}
+                                  {moreCount > 0 ? ` · +${moreCount}` : ""}
+                                </>
+                              )}
                             </td>
                             <td className="px-4 py-3.5">
                               <PrescriptionActions rx={rx} />
