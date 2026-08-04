@@ -1,25 +1,48 @@
-import Image from "next/image";
-import type { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "معاينة RX Clinic",
-  robots: { index: false, follow: false },
-};
+import { useEffect, useRef, useState } from "react";
+import { signIn } from "next-auth/react";
+import { Loader2 } from "lucide-react";
 
 export default function DemoPreviewBootstrapPage() {
+  const startedRef = useRef(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
+    async function startDemo() {
+      try {
+        const result = await signIn("demo", { redirect: false });
+        if (!result?.ok || result.error) {
+          setFailed(true);
+          return;
+        }
+        window.location.replace(`/home?demo-preview=${Date.now()}`);
+      } catch {
+        setFailed(true);
+      }
+    }
+
+    void startDemo();
+  }, []);
+
   return (
     <main
-      className="flex min-h-screen items-center justify-center bg-[#f5f8fa] p-4"
+      className="flex min-h-screen items-center justify-center bg-[#f5f8fa] p-6 text-center"
       dir="rtl"
     >
-      <Image
-        src="/why-rx-img.png"
-        alt="معاينة نظام RX Clinic"
-        width={1600}
-        height={1000}
-        priority
-        className="h-auto w-full max-w-6xl rounded-2xl object-contain"
-      />
+      {failed ? (
+        <p className="text-sm font-medium text-red-600">
+          تعذّر تشغيل المعاينة الحية. أعد تحميل الصفحة.
+        </p>
+      ) : (
+        <div className="text-slate-700">
+          <Loader2 className="mx-auto animate-spin text-[#10A6C3]" size={30} />
+          <p className="mt-3 text-sm font-semibold">جاري تجهيز حساب المعاينة…</p>
+        </div>
+      )}
     </main>
   );
 }

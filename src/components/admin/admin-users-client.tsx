@@ -129,7 +129,10 @@ export function AdminUsersClient() {
                             ? t("admin.typeDoctor")
                             : t("admin.typeSecretary")}
                         </td>
-                        <td className="px-5 py-4 font-mono text-xs" dir="ltr">
+                        <td
+                          className="px-5 py-4 text-right font-mono text-xs"
+                          dir="ltr"
+                        >
                           {u.phoneNumber}
                         </td>
                         <td className="px-5 py-4">

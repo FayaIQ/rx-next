@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { toUserId } from "@/lib/user-id";
 import { loadPatientFile } from "@/lib/patient-file/load-patient-file";
 import { PatientDentalPrintClient } from "./print-client";
-import { isClinicFeatureEnabled } from "@/lib/clinic-features";
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -20,7 +19,6 @@ export default async function PatientDentalPrintPage({
   }
 
   const doctorId = toUserId(session.user.id);
-  if (!(await isClinicFeatureEnabled(doctorId, "dental"))) notFound();
   const { id } = await params;
   const { auto } = await searchParams;
   const patientId = Number(id);

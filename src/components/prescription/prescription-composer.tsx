@@ -1468,13 +1468,15 @@ export function PrescriptionComposer() {
           {livePreviewData ? (
             <aside
               data-prescription-preview
-              className="min-h-0 space-y-3 lg:sticky lg:col-start-1 lg:row-start-1 lg:self-start lg:top-[calc(var(--rx-header-height)+1rem)]"
+              className="min-h-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:flex lg:flex-col lg:sticky lg:self-start lg:top-[calc(var(--rx-header-height)+1rem)] lg:max-h-[calc(100vh-var(--rx-header-height)-var(--rx-nav-pill-offset)-1rem)]"
             >
-              <PrescriptionLivePreview
-                data={livePreviewData}
-                className="w-full"
-                label={t("composer.livePreview")}
-              />
+              <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+                <PrescriptionLivePreview
+                  data={livePreviewData}
+                  className="w-full"
+                  label={t("composer.livePreview")}
+                />
+              </div>
 
               <section
                 aria-label={t(
@@ -1482,7 +1484,7 @@ export function PrescriptionComposer() {
                     ? "composer.messageActionsTitle"
                     : "composer.actionsTitle"
                 )}
-                className="rounded-xl border border-rx-border bg-rx-surface p-3 shadow-sm"
+                className="rounded-xl border border-rx-border bg-rx-surface p-3 shadow-sm lg:shrink-0"
               >
                 <div className="mb-3 flex items-center justify-between gap-3 border-b border-rx-border pb-2.5">
                   <p className="text-sm font-bold text-rx-text">

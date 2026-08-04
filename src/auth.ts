@@ -4,6 +4,20 @@ import { toOptionalUserId, toUserId } from "@/lib/user-id";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
+    // Read-only shared account behind the landing page's live preview. The
+    // proxy refuses this session in any top-level document, so it can only
+    // ever drive the demo iframe.
+    Credentials({
+      id: "demo",
+      name: "demo",
+      credentials: {},
+      async authorize() {
+        const { ensurePublicDemoDoctor } = await import(
+          "@/lib/demo/public-demo"
+        );
+        return ensurePublicDemoDoctor();
+      },
+    }),
     Credentials({
       id: "credentials",
       name: "credentials",

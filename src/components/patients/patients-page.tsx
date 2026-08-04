@@ -84,10 +84,7 @@ export function PatientsPageClient({
 
   return (
     <>
-      <AppHeader
-        title={pageTitle}
-        subtitle={`${pagination?.total ?? patients.length} ${t("patients.title")}`}
-      />
+      <AppHeader title={pageTitle} />
       <PageContent>
         <PageHeader
           title={pageTitle}
@@ -109,7 +106,7 @@ export function PatientsPageClient({
           value={q}
           onChange={setQ}
           placeholder={t("patients.searchPlaceholder")}
-          className="mb-6 max-w-md"
+          className="mb-4 max-w-md"
         />
 
         {(showForm || editing) && (
@@ -210,7 +207,10 @@ export function PatientsPageClient({
                             {getFieldValue(patient.fieldValues, field.id)}
                           </td>
                         ))}
-                        <td className="px-5 py-4 font-mono text-xs text-rx-muted" dir="ltr">
+                        <td
+                          className="px-5 py-4 text-right font-mono text-xs text-rx-muted"
+                          dir="ltr"
+                        >
                           {patient.phone ?? "—"}
                         </td>
                         <td className="px-5 py-4">

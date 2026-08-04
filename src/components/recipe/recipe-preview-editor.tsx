@@ -141,7 +141,7 @@ export function RecipePreviewEditor({
                     className={
                       usesAcademicTemplate
                         ? "flex justify-center gap-2 whitespace-nowrap"
-                        : "flex gap-3 text-sm"
+                        : "flex gap-3"
                     }
                   >
                     {s.printAge && data.patientBirthdate && (
@@ -166,7 +166,7 @@ export function RecipePreviewEditor({
                   onSelect={setSelected}
                   onMove={(x, y) => move("phone", x, y)}
                 >
-                  <span className="text-sm" dir="ltr">
+                  <span dir="ltr">
                     {data.patientPhone}
                   </span>
                 </DraggableBlock>
@@ -187,7 +187,7 @@ export function RecipePreviewEditor({
                 }
               >
                 <span
-                  className={usesAcademicTemplate ? "block truncate" : "text-sm"}
+                  className={usesAcademicTemplate ? "block truncate" : undefined}
                   dir="ltr"
                 >
                   {formatPrescriptionDate(data.prescriptionDate)}

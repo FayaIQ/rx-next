@@ -46,9 +46,8 @@ export async function DELETE(_req: Request, { params }: Params) {
   });
   if (!existing) return apiNotFound();
 
-  await prisma.patientField.update({
+  await prisma.patientField.delete({
     where: { id: existing.id },
-    data: { isActive: false },
   });
 
   return apiOk({ success: true });

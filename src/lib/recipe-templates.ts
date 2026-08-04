@@ -310,7 +310,7 @@ export function templatePrintHeaderHtml(
   ]
     .filter(Boolean)
     .map((v) => escapeHtml(v!))
-    .join(" · ");
+    .join("<br/>");
 
   const services = settings.services
     ?.split(/\r?\n/)

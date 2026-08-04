@@ -55,45 +55,31 @@ export function Pagination({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 border-t border-rx-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
+        "border-t border-rx-border/60 px-4 py-4",
         className
       )}
     >
-      <p className="text-xs text-rx-muted">
-        {t("ui.showingRange", { from, to, total })}
-      </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-rx-text">
+          {t("ui.showingRange", { from, to, total })}
+        </p>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {onPageSizeChange && (
-          <select
-            className="h-8 rounded-lg border border-rx-border bg-rx-surface px-2 text-xs focus:border-rx-primary focus:outline-none focus:ring-2 focus:ring-rx-primary/20"
-            value={pageSize}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            aria-label={t("ui.pageSizeAria")}
-          >
-            {PAGE_SIZE_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {t("ui.pageSize", { n })}
-              </option>
-            ))}
-          </select>
-        )}
-
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            size="icon"
-            className="size-8"
+            size="sm"
             disabled={!hasPrev}
             onClick={() => onPageChange(page - 1)}
             aria-label={t("ui.prevPage")}
+            className="h-9 px-3 text-sm font-medium"
           >
-            <PrevIcon size={16} />
+            <PrevIcon size={16} className="me-1" />
+            {isRtl ? "السابق" : "Prev"}
           </Button>
 
           {pageNumbers(page, totalPages).map((p, i) =>
             p === "ellipsis" ? (
-              <span key={`ellipsis-${i}`} className="px-1 text-xs text-rx-muted">
+              <span key={`ellipsis-${i}`} className="px-2 text-sm text-rx-muted">
                 …
               </span>
             ) : (
@@ -101,7 +87,7 @@ export function Pagination({
                 key={p}
                 variant={p === page ? "default" : "outline"}
                 size="sm"
-                className="size-8 min-w-8 px-0"
+                className="h-9 w-9 px-0 text-sm font-semibold"
                 onClick={() => onPageChange(p)}
                 aria-current={p === page ? "page" : undefined}
               >
@@ -112,13 +98,14 @@ export function Pagination({
 
           <Button
             variant="outline"
-            size="icon"
-            className="size-8"
+            size="sm"
             disabled={!hasNext}
             onClick={() => onPageChange(page + 1)}
             aria-label={t("ui.nextPage")}
+            className="h-9 px-3 text-sm font-medium"
           >
-            <NextIcon size={16} />
+            {isRtl ? "التالي" : "Next"}
+            <NextIcon size={16} className="ms-1" />
           </Button>
         </div>
       </div>

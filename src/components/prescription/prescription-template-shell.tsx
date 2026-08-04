@@ -50,18 +50,19 @@ function DoctorBlock({
             {settings.additionalText1}
           </p>
         )}
-        {(settings.phoneNumber || settings.email || settings.address) && (
-          <p
-            className={cn(
-              "text-[10px] opacity-70 sm:text-xs",
-              light && "text-white/75"
-            )}
-          >
-            {[settings.phoneNumber, settings.email, settings.address]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        )}
+        {[settings.phoneNumber, settings.email, settings.address]
+          .filter(Boolean)
+          .map((line, i) => (
+            <p
+              key={i}
+              className={cn(
+                "text-[10px] opacity-70 sm:text-xs",
+                light && "text-white/75"
+              )}
+            >
+              {line}
+            </p>
+          ))}
       </div>
       {logoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
