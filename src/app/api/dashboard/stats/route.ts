@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdminApi, isAdminApiError } from "@/lib/api/admin-auth";
 import { apiOk } from "@/lib/api/response";
+import { paginateArray } from "@/lib/pagination";
 
 const ALLOWED_PERIODS = new Set([7, 14, 30]);
+const RECENT_DOCTORS_PAGE_SIZE = 12;
 
 type CountGroup = {
   doctorId: bigint | null;
@@ -73,8 +75,13 @@ export async function GET(request: Request) {
   const ctx = await requireAdminApi();
   if (isAdminApiError(ctx)) return ctx;
 
-  const requestedDays = Number(new URL(request.url).searchParams.get("days"));
+  const searchParams = new URL(request.url).searchParams;
+  const requestedDays = Number(searchParams.get("days"));
   const days = ALLOWED_PERIODS.has(requestedDays) ? requestedDays : 14;
+  const recentDoctorsPage = Math.max(
+    1,
+    Number.parseInt(searchParams.get("recentPage") ?? "1", 10) || 1
+  );
   const now = new Date();
   const today = startOfDay(now);
   const periodStart = addDays(today, -(days - 1));
@@ -359,6 +366,20 @@ export async function GET(request: Request) {
   const previousPatientsTotal = sum(previousPatients);
   const futureAppointmentsTotal = sum(upcomingAppointments);
 
+  const sortedRecentDoctors = [...doctorActivity].sort((a, b) => {
+    if (a.registeredAt && b.registeredAt) {
+      return new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime();
+    }
+    if (a.registeredAt) return -1;
+    if (b.registeredAt) return 1;
+    return b.id - a.id;
+  });
+  const recentDoctors = paginateArray(
+    sortedRecentDoctors,
+    recentDoctorsPage,
+    RECENT_DOCTORS_PAGE_SIZE
+  );
+
   return apiOk({
     meta: {
       days,
@@ -435,16 +456,8 @@ export async function GET(request: Request) {
       upcomingDoctors: futureActiveDoctors.length,
     },
     trend,
-    recentDoctors: [...doctorActivity]
-      .sort((a, b) => {
-        if (a.registeredAt && b.registeredAt) {
-          return new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime();
-        }
-        if (a.registeredAt) return -1;
-        if (b.registeredAt) return 1;
-        return b.id - a.id;
-      })
-      .slice(0, 12),
+    recentDoctors: recentDoctors.pageItems,
+    recentDoctorsPagination: recentDoctors.pagination,
     topDoctors: [...doctorActivity]
       .filter((doctor) => doctor.activityScore > 0)
       .sort((a, b) => b.activityScore - a.activityScore)

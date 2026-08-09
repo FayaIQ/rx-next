@@ -114,13 +114,14 @@ export type AdminDashboardData = {
     visits: number;
   }>;
   recentDoctors: AdminDashboardDoctorDto[];
+  recentDoctorsPagination: PaginationMeta;
   topDoctors: AdminDashboardDoctorDto[];
 };
 
 export const adminApi = {
-  stats: (days = 14) =>
+  stats: (days = 14, recentPage = 1) =>
     handleResponse<AdminDashboardData>(
-      fetch(`/api/dashboard/stats?days=${days}`)
+      fetch(`/api/dashboard/stats?days=${days}&recentPage=${recentPage}`)
     ),
 
   users: (params?: { type?: string; q?: string; page?: number; pageSize?: number }) => {

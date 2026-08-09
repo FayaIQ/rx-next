@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   Activity,
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/card";
 import { PageContent } from "@/components/ui/page-shell";
 import { DashboardPageLoading } from "@/components/ui/page-loading";
+import { Pagination } from "@/components/ui/pagination";
 import { useLocale } from "@/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { useState, type ReactNode } from "react";
@@ -88,7 +89,7 @@ const copy = {
     upcomingDemand: "طلب قادم",
     upcomingDemandDesc: "لديهم مواعيد مؤكدة خلال الأيام السبعة القادمة.",
     recentDoctors: "أحدث الأطباء وأداؤهم",
-    recentDoctorsDesc: "آخر 12 تسجيلاً مع آخر استخدام وآخر زيارة ومؤشر النشاط.",
+    recentDoctorsDesc: "جميع التسجيلات مرتبة من الأحدث، مع آخر استخدام وزيارة ومؤشر النشاط.",
     doctor: "الطبيب",
     registration: "التسجيل",
     lastUse: "آخر استخدام",
@@ -169,7 +170,7 @@ const copy = {
     upcomingDemand: "Upcoming demand",
     upcomingDemandDesc: "Have confirmed appointments in the next seven days.",
     recentDoctors: "Newest doctors and performance",
-    recentDoctorsDesc: "Latest 12 registrations with last use, last visit, and activity index.",
+    recentDoctorsDesc: "All registrations, newest first, with last use, last visit, and activity index.",
     doctor: "Doctor",
     registration: "Registered",
     lastUse: "Last use",
@@ -286,9 +287,11 @@ export function AdminDashboardClient() {
   const { t, locale } = useLocale();
   const labels = copy[locale];
   const [days, setDays] = useState<(typeof PERIODS)[number]>(14);
+  const [recentPage, setRecentPage] = useState(1);
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
-    queryKey: ["admin-stats", days],
-    queryFn: () => adminApi.stats(days),
+    queryKey: ["admin-stats", days, recentPage],
+    queryFn: () => adminApi.stats(days, recentPage),
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
   });
   const number = new Intl.NumberFormat(locale === "ar" ? "ar-IQ" : "en-US");
@@ -371,7 +374,10 @@ export function AdminDashboardClient() {
               <button
                 key={period}
                 type="button"
-                onClick={() => setDays(period)}
+                onClick={() => {
+                  setDays(period);
+                  setRecentPage(1);
+                }}
                 className={cn(
                   "rounded-lg px-3 py-2 text-xs font-semibold transition-all sm:px-4",
                   days === period ? "bg-rx-surface text-rx-primary shadow-sm" : "text-rx-muted hover:text-rx-text"
@@ -596,6 +602,10 @@ export function AdminDashboardClient() {
                       ))}
                     </tbody>
                   </table>
+                  <Pagination
+                    pagination={data.recentDoctorsPagination}
+                    onPageChange={setRecentPage}
+                  />
                 </div>
               )}
             </CardContent>
