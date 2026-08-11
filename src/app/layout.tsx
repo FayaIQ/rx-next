@@ -64,7 +64,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full antialiased">
+      <body className="min-h-full antialiased" data-clarity-mask="true">
         <Providers>{children}</Providers>
       </body>
     </html>

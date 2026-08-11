@@ -8,6 +8,7 @@ import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { DevServiceWorkerCleanup } from "@/components/pwa/dev-sw-cleanup";
 import { LocaleProvider, useLocale } from "@/i18n/locale-provider";
 import { SyncProvider } from "@/components/sync/sync-provider";
+import { MicrosoftClarity } from "@/components/analytics/microsoft-clarity";
 
 function AppToaster() {
   const { dir } = useLocale();
@@ -43,6 +44,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
+      <MicrosoftClarity />
       <LocaleProvider>
         <QueryClientProvider client={queryClient}>
           <DevServiceWorkerCleanup />
