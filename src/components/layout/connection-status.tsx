@@ -19,7 +19,7 @@ export function ConnectionStatus() {
   if (!mounted) {
     return (
       <span
-        className="inline-block h-7 w-[4.75rem] shrink-0 rounded-full"
+        className="inline-block size-7 shrink-0 rounded-full sm:w-[4.75rem]"
         aria-hidden
       />
     );
@@ -54,13 +54,13 @@ export function ConnectionStatus() {
   return (
     <div
       className={cn(
-        "flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium",
+        "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium sm:w-auto sm:gap-1.5 sm:px-2.5",
         className
       )}
       title={subscriptionBlocked ? t("sync.subscriptionHint") : label}
     >
       {icon}
-      <span>{label}</span>
+      <span className="hidden sm:inline">{label}</span>
     </div>
   );
 }

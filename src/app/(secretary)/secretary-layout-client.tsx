@@ -17,7 +17,7 @@ export default function SecretaryLayoutClient({
       <SecretarySidebar />
       <div
         className={cn(
-          "min-h-screen rx-app-bg",
+          "rx-sidebar-content min-h-screen rx-app-bg",
           isRtl
             ? "lg:mr-[var(--rx-sidebar-width)]"
             : "lg:ml-[var(--rx-sidebar-width)]"

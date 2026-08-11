@@ -204,9 +204,9 @@ function AccountDeletionCard({
           </Dialog.Trigger>
 
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-[2px]" />
+            <Dialog.Overlay className="fixed inset-0 z-[80] bg-slate-950/55 backdrop-blur-[2px]" />
             <Dialog.Content
-              className="fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-red-200 bg-rx-surface p-5 shadow-2xl outline-none sm:p-7"
+              className="fixed left-1/2 top-1/2 z-[80] max-h-[92dvh] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-red-200 bg-rx-surface p-5 shadow-2xl outline-none sm:p-7"
               onEscapeKeyDown={(event) => {
                 if (deleteAccount.isPending) event.preventDefault();
               }}

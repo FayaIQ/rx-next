@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminApi, isAdminApiError } from "@/lib/api/admin-auth";
 import { apiOk } from "@/lib/api/response";
 import { paginateArray } from "@/lib/pagination";
+import { buildDashboardVisitActivity } from "@/lib/dashboard-visit-activity";
 
 const ALLOWED_PERIODS = new Set([7, 14, 30]);
 const RECENT_DOCTORS_PAGE_SIZE = 12;
@@ -13,7 +14,11 @@ type CountGroup = {
 
 type MaxDateGroup = {
   doctorId: bigint | null;
-  _max: { createdAt?: Date | null; visitDate?: Date | null };
+  _max: {
+    createdAt?: Date | null;
+    prescriptionDate?: Date | null;
+    visitDate?: Date | null;
+  };
 };
 
 function startOfDay(value: Date) {
@@ -43,12 +48,26 @@ function countMap(groups: CountGroup[]) {
   );
 }
 
-function maxDateMap(groups: MaxDateGroup[], field: "createdAt" | "visitDate") {
+function maxDateMap(
+  groups: MaxDateGroup[],
+  field: "createdAt" | "prescriptionDate" | "visitDate"
+) {
   return new Map(
     groups
       .filter((group) => group.doctorId !== null)
       .map((group) => [group.doctorId!.toString(), group._max[field] ?? null])
   );
+}
+
+function mergeMaxDateMaps(...maps: Map<string, Date | null>[]) {
+  const merged = new Map<string, Date | null>();
+  for (const map of maps) {
+    for (const [id, date] of map) {
+      const current = merged.get(id);
+      if (date && (!current || date > current)) merged.set(id, date);
+    }
+  }
+  return merged;
 }
 
 function getCount(map: Map<string, number>, id: string) {
@@ -121,25 +140,31 @@ export async function GET(request: Request) {
   ] = await Promise.all([
     prisma.prescription.groupBy({
       by: ["doctorId"],
-      where: { doctorId: { not: null }, createdAt: { gte: periodStart } },
+      where: {
+        doctorId: { not: null },
+        prescriptionDate: { gte: periodStart },
+      },
       _count: { _all: true },
     }),
     prisma.prescription.groupBy({
       by: ["doctorId"],
       where: {
         doctorId: { not: null },
-        createdAt: { gte: previousStart, lt: periodStart },
+        prescriptionDate: { gte: previousStart, lt: periodStart },
       },
       _count: { _all: true },
     }),
     prisma.prescription.groupBy({
       by: ["doctorId"],
       where: { doctorId: { not: null } },
-      _max: { createdAt: true },
+      _max: { prescriptionDate: true },
     }),
     prisma.prescription.findMany({
-      where: { doctorId: { not: null }, createdAt: { gte: periodStart } },
-      select: { doctorId: true, createdAt: true },
+      where: {
+        doctorId: { not: null },
+        prescriptionDate: { gte: periodStart },
+      },
+      select: { doctorId: true, prescriptionDate: true },
     }),
   ]);
 
@@ -192,31 +217,41 @@ export async function GET(request: Request) {
     }),
   ]);
 
-  const [
-    currentVisitsRaw,
-    previousVisitsRaw,
-    allVisitLastRaw,
-    trendVisits,
-  ] = await Promise.all([
-    prisma.patientVisit.groupBy({
-      by: ["doctorId"],
-      where: { visitDate: { gte: periodStart } },
-      _count: { _all: true },
-    }),
-    prisma.patientVisit.groupBy({
-      by: ["doctorId"],
-      where: { visitDate: { gte: previousStart, lt: periodStart } },
-      _count: { _all: true },
-    }),
-    prisma.patientVisit.groupBy({
-      by: ["doctorId"],
-      _max: { visitDate: true },
-    }),
-    prisma.patientVisit.findMany({
-      where: { visitDate: { gte: periodStart } },
-      select: { doctorId: true, visitDate: true },
-    }),
-  ]);
+  const [visitPrescriptionEvents, explicitVisitEvents, allVisitLastRaw] =
+    await Promise.all([
+      prisma.prescription.findMany({
+        where: {
+          doctorId: { not: null },
+          prescriptionDate: { gte: previousStart },
+        },
+        select: { doctorId: true, patientId: true, prescriptionDate: true },
+      }),
+      prisma.patientVisit.findMany({
+        where: { visitDate: { gte: previousStart } },
+        select: { doctorId: true, patientId: true, visitDate: true },
+      }),
+      prisma.patientVisit.groupBy({
+        by: ["doctorId"],
+        _max: { visitDate: true },
+      }),
+    ]);
+
+  const visitActivity = buildDashboardVisitActivity(
+    [
+      ...visitPrescriptionEvents.map((event) => ({
+        doctorId: event.doctorId,
+        patientId: event.patientId,
+        date: event.prescriptionDate,
+      })),
+      ...explicitVisitEvents.map((event) => ({
+        doctorId: event.doctorId,
+        patientId: event.patientId,
+        date: event.visitDate,
+      })),
+    ],
+    periodStart,
+    previousStart
+  );
 
   const currentPrescriptions = countMap(currentPrescriptionsRaw);
   const previousPrescriptions = countMap(previousPrescriptionsRaw);
@@ -224,13 +259,19 @@ export async function GET(request: Request) {
   const previousPatients = countMap(previousPatientsRaw);
   const currentAppointments = countMap(currentAppointmentsRaw);
   const previousAppointments = countMap(previousAppointmentsRaw);
-  const currentVisits = countMap(currentVisitsRaw);
-  const previousVisits = countMap(previousVisitsRaw);
+  const currentVisits = visitActivity.currentCounts;
+  const previousVisits = visitActivity.previousCounts;
   const upcomingAppointments = countMap(upcomingAppointmentsRaw);
-  const lastPrescription = maxDateMap(allPrescriptionLastRaw, "createdAt");
+  const lastPrescription = maxDateMap(
+    allPrescriptionLastRaw,
+    "prescriptionDate"
+  );
   const lastPatient = maxDateMap(allPatientLastRaw, "createdAt");
   const lastAppointment = maxDateMap(allAppointmentLastRaw, "createdAt");
-  const lastVisit = maxDateMap(allVisitLastRaw, "visitDate");
+  const lastVisit = mergeMaxDateMaps(
+    lastPrescription,
+    maxDateMap(allVisitLastRaw, "visitDate")
+  );
 
   const sum = (map: Map<string, number>) =>
     [...map.values()].reduce((total, value) => total + value, 0);
@@ -349,13 +390,13 @@ export async function GET(request: Request) {
     if (item) item.doctors += 1;
   });
   trendPrescriptions.forEach((prescription) => {
-    if (!prescription.createdAt) return;
-    const item = trendByDate.get(dayKey(prescription.createdAt));
+    if (!prescription.prescriptionDate) return;
+    const item = trendByDate.get(dayKey(prescription.prescriptionDate));
     if (item) item.prescriptions += 1;
   });
-  trendVisits.forEach((visit) => {
-    const item = trendByDate.get(dayKey(visit.visitDate));
-    if (item) item.visits += 1;
+  visitActivity.currentTrend.forEach((count, date) => {
+    const item = trendByDate.get(date);
+    if (item) item.visits += count;
   });
 
   const prescriptionsTotal = sum(currentPrescriptions);

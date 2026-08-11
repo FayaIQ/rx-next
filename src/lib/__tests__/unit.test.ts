@@ -40,6 +40,7 @@ import {
   getPhoneLookupVariants,
   normalizePhoneForAuth,
 } from "../patient-utils";
+import { buildDashboardVisitActivity } from "../dashboard-visit-activity";
 
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;
@@ -51,6 +52,33 @@ afterEach(() => {
   else process.env.CFLOW_OTP_KEY = originalCflowKey;
   if (originalCflowUrl === undefined) delete process.env.CFLOW_OTP_URL;
   else process.env.CFLOW_OTP_URL = originalCflowUrl;
+});
+
+describe("admin dashboard visit activity", () => {
+  it("counts prescription and explicit visits once per patient and day", () => {
+    const periodStart = new Date(2026, 7, 1);
+    const previousStart = new Date(2026, 6, 18);
+    const activity = buildDashboardVisitActivity(
+      [
+        { doctorId: 10n, patientId: 1n, date: new Date(2026, 7, 2, 9) },
+        { doctorId: 10n, patientId: 1n, date: new Date(2026, 7, 2, 12) },
+        { doctorId: 10n, patientId: 1n, date: new Date(2026, 7, 2, 15) },
+        { doctorId: 10n, patientId: 2n, date: new Date(2026, 7, 2, 10) },
+        { doctorId: 10n, patientId: 1n, date: new Date(2026, 7, 3, 10) },
+        { doctorId: 10n, patientId: 3n, date: new Date(2026, 6, 25, 10) },
+        { doctorId: 20n, patientId: 4n, date: new Date(2026, 7, 2, 10) },
+        { doctorId: null, patientId: 5n, date: new Date(2026, 7, 2, 10) },
+      ],
+      periodStart,
+      previousStart
+    );
+
+    assert.equal(activity.currentCounts.get("10"), 3);
+    assert.equal(activity.previousCounts.get("10"), 1);
+    assert.equal(activity.currentCounts.get("20"), 1);
+    assert.equal(activity.currentTrend.get("2026-08-02"), 3);
+    assert.equal(activity.currentTrend.get("2026-08-03"), 1);
+  });
 });
 
 describe("recipe fonts", () => {

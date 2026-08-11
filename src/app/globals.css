@@ -114,6 +114,7 @@ html.rx-embedded-preview {
 
 html {
   scroll-behavior: smooth;
+  max-width: 100%;
 }
 
 body {
@@ -122,6 +123,8 @@ body {
   font-family: var(--font-ibm-arabic), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 /* App shell background */
@@ -130,6 +133,9 @@ body {
     radial-gradient(ellipse 80% 50% at 50% -20%, rgb(148 163 184 / 0.08), transparent),
     var(--rx-bg);
   min-height: 100vh;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 /* Brand gradient utilities */
@@ -147,6 +153,8 @@ body {
 /* Page content area */
 .rx-page {
   padding: 1rem;
+  width: 100%;
+  min-width: 0;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -159,8 +167,17 @@ body {
 
 .rx-page-wide {
   padding: 1rem;
+  width: 100%;
+  min-width: 0;
   max-width: 1800px;
   margin: 0 auto;
+}
+
+/* Leave room for the mobile menu trigger in admin and secretary headers. */
+@media (max-width: 1023px) {
+  .rx-sidebar-content header > div {
+    padding-inline-start: 4.5rem;
+  }
 }
 
 @media (min-width: 1024px) {

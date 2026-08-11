@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -167,7 +168,77 @@ export function PrescriptionsLogPage() {
               />
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className="divide-y divide-rx-border/60 md:hidden">
+                  {prescriptions.map((rx, index) => {
+                    const patientName =
+                      rx.patientName ??
+                      rx.patient?.name ??
+                      t("prescriptions.unknownPatient");
+                    const medicinePreview = rx.items
+                      .slice(0, 3)
+                      .map((item) => item.name)
+                      .join(" · ");
+                    const moreCount = Math.max(0, rx.items.length - 3);
+                    const documentMeta = readPrescriptionDocumentMeta(
+                      rx.additionalInfo
+                    );
+
+                    return (
+                      <article
+                        key={
+                          rx.id > 0
+                            ? rx.id
+                            : `mobile-${rx.patientId}-${rx.prescriptionDate}-${index}`
+                        }
+                        className="space-y-3 p-4"
+                      >
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="break-words font-semibold text-rx-text">
+                              {patientName}
+                            </p>
+                            <p className="mt-1 text-xs text-rx-muted">
+                              {formatPrescriptionDateTime(rx.prescriptionDate, locale)}
+                            </p>
+                          </div>
+                          <Badge variant="secondary" className="shrink-0 font-mono">
+                            #{rx.prescriptionNumber}
+                          </Badge>
+                        </div>
+
+                        <div className="rounded-xl bg-rx-bg-subtle/70 p-3 text-sm">
+                          <p className="break-words text-rx-text-secondary">
+                            {rx.diagnosis?.trim() || "—"}
+                          </p>
+                          <p className="mt-2 break-words text-xs text-rx-muted">
+                            {documentMeta.documentKind === "message"
+                              ? documentMeta.messageText || "—"
+                              : `${medicinePreview || "—"}${moreCount > 0 ? ` · +${moreCount}` : ""}`}
+                          </p>
+                        </div>
+
+                        {recipeFields.length > 0 && (
+                          <dl className="grid grid-cols-2 gap-2 text-xs">
+                            {recipeFields.map((field) => (
+                              <div key={field.id} className="min-w-0">
+                                <dt className="truncate text-rx-muted">{field.name}</dt>
+                                <dd className="mt-0.5 break-words text-rx-text-secondary">
+                                  {getFieldValue(rx.fieldValues, field.id)}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        )}
+
+                        <div className="border-t border-rx-border/60 pt-2">
+                          <PrescriptionActions rx={rx} />
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                   <table className="rx-table w-full text-sm">
                     <thead>
                       <tr className="border-b border-rx-border text-rx-muted">

@@ -45,7 +45,7 @@ export function AppHeader({ title, subtitle, meta, actions }: AppHeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-rx-border bg-rx-surface/95 backdrop-blur-sm">
-      <div className="flex h-[var(--rx-header-height)] items-center justify-between gap-4 px-4 lg:px-6">
+      <div className="flex h-[var(--rx-header-height)] min-w-0 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4 lg:px-6">
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold text-rx-text">{title}</h1>
           {subtitle && (
@@ -53,7 +53,7 @@ export function AppHeader({ title, subtitle, meta, actions }: AppHeaderProps) {
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
           {meta}
           {actions}
 

@@ -67,10 +67,12 @@ export function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-[calc(var(--rx-nav-pill-offset)+0.75rem)] left-4 z-40 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium shadow-lg hover:bg-slate-50"
+        className="fixed bottom-[calc(var(--rx-nav-pill-offset)+0.75rem)] left-3 z-40 flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-medium shadow-lg hover:bg-slate-50 sm:left-4 sm:w-auto sm:gap-2 sm:px-4 sm:py-2"
+        aria-label={t("search.label")}
+        title={t("search.label")}
       >
         <Search size={16} />
-        {t("search.label")}
+        <span className="hidden sm:inline">{t("search.label")}</span>
         <kbd className="hidden rounded bg-slate-100 px-1.5 text-[10px] sm:inline">⌘K</kbd>
       </button>
     );
@@ -84,7 +86,7 @@ export function GlobalSearch() {
       (treatmentEnabled && data.treatments.length > 0));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[12vh]">
+    <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/40 p-4 pt-[12vh]">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center gap-2 border-b px-4 py-3">
           <Search size={18} className="text-slate-400" />

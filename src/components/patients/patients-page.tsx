@@ -154,7 +154,93 @@ export function PatientsPageClient({
                 }
               />
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                <div className="divide-y divide-rx-border/60 sm:hidden">
+                  {patients.map((patient) => (
+                    <article key={patient.id} className="space-y-3 p-4">
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-words font-semibold text-rx-text">
+                            {patient.name}
+                          </p>
+                          <p className="mt-1 font-mono text-xs text-rx-muted" dir="ltr">
+                            {patient.phone ?? "—"}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0">
+                          {t("patients.visits")}: {patient.visitCount}
+                        </Badge>
+                      </div>
+
+                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <div>
+                          <dt className="text-xs text-rx-muted">{t("patients.gender")}</dt>
+                          <dd className="mt-0.5 text-rx-text-secondary">
+                            {genderLabel(patient.gender, locale)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-rx-muted">{t("patients.age")}</dt>
+                          <dd className="mt-0.5 text-rx-text-secondary">{patient.age}</dd>
+                        </div>
+                        {personalFields.map((field) => (
+                          <div key={field.id} className="min-w-0">
+                            <dt className="truncate text-xs text-rx-muted">{field.name}</dt>
+                            <dd className="mt-0.5 break-words text-rx-text-secondary">
+                              {getFieldValue(patient.fieldValues, field.id)}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+
+                      <div className="flex flex-wrap gap-1 border-t border-rx-border/60 pt-2">
+                        {dentalEnabled && patient.id > 0 && (
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link href={`/dental/${patient.id}`}>
+                              <Smile size={14} />
+                              {t("patients.dental")}
+                            </Link>
+                          </Button>
+                        )}
+                        {showRecordLink && patient.id > 0 && (
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link href={`/patients/${patient.id}/record`}>
+                              <FileText size={14} />
+                              {t("patients.record")}
+                            </Link>
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => {
+                            setEditing(patient);
+                            setShowForm(true);
+                          }}
+                          aria-label={t("common.edit")}
+                        >
+                          <Pencil size={16} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => {
+                            if (confirm(t("patients.confirmDelete"))) {
+                              deleteMutation.mutate(patient.id);
+                            }
+                          }}
+                          aria-label={t("common.delete")}
+                        >
+                          <Trash2 size={16} className="text-rx-danger" />
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto sm:block">
                 <table className="rx-table w-full text-sm">
                   <thead>
                     <tr className="border-b border-rx-border text-rx-muted">
@@ -258,6 +344,7 @@ export function PatientsPageClient({
                     ))}
                   </tbody>
                 </table>
+                </div>
                 {pagination && (
                   <Pagination
                     pagination={pagination}
@@ -265,7 +352,7 @@ export function PatientsPageClient({
                     onPageSizeChange={onPageSizeChange}
                   />
                 )}
-              </div>
+              </>
             )}
           </CardContent>
         </Card>

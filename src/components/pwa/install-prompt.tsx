@@ -36,7 +36,7 @@ export function InstallPrompt() {
   if (!deferred || dismissed) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border bg-white p-4 shadow-lg lg:left-auto lg:right-6">
+    <div className="fixed bottom-4 left-4 right-4 z-[80] mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border bg-white p-4 shadow-lg lg:left-auto lg:right-6">
       <div className="text-sm">
         <p className="font-semibold">{t("pwa.title")}</p>
         <p className="text-rx-muted">{t("pwa.subtitle")}</p>

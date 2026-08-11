@@ -1019,7 +1019,7 @@ export function PrescriptionComposer() {
       <PageContent wide className="px-3 py-2 pb-3 lg:px-4">
         <div
           data-prescription-layout
-          className="grid gap-4 lg:grid-cols-[minmax(260px,32vw)_minmax(0,1fr)] lg:items-start"
+          className="grid min-w-0 gap-4 lg:grid-cols-[minmax(260px,32vw)_minmax(0,1fr)] lg:items-start"
         >
           <div
             data-prescription-editor
@@ -1468,7 +1468,7 @@ export function PrescriptionComposer() {
           {livePreviewData ? (
             <aside
               data-prescription-preview
-              className="min-h-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:flex lg:flex-col lg:sticky lg:self-start lg:top-[calc(var(--rx-header-height)+1rem)] lg:max-h-[calc(100vh-var(--rx-header-height)-var(--rx-nav-pill-offset)-1rem)]"
+              className="min-h-0 min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:flex lg:flex-col lg:sticky lg:self-start lg:top-[calc(var(--rx-header-height)+1rem)] lg:max-h-[calc(100vh-var(--rx-header-height)-var(--rx-nav-pill-offset)-1rem)]"
             >
               <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                 <PrescriptionLivePreview

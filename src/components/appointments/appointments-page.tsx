@@ -504,7 +504,7 @@ export function AppointmentsPageClient({
 
       {formOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-4"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-4"
           onClick={closeForm}
         >
           <Card
