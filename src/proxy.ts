@@ -21,6 +21,7 @@ const PUBLIC_PATHS = [
   "/auth/register/secretary",
   "/subscription/expired",
   "/demo-preview",
+  "/clinic/free-trial",
   "/terms",
   "/privacy",
   "/api/auth",
