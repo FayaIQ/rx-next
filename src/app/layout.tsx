@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans_Arabic } from "next/font/google";
+import Script from "next/script";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 import "@/styles/recipe-fonts.css";
@@ -66,6 +67,20 @@ export default function RootLayout({
       </head>
       <body className="min-h-full antialiased" data-clarity-mask="true">
         <Providers>{children}</Providers>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-46PTJCE9ED"
+          strategy="afterInteractive"
+        />
+        <Script id="rx-google-tag" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            window.gtag = gtag;
+
+            gtag('js', new Date());
+            gtag('config', 'G-46PTJCE9ED');
+          `}
+        </Script>
       </body>
     </html>
   );

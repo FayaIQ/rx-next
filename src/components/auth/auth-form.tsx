@@ -34,6 +34,7 @@ import {
   type PhoneCountry,
 } from "@/lib/phone-countries";
 import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
+import { trackTrialSignup } from "@/lib/google-ads";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -188,6 +189,9 @@ export function AuthForm({
     if (!res.ok) {
       toast.error(data.error ?? t("auth.registerFailed"));
       return false;
+    }
+    if (role === "doctor") {
+      trackTrialSignup();
     }
     toast.success(t("auth.accountCreated"));
     return true;
