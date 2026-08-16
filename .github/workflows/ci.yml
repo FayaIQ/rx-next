@@ -14,17 +14,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: corepack enable
 
-      - run: npm run fonts:sync
+      - run: pnpm install --frozen-lockfile
 
-      - run: npm run lint
+      - run: pnpm run fonts:sync
 
-      - run: npm run test
+      - run: pnpm run lint
 
-      - run: npm run build
+      - run: pnpm run test
+
+      - run: pnpm run build
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           AUTH_SECRET: ci-build-secret-minimum-32-characters-long
