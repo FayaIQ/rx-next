@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -83,6 +83,8 @@ function ShowcaseVideo({
   fit?: "cover" | "contain";
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const isVisible = useRef(false);
+  const [shouldLoad, setShouldLoad] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -91,17 +93,23 @@ function ShowcaseVideo({
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          video.play().catch(() => undefined);
+          isVisible.current = true;
+          setShouldLoad(true);
         } else {
+          isVisible.current = false;
           video.pause();
         }
       },
-      { threshold: 0.35 }
+      { rootMargin: "350px 0px", threshold: 0.1 }
     );
 
     observer.observe(video);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (shouldLoad) videoRef.current?.load();
+  }, [shouldLoad]);
 
   return (
     <article className="group overflow-hidden rounded-[1.75rem] border border-[#0B5F5A]/12 bg-white shadow-md shadow-[#0B5F5A]/5 transition duration-500 hover:-translate-y-1 hover:border-[#0B5F5A]/30 hover:shadow-xl">
@@ -124,11 +132,14 @@ function ShowcaseVideo({
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="none"
           poster={poster}
           aria-label={title}
+          onCanPlay={() => {
+            if (isVisible.current) video.play().catch(() => undefined);
+          }}
         >
-          <source src={src} type="video/mp4" />
+          {shouldLoad ? <source src={src} type="video/mp4" /> : null}
         </video>
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-gradient-to-b from-white/90 to-transparent p-4 sm:p-5">
           <span className="rounded-full border border-[#0B5F5A]/15 bg-white/90 px-3 py-1 text-xs font-bold text-[#0B5F5A] shadow-sm backdrop-blur-md">
@@ -219,6 +230,8 @@ const OFFER_PROOFS = [
 
 export function LandingPage() {
   const { t, dir, locale } = useLocale();
+  const [showLiveDemo, setShowLiveDemo] = useState(true);
+  const hideLiveDemo = useCallback(() => setShowLiveDemo(false), []);
   const year = new Date().getFullYear();
   const whatsappMessage =
     locale === "ar"
@@ -614,21 +627,23 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Live Rx demo */}
-      <section
-        id="live-demo"
-        className="scroll-mt-24 border-t border-slate-200/80 bg-white px-5 py-20 sm:px-8"
-      >
-        <div className="mx-auto max-w-7xl">
-          <SectionHead
-            badge={t("landing.demoBadge")}
-            title={t("landing.demoTitle")}
-            body={t("landing.demoBody")}
-            center
-          />
-          <LandingRxDemo />
-        </div>
-      </section>
+      {/* The entire live-demo section disappears if the frame is unavailable. */}
+      {showLiveDemo ? (
+        <section
+          id="live-demo"
+          className="scroll-mt-24 border-t border-slate-200/80 bg-white px-5 py-20 sm:px-8"
+        >
+          <div className="mx-auto max-w-7xl">
+            <SectionHead
+              badge={t("landing.demoBadge")}
+              title={t("landing.demoTitle")}
+              body={t("landing.demoBody")}
+              center
+            />
+            <LandingRxDemo onUnavailable={hideLiveDemo} />
+          </div>
+        </section>
+      ) : null}
 
       {/* Roles */}
       <section className="border-y border-slate-200/80 bg-[#F6F8F7] px-5 py-20 sm:px-8">

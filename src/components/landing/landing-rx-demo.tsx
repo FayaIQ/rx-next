@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useLocale } from "@/i18n/locale-provider";
 
@@ -71,12 +71,17 @@ function supportsCredentialless() {
   );
 }
 
-/** Give up on the live frame and show the screenshot instead. */
+/** Give up on a live frame that does not finish loading. */
 const LOAD_TIMEOUT_MS = 12_000;
 
-export function LandingRxDemo() {
+export function LandingRxDemo({
+  onUnavailable,
+}: {
+  onUnavailable: () => void;
+}) {
   const { t, dir, locale } = useLocale();
   const screenRef = useRef<HTMLDivElement>(null);
+  const unavailableReported = useRef(false);
 
   const [device, setDevice] = useState<DeviceKey>("desktop");
   const [scale, setScale] = useState(0);
@@ -84,6 +89,12 @@ export function LandingRxDemo() {
   const [live, setLive] = useState(false);
   const [srcReady, setSrcReady] = useState(false);
   const [loaded, setLoaded] = useState(false);
+
+  const reportUnavailable = useCallback(() => {
+    if (unavailableReported.current) return;
+    unavailableReported.current = true;
+    onUnavailable();
+  }, [onUnavailable]);
 
   // Pick the frame that matches the visitor's screen.
   useEffect(() => {
@@ -95,8 +106,10 @@ export function LandingRxDemo() {
 
   // Only attempt the live frame where the cookie can actually be isolated.
   useEffect(() => {
-    setLive(supportsCredentialless());
-  }, []);
+    const canUseLiveFrame = supportsCredentialless();
+    setLive(canUseLiveFrame);
+    if (!canUseLiveFrame) reportUnavailable();
+  }, [reportUnavailable]);
 
   // Scale the logical viewport down into the frame's screen cut-out.
   useEffect(() => {
@@ -125,9 +138,12 @@ export function LandingRxDemo() {
   // Never let a stalled frame sit on a spinner forever.
   useEffect(() => {
     if (!srcReady || loaded) return;
-    const timer = setTimeout(() => setLive(false), LOAD_TIMEOUT_MS);
+    const timer = setTimeout(() => {
+      setLive(false);
+      reportUnavailable();
+    }, LOAD_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [srcReady, loaded]);
+  }, [srcReady, loaded, reportUnavailable]);
 
   const spec = DEVICES[device];
   const viewportHeight = Math.round(spec.viewportWidth / screenAspect(spec));
@@ -152,16 +168,6 @@ export function LandingRxDemo() {
             height: `${spec.screen.height}%`,
           }}
         >
-          {!live && (
-            <Image
-              src="/why-rx-img.png"
-              alt={t("landing.demoLockedTitle")}
-              fill
-              sizes={`${spec.maxWidth}px`}
-              className="object-contain object-center"
-            />
-          )}
-
           {showSpinner && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#f5f8fa] text-slate-700">
               <div className="px-4 text-center">
@@ -186,6 +192,7 @@ export function LandingRxDemo() {
               onLoad={() => {
                 if (srcReady) setLoaded(true);
               }}
+              onError={reportUnavailable}
               className="absolute left-0 top-0 block border-0 bg-white"
               style={{
                 width: spec.viewportWidth,
@@ -203,7 +210,6 @@ export function LandingRxDemo() {
           src={spec.frame}
           alt=""
           fill
-          priority
           sizes={`${spec.maxWidth}px`}
           className="pointer-events-none z-20 object-contain drop-shadow-[0_28px_30px_rgba(15,23,42,0.14)]"
         />
