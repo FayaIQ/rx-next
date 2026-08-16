@@ -220,6 +220,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|fonts/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2|woff|ttf|otf|glb|gltf|obj|bin)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|fonts/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|webm|woff2|woff|ttf|otf|glb|gltf|obj|bin)$).*)",
   ],
 };

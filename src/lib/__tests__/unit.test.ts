@@ -5,6 +5,7 @@ import { migrateRecipeFontId, recipeFontFamilyName } from "../recipe-fonts";
 import { normalizeQueueStatus } from "../visit-queue/constants";
 import { normalizePatientFieldsArray } from "../patient-field-display";
 import { sendOtp } from "../otp";
+import { sendCflowWelcomeMessage } from "../cflow-messages";
 import {
   createClinicTaskSchema,
   updateClinicTaskSchema,
@@ -45,6 +46,8 @@ import { buildDashboardVisitActivity } from "../dashboard-visit-activity";
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;
 const originalCflowUrl = process.env.CFLOW_OTP_URL;
+const originalCflowMessagesKey = process.env.CFLOW_MESSAGES_KEY;
+const originalCflowMessagesUrl = process.env.CFLOW_MESSAGES_URL;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -52,6 +55,10 @@ afterEach(() => {
   else process.env.CFLOW_OTP_KEY = originalCflowKey;
   if (originalCflowUrl === undefined) delete process.env.CFLOW_OTP_URL;
   else process.env.CFLOW_OTP_URL = originalCflowUrl;
+  if (originalCflowMessagesKey === undefined) delete process.env.CFLOW_MESSAGES_KEY;
+  else process.env.CFLOW_MESSAGES_KEY = originalCflowMessagesKey;
+  if (originalCflowMessagesUrl === undefined) delete process.env.CFLOW_MESSAGES_URL;
+  else process.env.CFLOW_MESSAGES_URL = originalCflowMessagesUrl;
 });
 
 describe("admin dashboard visit activity", () => {
@@ -396,5 +403,37 @@ describe("CFlow OTP client", () => {
     assert.equal(result.ok, false);
     assert.equal(result.status, 401);
     assert.match(result.error ?? "", /غير مهيأة/);
+  });
+});
+
+describe("CFlow welcome messages", () => {
+  it("sends the welcome template once with a stable idempotency key", async () => {
+    process.env.CFLOW_MESSAGES_KEY = "test-message-key";
+    process.env.CFLOW_MESSAGES_URL = "https://messages.example.test/api/send/";
+    let requestedUrl = "";
+    let requestInit: RequestInit | undefined;
+    globalThis.fetch = async (input, init) => {
+      requestedUrl = String(input);
+      requestInit = init;
+      return Response.json({ success: true }, { status: 201 });
+    };
+
+    const result = await sendCflowWelcomeMessage({
+      doctorId: "42",
+      name: "أحمد علي",
+      phone: "07847076026",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(requestedUrl, "https://messages.example.test/api/send");
+    assert.equal(
+      new Headers(requestInit?.headers).get("Idempotency-Key"),
+      "rx-doctor-42-welcome-v1"
+    );
+    assert.deepEqual(JSON.parse(String(requestInit?.body)), {
+      phone: "+9647847076026",
+      name: "أحمد علي",
+      variables: ["أحمد علي"],
+    });
   });
 });

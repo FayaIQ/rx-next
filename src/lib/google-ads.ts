@@ -17,3 +17,12 @@ export function trackTrialSignup() {
     currency: "USD",
   });
 }
+
+export function trackWhatsAppClick(placement: string) {
+  if (typeof window === "undefined" || !window.gtag) return;
+
+  window.gtag("event", "whatsapp_click", {
+    placement,
+    contact_number: "+9647847076026",
+  });
+}

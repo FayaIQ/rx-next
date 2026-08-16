@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -18,11 +19,16 @@ import {
   WifiOff,
   ClipboardList,
   BarChart3,
+  GraduationCap,
+  MessageCircle,
+  BadgeCheck,
+  Headphones,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { LandingRxDemo } from "@/components/landing/landing-rx-demo";
 import { LinkedFayaDevText } from "@/components/faya-dev-link";
 import { useLocale } from "@/i18n/locale-provider";
+import { trackWhatsAppClick } from "@/lib/google-ads";
 import { cn } from "@/lib/utils";
 
 function Badge({ children }: { children: React.ReactNode }) {
@@ -56,6 +62,88 @@ function SectionHead({
         </p>
       ) : null}
     </div>
+  );
+}
+
+function ShowcaseVideo({
+  src,
+  poster,
+  label,
+  title,
+  body,
+  duration,
+  fit = "cover",
+}: {
+  src: string;
+  poster: string;
+  label: string;
+  title: string;
+  body: string;
+  duration: string;
+  fit?: "cover" | "contain";
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => undefined);
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: 0.35 }
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <article className="group overflow-hidden rounded-[1.75rem] border border-[#0B5F5A]/12 bg-white shadow-md shadow-[#0B5F5A]/5 transition duration-500 hover:-translate-y-1 hover:border-[#0B5F5A]/30 hover:shadow-xl">
+      <div className="relative aspect-[4/5] overflow-hidden bg-[#EAF7F4]">
+        <Image
+          src={poster}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 38vw, 90vw"
+          className="scale-110 object-cover opacity-20 blur-2xl transition duration-700 group-hover:scale-125"
+          aria-hidden="true"
+        />
+        <video
+          ref={videoRef}
+          className={cn(
+            "relative z-10 size-full transition duration-700 group-hover:scale-[1.015]",
+            fit === "contain" ? "object-contain" : "object-cover"
+          )}
+          controls
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster={poster}
+          aria-label={title}
+        >
+          <source src={src} type="video/mp4" />
+        </video>
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-gradient-to-b from-white/90 to-transparent p-4 sm:p-5">
+          <span className="rounded-full border border-[#0B5F5A]/15 bg-white/90 px-3 py-1 text-xs font-bold text-[#0B5F5A] shadow-sm backdrop-blur-md">
+            {label}
+          </span>
+          <span className="rounded-full border border-slate-200 bg-white/95 px-2.5 py-1 text-xs font-bold text-[#0B2C3D] shadow-sm">
+            {duration}
+          </span>
+        </div>
+      </div>
+      <div className="p-5 sm:p-6">
+        <h3 className="text-xl font-bold text-[#0B2C3D]">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p>
+      </div>
+    </article>
   );
 }
 
@@ -120,9 +208,23 @@ const ROLES = [
   },
 ] as const;
 
+const SALES_WHATSAPP = "+9647847076026";
+
+const OFFER_PROOFS = [
+  { key: "Price", icon: Wallet },
+  { key: "Training", icon: GraduationCap },
+  { key: "Doctors", icon: BadgeCheck },
+  { key: "Support", icon: Headphones },
+] as const;
+
 export function LandingPage() {
-  const { t, dir } = useLocale();
+  const { t, dir, locale } = useLocale();
   const year = new Date().getFullYear();
+  const whatsappMessage =
+    locale === "ar"
+      ? "مرحباً، أريد شرحاً مجانياً عن نظام RX Clinic لإدارة العيادات"
+      : "Hello, I would like a free RX Clinic setup consultation";
+  const whatsappUrl = `https://wa.me/${SALES_WHATSAPP.replace("+", "")}?text=${encodeURIComponent(whatsappMessage)}`;
 
   const checks = ["bentoCheck1", "bentoCheck2", "bentoCheck3", "bentoCheck4"] as const;
 
@@ -168,7 +270,7 @@ export function LandingPage() {
         </div>
       </header>
 
-      {/* Hero */}
+      {/* Hero Section - Enhanced */}
       <section className="relative overflow-hidden bg-white">
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-28 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10 lg:pb-20 lg:pt-32">
           <div className="rx-landing-hero-copy">
@@ -179,6 +281,12 @@ export function LandingPage() {
             <p className="mt-5 max-w-lg text-base leading-relaxed text-slate-600 sm:text-lg">
               {t("landing.subhead")}
             </p>
+            <div className="mt-6 inline-flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-[#0B5F5A]/15 bg-[#E8F5E0]/60 px-4 py-3 text-sm">
+              <strong className="text-lg text-[#0B5F5A]">
+                {t("landing.offerPrice")}
+              </strong>
+              <span className="text-slate-500">{t("landing.offerIncludes")}</span>
+            </div>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/auth/signup"
@@ -186,12 +294,16 @@ export function LandingPage() {
               >
                 {t("landing.ctaTrial")}
               </Link>
-              <Link
-                href="/auth/signin"
-                className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-[#0B2C3D] transition hover:border-[#0B5F5A]/40 hover:bg-[#E8F5E0]/40"
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => trackWhatsAppClick("hero")}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#0B5F5A]/25 bg-white px-6 py-3 text-sm font-semibold text-[#0B5F5A] transition hover:border-[#0B5F5A]/50 hover:bg-[#E8F5E0]/40"
               >
-                {t("landing.ctaSignIn")}
-              </Link>
+                <MessageCircle size={17} />
+                {t("landing.ctaWhatsApp")}
+              </a>
             </div>
             <Link
               href="/auth/login/secretary"
@@ -201,17 +313,9 @@ export function LandingPage() {
             </Link>
 
             <div className="mt-10 flex items-center gap-3">
-              <div className="flex -space-x-2 space-x-reverse">
-                {["#0B5F5A", "#0E7490", "#134E4A", "#1B6B4A"].map((c, i) => (
-                  <span
-                    key={c}
-                    className="inline-flex size-9 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-white"
-                    style={{ backgroundColor: c }}
-                  >
-                    {i + 1}
-                  </span>
-                ))}
-              </div>
+              <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#0B5F5A] text-white shadow-sm ring-4 ring-[#E8F5E0]">
+                <BadgeCheck size={20} />
+              </span>
               <div>
                 <p className="text-sm font-semibold text-[#0B2C3D]">
                   {t("landing.trustCount")}
@@ -222,6 +326,30 @@ export function LandingPage() {
           </div>
 
           <HeroProduct t={t} />
+        </div>
+      </section>
+
+      {/* Commercial proof */}
+      <section className="bg-[#F1F0F3] px-5 pb-2 pt-10 sm:px-8 sm:pt-12">
+        <div className="mx-auto grid max-w-6xl gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {OFFER_PROOFS.map(({ key, icon: Icon }) => (
+            <div
+              key={key}
+              className="flex items-center gap-4 rounded-2xl border border-white bg-white px-5 py-5 shadow-sm"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#E8F5E0] text-[#0B5F5A]">
+                <Icon size={21} />
+              </span>
+              <div>
+                <p className="font-bold text-[#0B2C3D]">
+                  {t(`landing.proof${key}Title`)}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  {t(`landing.proof${key}Body`)}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -252,6 +380,99 @@ export function LandingPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Real product visuals */}
+      <section className="border-y border-slate-200/80 bg-white px-5 py-20 sm:px-8">
+        <div className="mx-auto max-w-6xl">
+          <SectionHead
+            badge={t("landing.productBadge")}
+            title={t("landing.productTitle")}
+            body={t("landing.productBody")}
+            center
+          />
+          <div className="mt-12 grid gap-6 lg:grid-cols-2">
+            <article className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-[#F7FBFA] shadow-sm transition duration-500 hover:-translate-y-1 hover:shadow-xl">
+              <Image
+                src="/landing/campaign/rx-general.png"
+                alt={t("landing.productGeneralAlt")}
+                width={1122}
+                height={1402}
+                className="h-auto w-full transition duration-700 group-hover:scale-[1.025]"
+                sizes="(min-width: 1024px) 50vw, 100vw"
+              />
+              <div className="p-6 sm:p-7">
+                <h3 className="text-xl font-bold text-[#0B2C3D]">
+                  {t("landing.productGeneralTitle")}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  {t("landing.productGeneralBody")}
+                </p>
+              </div>
+            </article>
+
+            <article className="group overflow-hidden rounded-[2rem] border border-[#0B5F5A]/15 bg-[#F7FBFA] shadow-sm transition duration-500 hover:-translate-y-1 hover:shadow-xl">
+              <Image
+                src="/landing/campaign/rx-dental.png"
+                alt={t("landing.productDentalAlt")}
+                width={1122}
+                height={1402}
+                className="h-auto w-full transition duration-700 group-hover:scale-[1.025]"
+                sizes="(min-width: 1024px) 50vw, 100vw"
+              />
+              <div className="p-6 sm:p-7">
+                <h3 className="text-xl font-bold text-[#0B2C3D]">
+                  {t("landing.productDentalTitle")}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  {t("landing.productDentalBody")}
+                </p>
+              </div>
+            </article>
+          </div>
+
+          <div className="relative mt-16 overflow-hidden rounded-[2.5rem] border border-[#0B5F5A]/10 bg-[#F1F8F6] px-5 py-10 shadow-xl shadow-[#0B5F5A]/5 sm:px-8 sm:py-12 lg:px-12">
+            <div className="absolute -start-24 -top-24 size-72 rounded-full bg-[#18A999]/15 blur-3xl" />
+            <div className="absolute -bottom-32 -end-20 size-80 rounded-full bg-cyan-400/10 blur-3xl" />
+
+            <div className="relative mx-auto max-w-2xl text-center">
+              <span className="inline-flex rounded-full border border-[#0B5F5A]/15 bg-white px-3.5 py-1 text-xs font-semibold text-[#0B5F5A] shadow-sm">
+                {t("landing.videoBadge")}
+              </span>
+              <h2 className="mt-4 text-3xl font-bold tracking-tight text-[#0B2C3D] sm:text-4xl">
+                {t("landing.videoTitle")}
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-slate-600 sm:text-lg">
+                {t("landing.videoBody")}
+              </p>
+            </div>
+
+            <div className="relative mx-auto mt-10 grid max-w-4xl gap-6 md:grid-cols-2">
+              <ShowcaseVideo
+                src="/landing/campaign/rx-promo.mp4"
+                poster="/landing/campaign/rx-promo-poster.jpg"
+                label={t("landing.videoAdBadge")}
+                title={t("landing.videoAdTitle")}
+                body={t("landing.videoAdBody")}
+                duration="02:08"
+                fit="contain"
+              />
+              <ShowcaseVideo
+                src="/landing/campaign/rx-guide.mp4"
+                poster="/landing/campaign/rx-guide-poster.jpg"
+                label={t("landing.videoGuideBadge")}
+                title={t("landing.videoGuideTitle")}
+                body={t("landing.videoGuideBody")}
+                duration="01:32"
+                fit="contain"
+              />
+            </div>
+
+            <p className="relative mt-6 text-center text-xs text-slate-500">
+              {t("landing.videoHint")}
+            </p>
           </div>
         </div>
       </section>
@@ -504,6 +725,31 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* Verified experience, without invented testimonials */}
+      <section className="bg-[#EAF3F0] px-5 py-20 sm:px-8">
+        <div className="mx-auto grid max-w-6xl items-center gap-8 rounded-[2rem] border border-white/80 bg-white p-7 shadow-sm sm:p-10 lg:grid-cols-[1fr_auto]">
+          <div>
+            <Badge>{t("landing.experienceBadge")}</Badge>
+            <h2 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-[#0B2C3D] sm:text-4xl">
+              {t("landing.experienceTitle")}
+            </h2>
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
+              {t("landing.experienceBody")}
+            </p>
+          </div>
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => trackWhatsAppClick("experience")}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#0B5F5A] px-6 py-3.5 text-sm font-bold text-white transition hover:bg-[#094E4A]"
+          >
+            <MessageCircle size={18} />
+            {t("landing.ctaWhatsApp")}
+          </a>
+        </div>
+      </section>
+
       {/* Offline CTA banner */}
       <section className="px-5 py-16 sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-col overflow-hidden rounded-[1.75rem] bg-[#0B2C3D] shadow-lg lg:flex-row">
@@ -528,37 +774,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Reviews */}
-      <section className="bg-[#EAF3F0] px-5 py-20 sm:px-8">
-        <div className="mx-auto max-w-6xl">
-          <SectionHead
-            badge={t("landing.reviewsBadge")}
-            title={t("landing.reviewsTitle")}
-            center
-          />
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {([1, 2, 3] as const).map((n) => (
-              <article
-                key={n}
-                className="rounded-[1.75rem] border border-white/80 bg-white p-7 shadow-sm"
-              >
-                <div className="flex text-amber-400">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={14} fill="currentColor" />
-                  ))}
-                </div>
-                <p className="mt-4 text-sm leading-relaxed text-slate-700">
-                  “{t(`landing.review${n}Text`)}”
-                </p>
-                <p className="mt-5 text-sm font-semibold text-[#0B2C3D]">
-                  {t(`landing.review${n}Name`)}
-                </p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Close */}
       <section className="bg-white px-5 py-24 sm:px-8">
         <div className="mx-auto max-w-3xl text-center">
@@ -575,12 +790,16 @@ export function LandingPage() {
             >
               {t("landing.closeCta")}
             </Link>
-            <Link
-              href="/auth/signin"
-              className="inline-flex rounded-full border border-slate-300 px-7 py-3.5 text-sm font-semibold text-[#0B2C3D] transition hover:bg-slate-50"
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => trackWhatsAppClick("closing")}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-7 py-3.5 text-sm font-semibold text-[#0B2C3D] transition hover:bg-slate-50"
             >
-              {t("landing.ctaSignIn")}
-            </Link>
+              <MessageCircle size={17} />
+              {t("landing.ctaWhatsApp")}
+            </a>
           </div>
         </div>
       </section>
@@ -617,6 +836,17 @@ export function LandingPage() {
                   {t("landing.ctaSecretary")}
                 </Link>
               </li>
+              <li>
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => trackWhatsAppClick("footer")}
+                  className="hover:text-white"
+                >
+                  {t("landing.ctaWhatsApp")}
+                </a>
+              </li>
             </ul>
           </div>
         </div>
@@ -629,6 +859,18 @@ export function LandingPage() {
           </p>
         </div>
       </footer>
+
+      <a
+        href={whatsappUrl}
+        target="_blank"
+        rel="noreferrer"
+        onClick={() => trackWhatsAppClick("floating_mobile")}
+        aria-label={t("landing.ctaWhatsApp")}
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] end-4 z-50 inline-flex items-center gap-2 rounded-full bg-[#0B5F5A] px-4 py-3 text-sm font-bold text-white shadow-[0_12px_35px_rgba(11,95,90,0.35)] transition hover:bg-[#094E4A] sm:hidden"
+      >
+        <MessageCircle size={19} />
+        {t("landing.ctaWhatsAppShort")}
+      </a>
     </div>
   );
 }

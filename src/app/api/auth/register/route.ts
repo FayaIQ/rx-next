@@ -5,6 +5,7 @@ import { apiOk, apiError, apiServerError } from "@/lib/api/response";
 import { isOtpEnabled, verifyOtpToken } from "@/lib/otp";
 import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
 import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
+import { sendCflowWelcomeMessage } from "@/lib/cflow-messages";
 
 const schema = z.object({
   name: z.string().min(2, "الاسم مطلوب"),
@@ -41,6 +42,17 @@ export async function POST(request: Request) {
     const authUser = await authenticateUser(data.phone, data.password);
     if (!authUser) {
       return apiServerError("فشل إنشاء الحساب");
+    }
+
+    const cflowMessage = await sendCflowWelcomeMessage({
+      doctorId: fromDbId(user.id),
+      name: user.name,
+      phone: user.phoneNumber,
+    });
+    if (!cflowMessage.ok && !cflowMessage.skipped) {
+      console.warn("CFlow welcome message was not delivered", {
+        status: cflowMessage.status,
+      });
     }
 
     return apiOk(
