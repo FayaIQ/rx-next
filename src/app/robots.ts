@@ -6,7 +6,17 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/terms", "/privacy"],
+      allow: [
+        "/",
+        "/clinic/free-trial",
+        "/solutions/",
+        "/features/",
+        "/blog/",
+        "/compare/",
+        "/about/",
+        "/terms",
+        "/privacy",
+      ],
       disallow: [
         "/api/", "/auth/", "/dashboard/", "/dates/", "/dental/",
         "/finances/", "/home/", "/patients/", "/pharmaceutical/",
@@ -16,5 +26,6 @@ export default function robots(): MetadataRoute.Robots {
       ],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
+    host: siteUrl,
   };
 }

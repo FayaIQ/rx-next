@@ -113,6 +113,7 @@ html.rx-embedded-preview {
 }
 
 html {
+  --font-ibm-arabic: "RX ibm plex";
   scroll-behavior: smooth;
   max-width: 100%;
 }

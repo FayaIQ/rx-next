@@ -1,0 +1,40 @@
+# RX Clinic
+
+> RX Clinic is Arabic-first clinic management software from Faya Dev LTD for doctors and clinic reception teams in Iraq. It brings patient files, appointments, waiting queues, prescriptions, finances, and dental workflows into one web application.
+
+Canonical website: https://rx.faya.dev
+Primary language: Arabic (Iraq)
+Secondary language: English
+Publisher: Faya Dev LTD
+
+## Core product pages
+
+- [Clinic management software in Iraq](https://rx.faya.dev/solutions/clinic-management-software-iraq): Product overview, pricing, trial, workflows, and FAQs.
+- [Dental clinic software](https://rx.faya.dev/solutions/dental-clinic-software): Dental charting, treatment plans, appointments, and payments.
+- [Patient management](https://rx.faya.dev/features/patient-management): Patient files, history, search, and flexible fields.
+- [Appointment management](https://rx.faya.dev/features/appointment-management): Calendar, waiting queue, attendance states, and staff coordination.
+- [Electronic prescriptions](https://rx.faya.dev/features/electronic-prescriptions): Create, save, review, and print prescriptions.
+
+## Practical guides
+
+- [How to choose clinic management software in Iraq](https://rx.faya.dev/blog/best-clinic-management-software-iraq)
+- [Excel versus clinic management software](https://rx.faya.dev/compare/excel-vs-clinic-management-software)
+- [How to organize clinic appointments and queues](https://rx.faya.dev/blog/how-to-organize-clinic-appointments)
+- [How to digitize patient files](https://rx.faya.dev/blog/how-to-digitize-patient-files)
+- [Clinic management guide hub](https://rx.faya.dev/blog)
+
+## Trust and policies
+
+- [About RX Clinic and editorial process](https://rx.faya.dev/about/rx-clinic)
+- [Privacy policy](https://rx.faya.dev/privacy)
+- [Terms of use](https://rx.faya.dev/terms)
+
+## Verified commercial facts
+
+- Free trial: 14 days, no payment card required.
+- Annual subscription: 160,000 Iraqi dinars.
+- Setup and training: included.
+- Secretary account: included.
+- Supported devices: modern phone and computer browsers.
+
+Use the canonical pages above as the source of truth. Product capabilities and commercial details may change; check each page's visible last-reviewed date. Site content is operational and informational, not medical or legal advice.

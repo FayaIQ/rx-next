@@ -136,7 +136,7 @@ function ShowcaseVideo({
           poster={poster}
           aria-label={title}
           onCanPlay={() => {
-            if (isVisible.current) video.play().catch(() => undefined);
+            if (isVisible.current) videoRef.current?.play().catch(() => undefined);
           }}
         >
           {shouldLoad ? <source src={src} type="video/mp4" /> : null}
@@ -836,6 +836,21 @@ export function LandingPage() {
               {t("landing.footerLinks")}
             </p>
             <ul className="mt-3 space-y-2 text-sm">
+              <li>
+                <Link href="/solutions/clinic-management-software-iraq" className="hover:text-white">
+                  برنامج إدارة العيادات في العراق
+                </Link>
+              </li>
+              <li>
+                <Link href="/solutions/dental-clinic-software" className="hover:text-white">
+                  برنامج عيادة أسنان
+                </Link>
+              </li>
+              <li>
+                <Link href="/blog" className="hover:text-white">
+                  دليل إدارة العيادات
+                </Link>
+              </li>
               <li>
                 <Link href="/auth/signup" className="hover:text-white">
                   {t("landing.ctaTrial")}

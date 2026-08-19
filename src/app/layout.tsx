@@ -1,18 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import Script from "next/script";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 import "@/styles/recipe-fonts.css";
 
-const ibmPlexArabic = IBM_Plex_Sans_Arabic({
-  subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-ibm-arabic",
-});
-
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL ?? "https://rx.faya.dev"),
+  applicationName: "RX Clinic",
+  creator: "Faya Dev LTD",
+  publisher: "Faya Dev LTD",
+  category: "Clinic management software",
   title: {
     default: "RX Clinic | نظام إدارة العيادات",
     template: "%s | RX Clinic",
@@ -37,6 +34,17 @@ export const metadata: Metadata = {
     title: "RX Clinic | نظام إدارة العيادات",
     description: "إدارة المرضى والمواعيد والوصفات الطبية من مكان واحد.",
   },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -56,8 +64,48 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://rx.faya.dev/#website",
+        url: "https://rx.faya.dev",
+        name: "RX Clinic",
+        description: "نظام إدارة العيادات والمرضى والمواعيد والوصفات والحسابات في العراق.",
+        inLanguage: ["ar-IQ", "en"],
+        publisher: { "@id": "https://rx.faya.dev/#organization" },
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://rx.faya.dev/#organization",
+        name: "Faya Dev LTD",
+        url: "https://faya.dev",
+        logo: {
+          "@type": "ImageObject",
+          url: "https://rx.faya.dev/brand/logo.png",
+          width: 512,
+          height: 512,
+        },
+        brand: {
+          "@type": "Brand",
+          "@id": "https://rx.faya.dev/#brand",
+          name: "RX Clinic",
+          url: "https://rx.faya.dev",
+        },
+        knowsAbout: [
+          "Clinic management software",
+          "Patient records",
+          "Clinic appointments",
+          "Electronic prescriptions",
+          "Dental clinic workflows",
+        ],
+      },
+    ],
+  };
+
   return (
-    <html lang="ar" dir="rtl" className={`${ibmPlexArabic.variable} h-full`} suppressHydrationWarning>
+    <html lang="ar" dir="rtl" className="h-full" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -66,6 +114,12 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full antialiased" data-clarity-mask="true">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteJsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
         <Providers>{children}</Providers>
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-46PTJCE9ED"

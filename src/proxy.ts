@@ -14,6 +14,14 @@ function nextWithPathname(req: NextRequest) {
 }
 
 const PUBLIC_PATHS = [
+  "/robots.txt",
+  "/sitemap.xml",
+  "/llms.txt",
+  "/solutions",
+  "/features",
+  "/blog",
+  "/compare",
+  "/about",
   "/auth/signin",
   "/auth/signup",
   "/auth/admin",

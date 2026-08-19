@@ -42,6 +42,7 @@ import {
   normalizePhoneForAuth,
 } from "../patient-utils";
 import { buildDashboardVisitActivity } from "../dashboard-visit-activity";
+import { seoPages } from "../seo-pages";
 
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;
@@ -59,6 +60,38 @@ afterEach(() => {
   else process.env.CFLOW_MESSAGES_KEY = originalCflowMessagesKey;
   if (originalCflowMessagesUrl === undefined) delete process.env.CFLOW_MESSAGES_URL;
   else process.env.CFLOW_MESSAGES_URL = originalCflowMessagesUrl;
+});
+
+describe("SEO and AI discovery pages", () => {
+  it("keeps canonical paths unique and all internal recommendations valid", () => {
+    const paths = seoPages.map((page) => page.path);
+    const knownPaths = new Set(paths);
+
+    assert.equal(knownPaths.size, paths.length);
+    for (const page of seoPages) {
+      assert.match(page.path, /^\/[a-z0-9-/]+$/);
+      assert.ok(page.metaTitle.length >= 20 && page.metaTitle.length <= 65);
+      assert.ok(page.description.length >= 80 && page.description.length <= 180);
+      for (const relatedPath of page.relatedPaths) {
+        assert.ok(knownPaths.has(relatedPath), `${page.path} links to unknown SEO page ${relatedPath}`);
+      }
+    }
+  });
+
+  it("gives high-intent editorial pages quotable answers and trust signals", () => {
+    const editorialPages = seoPages.filter(
+      (page) => page.kind === "article" || page.kind === "comparison"
+    );
+
+    assert.ok(editorialPages.length >= 3);
+    for (const page of editorialPages) {
+      assert.ok(page.quickAnswer && page.quickAnswer.length >= 100);
+      assert.ok(page.keyFacts && page.keyFacts.length >= 4);
+      assert.ok(page.author);
+      assert.ok(page.publishedAt);
+      assert.ok(page.updatedAt);
+    }
+  });
 });
 
 describe("admin dashboard visit activity", () => {
