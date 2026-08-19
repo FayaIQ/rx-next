@@ -45,6 +45,9 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+  verification: {
+    google: "KqLp6ttmLMHdQUrSFXISNyygINd-ciDzj9XiXJ5ZyZ8",
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
