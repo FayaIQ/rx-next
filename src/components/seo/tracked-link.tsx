@@ -10,11 +10,13 @@ type GtagWindow = Window & {
 type TrackedLinkProps = ComponentProps<typeof Link> & {
   eventLabel: string;
   eventLocation: string;
+  eventName?: "seo_cta_click" | "whatsapp_click";
 };
 
 export function TrackedLink({
   eventLabel,
   eventLocation,
+  eventName = "seo_cta_click",
   onClick,
   ...props
 }: TrackedLinkProps) {
@@ -22,7 +24,7 @@ export function TrackedLink({
     <Link
       {...props}
       onClick={(event) => {
-        (window as GtagWindow).gtag?.("event", "seo_cta_click", {
+        (window as GtagWindow).gtag?.("event", eventName, {
           cta_label: eventLabel,
           cta_location: eventLocation,
           destination: String(props.href),

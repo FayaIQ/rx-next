@@ -111,9 +111,9 @@ export function SeoPage({ page }: { page: SeoPageConfig }) {
                 <TrackedLink href="/auth/signup" eventLabel="تجربة 14 يوماً" eventLocation="hero" className="inline-flex items-center gap-2 rounded-full bg-[#0B5F5A] px-6 py-3 text-sm font-bold text-white hover:bg-[#094E4A]">
                   جرّب RX Clinic لمدة 14 يوماً <ArrowUpLeft size={16} />
                 </TrackedLink>
-                <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#0B5F5A]/25 bg-white px-6 py-3 text-sm font-bold text-[#0B5F5A] hover:bg-[#E8F5E0]">
+                <TrackedLink href={WHATSAPP_URL} target="_blank" rel="noreferrer" eventName="whatsapp_click" eventLabel="احجز شرحاً مجانياً" eventLocation="hero" className="inline-flex items-center gap-2 rounded-full border border-[#0B5F5A]/25 bg-white px-6 py-3 text-sm font-bold text-[#0B5F5A] hover:bg-[#E8F5E0]">
                   <MessageCircle size={17} /> احجز شرحاً مجانياً
-                </a>
+                </TrackedLink>
               </div>
             </div>
             <aside className="overflow-hidden rounded-[2rem] border border-[#0B5F5A]/10 bg-[#EFF8F4]" aria-label="أهم المميزات">

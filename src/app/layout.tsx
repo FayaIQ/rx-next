@@ -104,6 +104,25 @@ export default function RootLayout({
           "Dental clinic workflows",
         ],
       },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://rx.faya.dev/#software",
+        name: "RX Clinic",
+        applicationCategory: "BusinessApplication",
+        applicationSubCategory: "Clinic management software",
+        operatingSystem: "Web",
+        inLanguage: ["ar", "en"],
+        url: "https://rx.faya.dev",
+        description: "نظام عربي لإدارة المرضى والمواعيد والوصفات والحسابات وعيادات الأسنان في العراق.",
+        offers: {
+          "@type": "Offer",
+          price: "160000",
+          priceCurrency: "IQD",
+          availability: "https://schema.org/InStock",
+          url: "https://rx.faya.dev/auth/signup",
+        },
+        provider: { "@id": "https://rx.faya.dev/#organization" },
+      },
     ],
   };
 
@@ -136,6 +155,7 @@ export default function RootLayout({
 
             gtag('js', new Date());
             gtag('config', 'G-46PTJCE9ED');
+            gtag('config', 'AW-17698783004');
           `}
         </Script>
       </body>

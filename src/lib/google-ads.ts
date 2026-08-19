@@ -11,6 +11,11 @@ declare global {
 export function trackTrialSignup() {
   if (typeof window === "undefined" || !window.gtag) return;
 
+  window.gtag("event", "sign_up", {
+    method: "phone_otp",
+    user_role: "doctor",
+  });
+
   window.gtag("event", "conversion", {
     send_to: "AW-17698783004/XPEiCM-xwuIcEJz-t_dB",
     value: 1,
