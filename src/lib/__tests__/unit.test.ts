@@ -17,6 +17,7 @@ import {
 } from "../dev-test-doctor";
 import { defaultRecipeSettingsForDoctor } from "../recipe-settings";
 import { ACADEMIC_RECIPE_TEMPLATE_DEFAULTS } from "../academic-recipe-template";
+import { templatePrintStyles } from "../recipe-templates";
 import {
   ACCOUNT_DELETE_PHRASES,
   isValidAccountDeletePhrase,
@@ -198,6 +199,19 @@ describe("doctor onboarding", () => {
     assert.equal(settings.designPatientX, 69.5);
     assert.equal(settings.designAgeX, 41);
     assert.equal(settings.designDateX, 17);
+  });
+
+  it("allows the academic doctor description to wrap without a line limit", () => {
+    const styles = templatePrintStyles("academic", "#075985");
+
+    assert.match(
+      styles,
+      /\.tpl-academic-title \{[^}]*white-space:pre-line;/
+    );
+    assert.doesNotMatch(
+      styles,
+      /\.tpl-academic-title \{[^}]*(?:max-height|white-space:nowrap|text-overflow:ellipsis);/
+    );
   });
 });
 

@@ -229,7 +229,7 @@ export function templatePrintStyles(
         .tpl-academic-clinic { margin:0; overflow:hidden; color:${color}; font-size:.86rem; font-weight:800; letter-spacing:.01em; white-space:nowrap; text-overflow:ellipsis; }
         .tpl-academic-head h1 { margin:3px 0 0; overflow:hidden; color:#0f172a; font-size:1.5rem; font-weight:900; line-height:1.12; white-space:nowrap; text-overflow:ellipsis; }
         .tpl-academic-specialty { margin:2px 0 0; overflow:hidden; color:${color}; font-size:.86rem; font-weight:800; white-space:nowrap; text-overflow:ellipsis; }
-        .tpl-academic-title { margin:2px auto 0; max-width:94%; overflow:hidden; color:#475569; font-size:.62rem; line-height:1.2; white-space:nowrap; text-overflow:ellipsis; }
+        .tpl-academic-title { margin:2px auto 0; max-width:94%; color:#475569; font-size:.62rem; line-height:1.2; overflow-wrap:anywhere; white-space:pre-line; }
         .tpl-academic-license-wrap { position:absolute; top:15.2%; left:22%; right:8%; text-align:center; }
         .tpl-academic-license { display:inline-block; max-width:100%; margin:0; padding:1px 6px; overflow:hidden; border:1px solid #dbe3ee; border-radius:4px; background:#f8fafc; color:#475569; font-size:.59rem; font-weight:700; line-height:1.2; white-space:nowrap; text-overflow:ellipsis; }
         .tpl-academic-services { position:absolute; top:18.5%; left:8%; right:8%; overflow:hidden; color:#64748b; font-size:.59rem; line-height:1.2; text-align:center; white-space:nowrap; text-overflow:ellipsis; }

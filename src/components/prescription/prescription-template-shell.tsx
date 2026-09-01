@@ -118,7 +118,7 @@ function AcademicShell({ settings, logoUrl }: Props) {
           {settings.doctorSpecialty}
         </p>
         {settings.professionalTitle && (
-          <p className="mx-auto mt-0.5 max-w-[94%] truncate text-[0.62em] leading-tight text-slate-600">
+          <p className="mx-auto mt-0.5 max-w-[94%] whitespace-pre-line break-words text-[0.62em] leading-[1.2] text-slate-600 [overflow-wrap:anywhere]">
             {settings.professionalTitle}
           </p>
         )}
