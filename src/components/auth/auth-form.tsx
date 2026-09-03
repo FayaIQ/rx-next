@@ -35,6 +35,7 @@ import {
 } from "@/lib/phone-countries";
 import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
 import { trackTrialSignup } from "@/lib/google-ads";
+import { readApiResponse } from "@/lib/api/read-response";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -185,7 +186,10 @@ export function AuthForm({
         ...(captchaToken ? { turnstileToken: captchaToken } : {}),
       }),
     });
-    const data = await res.json();
+    const data = await readApiResponse<{ error?: string }>(
+      res,
+      t("auth.serverUnavailable")
+    );
     if (!res.ok) {
       toast.error(data.error ?? t("auth.registerFailed"));
       return false;
@@ -230,7 +234,11 @@ export function AuthForm({
         ...(captchaProof ? { captchaProof } : {}),
       }),
     });
-    const data = await res.json();
+    const data = await readApiResponse<{
+      error?: string;
+      enabled?: boolean;
+      captchaProof?: string;
+    }>(res, t("auth.serverUnavailable"));
     if (!res.ok) {
       toast.error(data.error ?? t("auth.otpSendFailed"));
       resetCaptcha();
@@ -295,7 +303,10 @@ export function AuthForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: fullPhone, code: otpCode }),
       });
-      const data = await res.json();
+      const data = await readApiResponse<{
+        error?: string;
+        otpToken?: string;
+      }>(res, t("auth.serverUnavailable"));
       if (!res.ok || !data.otpToken) {
         toast.error(data.error ?? t("auth.otpInvalid"));
         return;

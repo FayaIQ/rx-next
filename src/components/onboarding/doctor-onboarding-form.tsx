@@ -414,10 +414,9 @@ export function DoctorOnboardingForm() {
                   </div>
 
                   {services.length > 0 && (
-                    <div className="mt-2 flex flex-wrap justify-center gap-x-2 gap-y-0.5 border-y border-slate-100 py-1 text-[9px] font-medium text-slate-500 sm:text-[10px]">
+                    <div className="mt-2 border-y border-slate-100 py-1 text-center text-[9px] font-medium leading-tight text-slate-500 sm:text-[10px]">
                       {services.map((service, index) => (
-                        <span key={`${service}-${index}`} className="inline-flex items-center gap-1.5">
-                          {index > 0 && <span className="text-cyan-500">•</span>}
+                        <span key={`${service}-${index}`} className="block">
                           {service}
                         </span>
                       ))}

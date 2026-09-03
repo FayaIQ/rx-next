@@ -44,12 +44,36 @@ import {
 } from "../patient-utils";
 import { buildDashboardVisitActivity } from "../dashboard-visit-activity";
 import { seoPages } from "../seo-pages";
+import { readApiResponse } from "../api/read-response";
 
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;
 const originalCflowUrl = process.env.CFLOW_OTP_URL;
 const originalCflowMessagesKey = process.env.CFLOW_MESSAGES_KEY;
 const originalCflowMessagesUrl = process.env.CFLOW_MESSAGES_URL;
+
+describe("API response parsing", () => {
+  it("returns JSON payloads", async () => {
+    const response = Response.json({ success: true });
+
+    assert.deepEqual(
+      await readApiResponse(response, "service unavailable"),
+      { success: true }
+    );
+  });
+
+  it("replaces HTML parser errors with a safe message", async () => {
+    const response = new Response("<!DOCTYPE html><title>Bad gateway</title>", {
+      status: 502,
+      headers: { "Content-Type": "text/html" },
+    });
+
+    await assert.rejects(
+      readApiResponse(response, "service unavailable"),
+      { message: "service unavailable" }
+    );
+  });
+});
 
 afterEach(() => {
   globalThis.fetch = originalFetch;

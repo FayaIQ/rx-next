@@ -271,6 +271,7 @@ export const en: MessageCatalog = {
     creating: "Creating...",
     choosePractice: "Choose a practice type",
     registerFailed: "Registration failed",
+    serverUnavailable: "Couldn't complete the request right now — try again shortly",
     accountCreated: "Account created successfully",
     invalidCredentials: "Invalid credentials",
     sessionExpired: "Session expired — please sign in again",

@@ -274,6 +274,7 @@ export const ar = {
     creating: "جاري الإنشاء...",
     choosePractice: "اختر نوع العيادة",
     registerFailed: "فشل التسجيل",
+    serverUnavailable: "تعذر إكمال الطلب حالياً — أعد المحاولة بعد قليل",
     accountCreated: "تم إنشاء الحساب بنجاح",
     invalidCredentials: "بيانات الدخول غير صحيحة",
     sessionExpired: "انتهت الجلسة — سجّل الدخول مجدداً",

@@ -83,8 +83,7 @@ function AcademicShell({ settings, logoUrl }: Props) {
     ?.split(/\r?\n/)
     .map((service) => service.trim())
     .filter(Boolean)
-    .slice(0, 5)
-    .join(" • ");
+    .slice(0, 5) ?? [];
   const contact = [settings.phoneNumber, settings.address || settings.email]
     .filter(Boolean)
     .join(" • ");
@@ -133,27 +132,29 @@ function AcademicShell({ settings, logoUrl }: Props) {
         </div>
       )}
 
-      {services && (
-        <p className="absolute left-[8%] right-[8%] top-[18.5%] truncate text-center text-[0.59em] leading-tight text-slate-500">
-          {services}
-        </p>
+      {services.length > 0 && (
+        <div className="absolute left-[8%] right-[8%] top-[17.8%] max-h-[7%] overflow-hidden text-center text-[0.59em] leading-[1.2] text-slate-500">
+          {services.map((service, index) => (
+            <div key={`${service}-${index}`}>{service}</div>
+          ))}
+        </div>
       )}
 
-      <div className="absolute left-[8%] right-[8%] top-[20.8%] h-px bg-slate-300" />
+      <div className="absolute left-[8%] right-[8%] top-[25%] h-px bg-slate-300" />
       <div
-        className="absolute left-[8%] right-[8%] top-[21.5%] h-0.5"
+        className="absolute left-[8%] right-[8%] top-[25.7%] h-0.5"
         style={{ backgroundColor: color }}
       />
 
       <div
-        className="absolute left-[8%] right-[8%] top-[23.55%] grid grid-cols-[1.45fr_1fr_1.05fr] gap-[1.8%] text-[0.68em] font-bold text-slate-700"
+        className="absolute left-[8%] right-[8%] top-[27.75%] grid grid-cols-[1.45fr_1fr_1.05fr] gap-[1.8%] text-[0.68em] font-bold text-slate-700"
         dir="rtl"
       >
         <AcademicPatientField label={t("recipe.labelPatient")} />
         <AcademicPatientField label={t("recipe.labelAgeGender")} />
         <AcademicPatientField label={t("recipe.labelDate")} />
       </div>
-      <div className="absolute left-[8%] right-[8%] top-[26.5%] h-px bg-slate-200" />
+      <div className="absolute left-[8%] right-[8%] top-[30.7%] h-px bg-slate-200" />
       {[43, 56, 69].map((top) => (
         <div
           key={top}

@@ -232,13 +232,13 @@ export function templatePrintStyles(
         .tpl-academic-title { margin:2px auto 0; max-width:94%; color:#475569; font-size:.62rem; line-height:1.2; overflow-wrap:anywhere; white-space:pre-line; }
         .tpl-academic-license-wrap { position:absolute; top:15.2%; left:22%; right:8%; text-align:center; }
         .tpl-academic-license { display:inline-block; max-width:100%; margin:0; padding:1px 6px; overflow:hidden; border:1px solid #dbe3ee; border-radius:4px; background:#f8fafc; color:#475569; font-size:.59rem; font-weight:700; line-height:1.2; white-space:nowrap; text-overflow:ellipsis; }
-        .tpl-academic-services { position:absolute; top:18.5%; left:8%; right:8%; overflow:hidden; color:#64748b; font-size:.59rem; line-height:1.2; text-align:center; white-space:nowrap; text-overflow:ellipsis; }
-        .tpl-academic-rule-light { position:absolute; top:20.8%; left:8%; right:8%; height:1px; background:#cbd5e1; }
-        .tpl-academic-rule-strong { position:absolute; top:21.5%; left:8%; right:8%; height:2px; background:${color}; }
-        .tpl-academic-patient { position:absolute; top:23.55%; left:8%; right:8%; display:grid; grid-template-columns:1.45fr 1fr 1.05fr; gap:1.8%; direction:rtl; color:#334155; font-size:.68rem; font-weight:700; }
+        .tpl-academic-services { position:absolute; top:17.8%; left:8%; right:8%; max-height:7%; overflow:hidden; color:#64748b; font-size:.59rem; line-height:1.2; text-align:center; }
+        .tpl-academic-rule-light { position:absolute; top:25%; left:8%; right:8%; height:1px; background:#cbd5e1; }
+        .tpl-academic-rule-strong { position:absolute; top:25.7%; left:8%; right:8%; height:2px; background:${color}; }
+        .tpl-academic-patient { position:absolute; top:27.75%; left:8%; right:8%; display:grid; grid-template-columns:1.45fr 1fr 1.05fr; gap:1.8%; direction:rtl; color:#334155; font-size:.68rem; font-weight:700; }
         .tpl-academic-field { display:flex; align-items:flex-end; gap:5px; min-width:0; white-space:nowrap; }
         .tpl-academic-dots { min-width:0; flex:1; height:1em; border-bottom:1px dotted #94a3b8; }
-        .tpl-academic-patient-bottom { position:absolute; top:26.5%; left:8%; right:8%; height:1px; background:#dbe3ee; }
+        .tpl-academic-patient-bottom { position:absolute; top:30.7%; left:8%; right:8%; height:1px; background:#dbe3ee; }
         .tpl-academic-writing-line { position:absolute; left:8%; right:8%; border-bottom:1px dashed #dbe3ee; }
         .tpl-academic-footer { position:absolute; left:8%; right:8%; bottom:4.3%; padding-top:5px; border-top:1.5px solid ${color}; color:#64748b; font-size:.63rem; line-height:1.25; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .tpl-academic-footer strong { color:#0c4a6e; }
@@ -318,7 +318,7 @@ export function templatePrintHeaderHtml(
     .filter(Boolean)
     .slice(0, 5)
     .map(escapeHtml)
-    .join(" • ");
+    .join("<br/>");
 
   switch (id) {
     case "academic":
