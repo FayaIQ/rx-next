@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { migrateRecipeFontId, recipeFontFamilyName } from "../recipe-fonts";
 import { normalizeQueueStatus } from "../visit-queue/constants";
 import { normalizePatientFieldsArray } from "../patient-field-display";
-import { sendOtp } from "../otp";
+import { isSignupOtpEnabled, sendOtp } from "../otp";
 import { sendCflowWelcomeMessage } from "../cflow-messages";
 import {
   createClinicTaskSchema,
@@ -49,6 +49,7 @@ import { readApiResponse } from "../api/read-response";
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;
 const originalCflowUrl = process.env.CFLOW_OTP_URL;
+const originalSignupOtpEnabled = process.env.SIGNUP_OTP_ENABLED;
 const originalCflowMessagesKey = process.env.CFLOW_MESSAGES_KEY;
 const originalCflowMessagesUrl = process.env.CFLOW_MESSAGES_URL;
 
@@ -81,6 +82,8 @@ afterEach(() => {
   else process.env.CFLOW_OTP_KEY = originalCflowKey;
   if (originalCflowUrl === undefined) delete process.env.CFLOW_OTP_URL;
   else process.env.CFLOW_OTP_URL = originalCflowUrl;
+  if (originalSignupOtpEnabled === undefined) delete process.env.SIGNUP_OTP_ENABLED;
+  else process.env.SIGNUP_OTP_ENABLED = originalSignupOtpEnabled;
   if (originalCflowMessagesKey === undefined) delete process.env.CFLOW_MESSAGES_KEY;
   else process.env.CFLOW_MESSAGES_KEY = originalCflowMessagesKey;
   if (originalCflowMessagesUrl === undefined) delete process.env.CFLOW_MESSAGES_URL;
@@ -436,6 +439,15 @@ describe("clinic tasks", () => {
 });
 
 describe("CFlow OTP client", () => {
+  it("keeps signup OTP paused unless it is explicitly enabled", () => {
+    process.env.CFLOW_OTP_KEY = "test-key";
+    delete process.env.SIGNUP_OTP_ENABLED;
+    assert.equal(isSignupOtpEnabled(), false);
+
+    process.env.SIGNUP_OTP_ENABLED = "true";
+    assert.equal(isSignupOtpEnabled(), true);
+  });
+
   it("uses the configured base URL without a duplicate slash", async () => {
     process.env.CFLOW_OTP_KEY = "test-key";
     process.env.CFLOW_OTP_URL = "https://otp.example.test/api/otp/";

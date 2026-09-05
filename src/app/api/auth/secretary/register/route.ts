@@ -2,7 +2,7 @@ import { z } from "zod";
 import { registerSecretary } from "@/lib/auth-credentials";
 import { fromDbId } from "@/lib/bigint";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
-import { isOtpEnabled, verifyOtpToken } from "@/lib/otp";
+import { isSignupOtpEnabled, verifyOtpToken } from "@/lib/otp";
 import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
 
 const schema = z.object({
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = schema.parse(body);
 
-    if (isOtpEnabled()) {
+    if (isSignupOtpEnabled()) {
       if (!(await verifyOtpToken(data.phone, data.otpToken))) {
         return apiError("يجب التحقق من رقم الهاتف أولاً", 401);
       }

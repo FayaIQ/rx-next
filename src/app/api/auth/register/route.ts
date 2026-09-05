@@ -2,7 +2,7 @@ import { z } from "zod";
 import { registerDoctor, authenticateUser } from "@/lib/auth-credentials";
 import { fromDbId } from "@/lib/bigint";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
-import { isOtpEnabled, verifyOtpToken } from "@/lib/otp";
+import { isSignupOtpEnabled, verifyOtpToken } from "@/lib/otp";
 import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
 import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
 import { sendCflowWelcomeMessage } from "@/lib/cflow-messages";
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const data = schema.parse(body);
     const isDevTestDoctor = isDevTestDoctorPhone(data.phone);
 
-    if (isOtpEnabled() && !isDevTestDoctor) {
+    if (isSignupOtpEnabled() && !isDevTestDoctor) {
       if (!(await verifyOtpToken(data.phone, data.otpToken))) {
         return apiError("يجب التحقق من رقم الهاتف أولاً", 401);
       }

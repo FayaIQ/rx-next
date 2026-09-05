@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
 import {
   createProofToken,
-  isOtpEnabled,
+  isSignupOtpEnabled,
   sendOtp,
   verifyProofToken,
 } from "@/lib/otp";
@@ -31,8 +31,8 @@ export async function POST(request: Request) {
       return apiOk({ enabled: false, testDoctor: true });
     }
 
-    // No key configured → tell the client to use the password-only flow.
-    if (!isOtpEnabled()) {
+    // Signup OTP is independently switchable; password reset/deletion keep OTP.
+    if (!isSignupOtpEnabled()) {
       return apiOk({ enabled: false });
     }
 
