@@ -1,0 +1,2 @@
+ALTER TABLE "recipe_settings"
+ADD COLUMN IF NOT EXISTS "qr_value" VARCHAR(2048);

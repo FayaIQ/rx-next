@@ -240,6 +240,7 @@ export type RecipeSettingsDto = {
   licenseNumber: string | null;
   services: string | null;
   additionalText1: string | null;
+  qrValue: string | null;
   phoneNumber: string | null;
   email: string | null;
   address: string | null;

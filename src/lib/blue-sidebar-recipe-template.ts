@@ -65,10 +65,14 @@ export function resolveBlueSidebarCorePositions(
 export function buildBlueSidebarQrValue(settings: {
   clinicName?: string | null;
   doctorName: string;
+  qrValue?: string | null;
   phoneNumber?: string | null;
   email?: string | null;
   address?: string | null;
 }): string {
+  const customValue = settings.qrValue?.trim();
+  if (customValue) return customValue;
+
   const lines = [
     "BEGIN:VCARD",
     "VERSION:3.0",

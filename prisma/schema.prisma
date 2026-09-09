@@ -377,6 +377,7 @@ model RecipeSettings {
   services                String?
   onboardingCompleted     Boolean   @default(true) @map("onboarding_completed")
   additionalText1         String?   @map("additional_text_1")
+  qrValue                 String?   @map("qr_value") @db.VarChar(2048)
   phoneNumber             String?   @map("phone_number") @db.VarChar(255)
   email                   String?   @db.VarChar(255)
   fontFamily              String    @map("font_family") @db.VarChar(255)

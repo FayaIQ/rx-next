@@ -50,6 +50,7 @@ export async function PUT(req: Request) {
       licenseNumber: data.licenseNumber,
       services: data.services,
       additionalText1: data.additionalText1 ?? null,
+      qrValue: data.qrValue ?? null,
       phoneNumber: data.phoneNumber ?? null,
       email: data.email || null,
       address: data.address ?? null,

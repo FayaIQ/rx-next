@@ -1086,6 +1086,8 @@ export const ar = {
     email: "البريد الإلكتروني",
     address: "العنوان",
     addressPh: "بغداد — الكرادة",
+    qrValue: "رابط QR",
+    qrValueHint: "إذا تُرك فارغًا، ينشئ النظام بطاقة اتصال من بيانات الطبيب تلقائيًا.",
     fontsColors: "الخط والألوان",
     fontType: "نوع الخط",
     fontsStandard: "خطوط عادية",

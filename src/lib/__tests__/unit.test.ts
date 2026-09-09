@@ -328,6 +328,17 @@ describe("doctor onboarding", () => {
     assert.match(value, /EMAIL:doctor@example\.com/);
     assert.match(value, /END:VCARD$/m);
   });
+
+  it("uses a saved QR link instead of the generated contact card", () => {
+    const instagramUrl = "https://www.instagram.com/mohammedalsharaa.clinic";
+    const value = buildBlueSidebarQrValue({
+      doctorName: "Doctor",
+      qrValue: instagramUrl,
+      phoneNumber: "+9647700000000",
+    });
+
+    assert.equal(value, instagramUrl);
+  });
 });
 
 describe("repeatable test doctor", () => {

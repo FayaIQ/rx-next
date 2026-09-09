@@ -1103,6 +1103,8 @@ export const en: MessageCatalog = {
     email: "Email",
     address: "Address",
     addressPh: "Baghdad — Karrada",
+    qrValue: "QR link",
+    qrValueHint: "Leave blank to automatically create a contact card from the doctor details.",
     fontsColors: "Fonts & colors",
     fontType: "Font",
     fontsStandard: "Standard fonts",

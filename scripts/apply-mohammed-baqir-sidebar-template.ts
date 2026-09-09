@@ -9,6 +9,8 @@ const DOCTOR_PHONE_VARIANTS = [
 ];
 const DOCTOR_EMAIL = "drmohamed@clinic.com";
 const DOCTOR_PORTRAIT = "/doctor-assets/mohammed-baqir-alsharaa.png";
+const DOCTOR_QR_VALUE =
+  "https://www.instagram.com/mohammedalsharaa.clinic?igsh=MXFpMGRwdmJzZ2Ixbw==";
 
 async function main() {
   const doctors = await prisma.user.findMany({
@@ -53,6 +55,7 @@ async function main() {
       services:
         "وتبديل المفاصل ونواظير الظهر\nوالركبة والإصابات الرياضية\nحاصل على شهادة البورد\nعضو المجلس العالمي لجراحة العظام والكسور",
       additionalText1: "الدكتور الاستشاري",
+      qrValue: DOCTOR_QR_VALUE,
       phoneNumber: "+9647762235774",
       email: DOCTOR_EMAIL,
       address: "بغداد - ساحة بيروت - مقابل مجسر ساحة بيروت - قرب صيدلية التعافي",

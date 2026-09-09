@@ -16,6 +16,7 @@ export type RecipeSettingsDto = {
   licenseNumber: string | null;
   services: string | null;
   additionalText1: string | null;
+  qrValue: string | null;
   phoneNumber: string | null;
   email: string | null;
   address: string | null;
@@ -103,6 +104,7 @@ export function normalizeRecipeSettingsDto(
     licenseNumber: input.licenseNumber?.trim() || null,
     services: input.services?.trim() || null,
     additionalText1: input.additionalText1?.trim() || null,
+    qrValue: input.qrValue?.trim() || null,
     phoneNumber: input.phoneNumber?.trim() || null,
     email: sanitizeEmail(input.email),
     address: input.address?.trim() || null,
@@ -169,6 +171,7 @@ export function serializeRecipeSettings(rs: RecipeSettings): RecipeSettingsDto {
     licenseNumber: rs.licenseNumber,
     services: rs.services,
     additionalText1: rs.additionalText1,
+    qrValue: rs.qrValue,
     phoneNumber: rs.phoneNumber,
     email: rs.email,
     address: rs.address,
@@ -236,6 +239,7 @@ export function defaultRecipeSettingsForDoctor(
     licenseNumber: null,
     services: null,
     additionalText1: null,
+    qrValue: null,
     phoneNumber: profile?.phoneNumber ?? null,
     email: null,
     address: null,

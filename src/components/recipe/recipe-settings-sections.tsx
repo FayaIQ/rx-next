@@ -178,6 +178,16 @@ export function DoctorInfoSection({
             placeholder={t("recipe.addressPh")}
           />
         </div>
+        <div className="space-y-1.5">
+          <Label>{t("recipe.qrValue")}</Label>
+          <Input
+            dir="ltr"
+            value={form.qrValue ?? ""}
+            onChange={(e) => onPatch("qrValue", e.target.value || null)}
+            placeholder="https://instagram.com/clinic"
+          />
+          <p className="text-xs text-rx-muted">{t("recipe.qrValueHint")}</p>
+        </div>
       </CardContent>
     </Card>
   );

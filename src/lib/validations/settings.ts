@@ -45,6 +45,7 @@ export const recipeSettingsSchema = z.object({
   licenseNumber: optionalTrimmedText(255),
   services: optionalTrimmedText(2000),
   additionalText1: z.string().nullable().optional(),
+  qrValue: optionalTrimmedText(2048),
   phoneNumber: z.string().nullable().optional(),
   email: z.preprocess(
     (v) => {
