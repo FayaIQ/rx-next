@@ -1,3 +1,4 @@
+import qrcode from "qrcode-generator";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { redirect } from "next/navigation";
 import { loadPrescriptionDocument } from "@/lib/prescription-document-data";
@@ -11,6 +12,7 @@ import { itemsBoxSize } from "@/components/recipe/prescription-items-box";
 import { paperDimensions, paperPageSizeCss } from "@/lib/recipe-paper";
 import { resolveImageUrl } from "@/lib/image-url";
 import { formatAge, formatPrescriptionDate, genderLabel } from "@/lib/patient-utils";
+import { buildBlueSidebarQrValue } from "@/lib/blue-sidebar-recipe-template";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -64,7 +66,12 @@ export async function GET(req: Request, { params }: Params) {
   const showBackground = !hideDesignBackground;
   const templateId = s.designTemplate ?? "classic";
   const usesAcademicTemplate = !isImageMode && templateId === "academic";
+  const usesBlueSidebarTemplate = !isImageMode && templateId === "sidebar_blue";
   const academicCoreClass = usesAcademicTemplate ? " academic-core" : "";
+  const sidebarBandClass = usesBlueSidebarTemplate ? " sidebar-core sidebar-band" : "";
+  const sidebarDateClass = usesBlueSidebarTemplate ? " sidebar-core sidebar-date" : "";
+  const bandCoreClass = `${academicCoreClass}${sidebarBandClass}`;
+  const dateCoreClass = `${academicCoreClass}${sidebarDateClass}`;
   const documentLabel =
     data.documentKind === "message" ? "رسالة" : "وصفة";
 
@@ -84,7 +91,7 @@ export async function GET(req: Request, { params }: Params) {
 
   const ageGenderHtml =
     s.printAge || s.printGender
-      ? `<div class="pos center age-row${academicCoreClass}" style="left:${s.designAgeX}%;top:${s.designAgeY}%">${s.printAge && data.patientBirthdate ? `<span>${formatAge(data.patientBirthdate)}</span>` : ""}${s.printGender ? `<span>${genderLabel(data.patientGender as "male" | "female")}</span>` : ""}</div>`
+      ? `<div class="pos center age-row${bandCoreClass}" style="left:${s.designAgeX}%;top:${s.designAgeY}%">${s.printAge && data.patientBirthdate ? `<span>${formatAge(data.patientBirthdate)}</span>` : ""}${s.printGender ? `<span>${genderLabel(data.patientGender as "male" | "female")}</span>` : ""}</div>`
       : "";
 
   const phoneHtml =
@@ -93,10 +100,10 @@ export async function GET(req: Request, { params }: Params) {
       : "";
 
   const positionedHtml = `
-      ${s.printName ? `<div class="pos center academic-name${academicCoreClass}" style="left:${s.designPatientX}%;top:${s.designPatientY}%">${escapeHtml(data.patientName)}</div>` : ""}
+      ${s.printName ? `<div class="pos center academic-name${bandCoreClass}" style="left:${s.designPatientX}%;top:${s.designPatientY}%">${escapeHtml(data.patientName)}</div>` : ""}
       ${ageGenderHtml}
       ${phoneHtml}
-      <div class="pos center academic-date${academicCoreClass}" style="left:${s.designDateX}%;top:${s.designDateY}%" dir="ltr">${formatPrescriptionDate(data.prescriptionDate)}</div>
+      <div class="pos center academic-date${dateCoreClass}" style="left:${s.designDateX}%;top:${s.designDateY}%" dir="ltr">${formatPrescriptionDate(data.prescriptionDate)}</div>
       ${(data.printableFields ?? [])
         .filter((field) => field.value.trim())
         .map(
@@ -104,7 +111,7 @@ export async function GET(req: Request, { params }: Params) {
             `<div class="pos center" style="left:${field.designX}%;top:${field.designY}%">${isImageMode ? escapeHtml(field.value) : `<strong>${escapeHtml(field.name)}:</strong> ${escapeHtml(field.value)}`}</div>`
         )
         .join("")}
-      <div class="pos items-box" style="left:${s.designItemsX}%;top:${s.designItemsY}%;width:${itemsSize.width}%;height:${itemsSize.height}%">
+      <div class="pos items-box${usesBlueSidebarTemplate ? " sidebar-items" : ""}" style="left:${s.designItemsX}%;top:${s.designItemsY}%;width:${itemsSize.width}%;height:${itemsSize.height}%">
         ${s.printDiagnosis && data.diagnosis ? `<p><strong>التشخيص:</strong> ${escapeHtml(data.diagnosis)}</p>` : ""}
         ${documentContentHtml}
       </div>`;
@@ -116,9 +123,21 @@ export async function GET(req: Request, { params }: Params) {
       ${data.analysisImage ? `<div style="position:relative;z-index:2;margin-top:16px;padding:0 24px"><p><strong>تحليل</strong></p><img class="attach" src="${resolveImageUrl(data.analysisImage, { origin })}" alt=""/></div>` : ""}`
       : "";
 
+  const qrSvg = usesBlueSidebarTemplate
+    ? (() => {
+        const qr = qrcode(0, "M");
+        qr.addData(buildBlueSidebarQrValue(s), "Byte");
+        qr.make();
+        return qr
+          .createSvgTag({ cellSize: 2, margin: 0, scalable: true })
+          .replace('fill="white"', 'fill="transparent"')
+          .replace('fill="black"', 'fill="#ffffff"');
+      })()
+    : "";
+
   const templateShell =
     showBackground && !isImageMode
-      ? templatePrintHeaderHtml(templateId, s, logoUrl, escapeHtml)
+      ? templatePrintHeaderHtml(templateId, s, logoUrl, escapeHtml, qrSvg)
       : "";
 
   const html = `<!DOCTYPE html>
@@ -146,6 +165,10 @@ export async function GET(req: Request, { params }: Params) {
     .academic-name.academic-core { width: 21%; }
     .academic-date.academic-core { width: 15%; }
     .age-row.academic-core { width: 11%; justify-content: center; }
+    .sidebar-core { padding: 1px 5px; border-radius: 3px; color: #111827; font-weight: 700; line-height: 1.25; }
+    .sidebar-band { background: rgba(225,225,225,.98); }
+    .sidebar-date { background: rgba(255,255,255,.98); }
+    .sidebar-items { color: #111827; }
     .items-box { overflow: hidden; word-break: break-word; overflow-wrap: anywhere; }
     .medication-content { display: flex; min-width: 0; align-items: flex-start; gap: .65em; direction: ltr; }
     .medication-content.academic-medication { display: block; text-align: left; }

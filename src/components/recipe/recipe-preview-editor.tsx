@@ -45,6 +45,14 @@ export function RecipePreviewEditor({
   const isImageMode = s.designMode === "image";
   const usesAcademicTemplate =
     s.designMode === "design" && s.designTemplate === "academic";
+  const usesBlueSidebarTemplate =
+    s.designMode === "design" && s.designTemplate === "sidebar_blue";
+  const sidebarBandClass = usesBlueSidebarTemplate
+    ? "rounded bg-[#e1e1e1]/95 px-1.5 py-0.5 font-bold text-slate-900"
+    : undefined;
+  const sidebarDateClass = usesBlueSidebarTemplate
+    ? "rounded bg-white/95 px-1.5 py-0.5 font-bold text-slate-900"
+    : undefined;
   const itemsSize = itemsBoxSize(s);
   const dims = paperDimensions(s.paperSize);
   const hideDesignBackground =
@@ -113,7 +121,7 @@ export function RecipePreviewEditor({
                   className={
                     usesAcademicTemplate
                       ? "w-[21%] text-center text-[0.76em] font-bold"
-                      : undefined
+                      : sidebarBandClass
                   }
                 >
                   <span className="block truncate font-medium">
@@ -134,7 +142,7 @@ export function RecipePreviewEditor({
                   className={
                     usesAcademicTemplate
                       ? "w-[11%] text-center text-[0.76em] font-bold"
-                      : undefined
+                      : sidebarBandClass
                   }
                 >
                   <span
@@ -183,7 +191,7 @@ export function RecipePreviewEditor({
                 className={
                   usesAcademicTemplate
                     ? "w-[15%] text-center text-[0.76em] font-bold"
-                    : undefined
+                    : sidebarDateClass
                 }
               >
                 <span
@@ -207,7 +215,10 @@ export function RecipePreviewEditor({
                 onMove={(x, y) => move("items", x, y)}
                 onResize={onItemsSizeChange}
               >
-                <div className="text-left text-sm" dir="ltr">
+                <div
+                  className={usesBlueSidebarTemplate ? "text-left text-sm text-slate-900" : "text-left text-sm"}
+                  dir="ltr"
+                >
                   <PrescriptionItemsContent data={data} settings={s} />
                 </div>
               </DraggableBlock>

@@ -4,6 +4,7 @@ import type { Decimal } from "@prisma/client/runtime/client";
 
 import { migrateRecipeFontId } from "@/lib/recipe-fonts";
 import { ACADEMIC_RECIPE_TEMPLATE_DEFAULTS } from "@/lib/academic-recipe-template";
+import { normalizePaperSize } from "@/lib/recipe-paper";
 
 export type RecipeSettingsDto = {
   id: number;
@@ -108,7 +109,7 @@ export function normalizeRecipeSettingsDto(
     fontFamily: migrateRecipeFontId(input.fontFamily),
     fontSize: nonEmptyStr(input.fontSize, "14"),
     opacity,
-    paperSize: input.paperSize === "A5" ? "A5" : "A4",
+    paperSize: normalizePaperSize(input.paperSize),
     color: nonEmptyStr(input.color, "#117e65"),
     logoPath: input.logoPath ?? null,
     designImagePath: input.designImagePath ?? null,
@@ -215,6 +216,7 @@ export {
 export const PAPER_OPTIONS = [
   { value: "A4", label: "A4" },
   { value: "A5", label: "A5" },
+  { value: "A5_LANDSCAPE", label: "A5 أفقي" },
 ] as const;
 
 export function defaultRecipeSettingsForDoctor(

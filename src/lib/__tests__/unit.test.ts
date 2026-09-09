@@ -17,7 +17,8 @@ import {
 } from "../dev-test-doctor";
 import { defaultRecipeSettingsForDoctor } from "../recipe-settings";
 import { ACADEMIC_RECIPE_TEMPLATE_DEFAULTS } from "../academic-recipe-template";
-import { templatePrintStyles } from "../recipe-templates";
+import { applyRecipeTemplate, templatePrintStyles } from "../recipe-templates";
+import { paperDimensions, paperPageSizeCss } from "../recipe-paper";
 import {
   ACCOUNT_DELETE_PHRASES,
   isValidAccountDeletePhrase,
@@ -239,6 +240,21 @@ describe("doctor onboarding", () => {
       styles,
       /\.tpl-academic-title \{[^}]*(?:max-height|white-space:nowrap|text-overflow:ellipsis);/
     );
+  });
+
+  it("applies the customizable blue sidebar design as landscape A5", () => {
+    const current = defaultRecipeSettingsForDoctor(99);
+    const settings = applyRecipeTemplate(current, "sidebar_blue");
+
+    assert.equal(settings.designTemplate, "sidebar_blue");
+    assert.equal(settings.paperSize, "A5_LANDSCAPE");
+    assert.deepEqual(paperDimensions(settings.paperSize), {
+      width: "210mm",
+      height: "148mm",
+    });
+    assert.equal(paperPageSizeCss(settings.paperSize), "A5 landscape");
+    assert.equal(settings.designPatientX, 40);
+    assert.equal(settings.designItemsWidth, 58);
   });
 });
 

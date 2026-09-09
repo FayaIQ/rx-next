@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PrescriptionDocument } from "@/components/prescription/prescription-document";
 import type { PrescriptionDocumentData } from "@/components/prescription/prescription-document";
-import { paperDimensions } from "@/lib/recipe-paper";
+import { paperDimensions, paperDimensionsMm } from "@/lib/recipe-paper";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/i18n/locale-provider";
 
@@ -12,12 +12,6 @@ type Props = {
   className?: string;
   label?: string;
 };
-
-function paperSizeMm(paperSize: string) {
-  return paperSize === "A5"
-    ? { width: 148, height: 210 }
-    : { width: 210, height: 297 };
-}
 
 const PX_PER_MM = 3.7795275591;
 
@@ -31,7 +25,7 @@ export function PrescriptionLivePreview({
   const [scale, setScale] = useState(1);
   const paperSize = data.settings.paperSize;
   const dims = paperDimensions(paperSize);
-  const sizeMm = paperSizeMm(paperSize);
+  const sizeMm = paperDimensionsMm(paperSize);
   const paperWidthPx = sizeMm.width * PX_PER_MM;
   const paperHeightPx = sizeMm.height * PX_PER_MM;
   const previewLabel = label ?? t("home.livePreview");

@@ -39,7 +39,25 @@ function TemplateThumb({
           : "border-rx-border hover:border-rx-primary/40 hover:shadow-sm"
       )}
     >
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-white">
+      <div
+        className={cn(
+          "relative w-full overflow-hidden bg-white",
+          id === "sidebar_blue" ? "aspect-[1.414/1]" : "aspect-[3/4]"
+        )}
+      >
+        {id === "sidebar_blue" && (
+          <>
+            <div className="absolute bottom-[9%] right-0 top-0 w-[32%] rounded-bl" style={{ backgroundColor: swatch }}>
+              <div className="mx-auto mt-1 aspect-square w-[48%] rounded-full border border-white bg-white/20" />
+              <div className="mx-auto mt-1 aspect-square w-[19%] bg-white/90" />
+              <div className="mx-auto mt-1 h-1 w-[62%] rounded bg-white/90" />
+              <div className="mx-auto mt-1 h-0.5 w-[72%] rounded bg-white/60" />
+            </div>
+            <div className="absolute inset-x-0 bottom-0 h-[9%]" style={{ backgroundColor: swatch }} />
+            <div className="absolute left-[4%] right-[45%] top-[12%] h-[5%] rounded bg-slate-200" />
+            <div className="absolute left-[5%] top-[27%] h-0.5 w-[22%] rounded bg-slate-300" />
+          </>
+        )}
         {id === "academic" && (
           <>
             <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg,#1e293b,${swatch})` }} />

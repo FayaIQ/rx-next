@@ -1143,6 +1143,8 @@ export const en: MessageCatalog = {
     tplMedicalDesc: "Professional hospital look in blue",
     tplMinimal: "Minimal",
     tplMinimalDesc: "White space and thin lines",
+    tplSidebarBlue: "Blue sidebar",
+    tplSidebarBlueDesc: "Customizable doctor sidebar in landscape A5",
     labelPatient: "Patient name",
     labelAgeGender: "Age / gender",
     labelPhone: "Phone",

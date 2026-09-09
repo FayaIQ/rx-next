@@ -252,7 +252,7 @@ export function AppearanceSection({
           <select
             className={selectClassName}
             value={form.paperSize}
-            onChange={(e) => onPatch("paperSize", e.target.value as "A4" | "A5")}
+            onChange={(e) => onPatch("paperSize", e.target.value)}
           >
             {PAPER_OPTIONS.map((p) => (
               <option key={p.value} value={p.value}>

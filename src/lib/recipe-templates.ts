@@ -7,9 +7,14 @@ import {
   ACADEMIC_RECIPE_TEMPLATE_DEFAULTS,
   ACADEMIC_RECIPE_TEMPLATE_ID,
 } from "@/lib/academic-recipe-template";
+import {
+  BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS,
+  BLUE_SIDEBAR_RECIPE_TEMPLATE_ID,
+} from "@/lib/blue-sidebar-recipe-template";
 
 export const RECIPE_TEMPLATE_IDS = [
   ACADEMIC_RECIPE_TEMPLATE_ID,
+  BLUE_SIDEBAR_RECIPE_TEMPLATE_ID,
   "classic",
   "modern",
   "elegant",
@@ -39,7 +44,8 @@ export type RecipeTemplateDefinition = {
     | "designItemsY"
     | "designItemsWidth"
     | "designItemsHeight"
-  >;
+  > &
+    Partial<Pick<RecipeSettingsDto, "paperSize" | "fontSize">>;
 };
 
 export const RECIPE_TEMPLATES: RecipeTemplateDefinition[] = [
@@ -62,6 +68,31 @@ export const RECIPE_TEMPLATES: RecipeTemplateDefinition[] = [
       designItemsY: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsY,
       designItemsWidth: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsWidth,
       designItemsHeight: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.designItemsHeight,
+      paperSize: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.paperSize,
+      fontSize: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.fontSize,
+    },
+  },
+  {
+    id: BLUE_SIDEBAR_RECIPE_TEMPLATE_ID,
+    name: "جانبي أزرق",
+    description: "بطاقة طبيب جانبية قابلة للتخصيص بمقاس A5 أفقي",
+    swatch: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.color,
+    defaults: {
+      color: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.color,
+      designPatientX: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designPatientX,
+      designPatientY: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designPatientY,
+      designAgeX: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designAgeX,
+      designAgeY: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designAgeY,
+      designDateX: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designDateX,
+      designDateY: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designDateY,
+      designPhoneX: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designPhoneX,
+      designPhoneY: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designPhoneY,
+      designItemsX: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designItemsX,
+      designItemsY: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designItemsY,
+      designItemsWidth: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designItemsWidth,
+      designItemsHeight: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designItemsHeight,
+      paperSize: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.paperSize,
+      fontSize: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.fontSize,
     },
   },
   {
@@ -192,12 +223,6 @@ export function applyRecipeTemplate(
     designMode: "design",
     designTemplate: templateId,
     ...template.defaults,
-    ...(templateId === ACADEMIC_RECIPE_TEMPLATE_ID
-      ? {
-          paperSize: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.paperSize,
-          fontSize: ACADEMIC_RECIPE_TEMPLATE_DEFAULTS.fontSize,
-        }
-      : {}),
     designItemsWidth:
       template.defaults.designItemsWidth ?? DEFAULT_ITEMS_BOX_WIDTH,
     designItemsHeight:
@@ -220,6 +245,33 @@ export function templatePrintStyles(
   `;
 
   switch (id) {
+    case "sidebar_blue":
+      return `${base}
+        .tpl-sidebar-panel { position:absolute; top:0; right:0; bottom:8.7%; width:32%; overflow:hidden; border-bottom-left-radius:9px; background:${color}; color:#fff; text-align:center; }
+        .tpl-sidebar-photo { width:56%; aspect-ratio:1; margin:1.2% auto 0; overflow:hidden; border:3px solid #fff; border-radius:999px; background:#fff2; }
+        .tpl-sidebar-photo img, .tpl-sidebar-photo .tpl-logo { width:100%; height:100%; max-width:100%; max-height:100%; object-fit:cover; }
+        .tpl-sidebar-photo-placeholder { display:flex; align-items:center; justify-content:center; width:100%; height:100%; font-size:1.35rem; font-weight:900; }
+        .tpl-sidebar-qr { width:26%; margin:1.1% auto 0; }
+        .tpl-sidebar-qr svg { display:block; width:100%; height:auto; }
+        .tpl-sidebar-copy { padding:0 7%; }
+        .tpl-sidebar-kicker { margin:.55em 0 0; font-size:.73rem; font-weight:800; line-height:1.1; }
+        .tpl-sidebar-name { margin:.08em 0 0; font-size:1.05rem; font-weight:900; line-height:1.15; }
+        .tpl-sidebar-specialty { margin:.4em 0 0; font-size:.61rem; font-weight:800; line-height:1.25; }
+        .tpl-sidebar-services { max-height:7.3em; margin:.35em 0 0; overflow:hidden; font-size:.52rem; font-weight:700; line-height:1.28; white-space:pre-line; }
+        .tpl-sidebar-title { max-height:3em; margin:.35em 0 0; overflow:hidden; font-size:.54rem; font-weight:800; line-height:1.2; white-space:pre-line; }
+        .tpl-sidebar-license { margin:.4em 0 0; font-size:.48rem; font-weight:700; line-height:1.2; }
+        .tpl-sidebar-footer { position:absolute; right:0; bottom:0; left:0; height:8.7%; display:flex; align-items:center; justify-content:space-between; gap:1.5em; padding:0 2.2%; background:${color}; color:#fff; font-size:.58rem; font-weight:800; }
+        .tpl-sidebar-contact { display:flex; align-items:center; gap:.5em; min-width:0; }
+        .tpl-sidebar-contact-copy { min-width:0; line-height:1.25; text-align:left; }
+        .tpl-sidebar-contact-copy div { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .tpl-sidebar-icon { display:inline-flex; align-items:center; justify-content:center; width:1.7em; height:1.7em; flex:none; border:2px solid #fff; border-radius:999px; font-size:1.1em; }
+        .tpl-sidebar-patient-label { position:absolute; top:11.2%; right:34%; color:#050505; font-size:.83rem; font-weight:900; }
+        .tpl-sidebar-patient-band { position:absolute; top:11.4%; left:3.8%; width:50.5%; height:3.9%; border-radius:8px; background:#e1e1e1; }
+        .tpl-sidebar-age-label { position:absolute; top:11.62%; left:13.6%; color:#050505; font-size:.8rem; font-weight:900; }
+        .tpl-sidebar-age-line { position:absolute; top:13.45%; left:4.9%; width:6.4%; border-bottom:1.5px solid #333; }
+        .tpl-sidebar-name-line { position:absolute; top:13.45%; left:21.9%; width:30.3%; border-bottom:1.5px solid #333; }
+        .tpl-sidebar-date-label { position:absolute; top:21%; left:13.8%; color:#050505; font-size:.82rem; font-weight:900; }
+      `;
     case "academic":
       return `${base}
         .tpl-academic-top { position:absolute; top:0; left:0; right:0; height:7px; background:linear-gradient(90deg,#1e293b,${color}); }
@@ -294,7 +346,8 @@ export function templatePrintHeaderHtml(
     | "additionalText1"
   >,
   logoUrl: string | null,
-  escapeHtml: (s: string) => string
+  escapeHtml: (s: string) => string,
+  qrSvg = ""
 ): string {
   const id = isRecipeTemplateId(templateId) ? templateId : "classic";
   const name = escapeHtml(settings.doctorName);
@@ -321,6 +374,8 @@ export function templatePrintHeaderHtml(
     .join("<br/>");
 
   switch (id) {
+    case "sidebar_blue":
+      return `<div class="tpl-shell"><div class="tpl-sidebar-panel"><div class="tpl-sidebar-photo">${logo || `<div class="tpl-sidebar-photo-placeholder">RX</div>`}</div>${qrSvg ? `<div class="tpl-sidebar-qr">${qrSvg}</div>` : ""}<div class="tpl-sidebar-copy">${settings.additionalText1 ? `<p class="tpl-sidebar-kicker">${escapeHtml(settings.additionalText1)}</p>` : ""}<h1 class="tpl-sidebar-name">${name}</h1><p class="tpl-sidebar-specialty">${specialty}</p>${services ? `<p class="tpl-sidebar-services">${services}</p>` : ""}${settings.professionalTitle ? `<p class="tpl-sidebar-title">${escapeHtml(settings.professionalTitle)}</p>` : ""}${settings.licenseNumber ? `<p class="tpl-sidebar-license">رقم التسجيل <span dir="ltr">${escapeHtml(settings.licenseNumber)}</span></p>` : ""}</div></div><div class="tpl-sidebar-patient-band"></div><div class="tpl-sidebar-patient-label">اسم المريض</div><div class="tpl-sidebar-age-label">العمر :</div><div class="tpl-sidebar-age-line"></div><div class="tpl-sidebar-name-line"></div><div class="tpl-sidebar-date-label">التاريخ :</div><div class="tpl-sidebar-footer"><div class="tpl-sidebar-contact"><span class="tpl-sidebar-icon">☎</span><div class="tpl-sidebar-contact-copy">${settings.phoneNumber ? `<div dir="ltr">${escapeHtml(settings.phoneNumber)}</div>` : ""}${settings.email ? `<div dir="ltr">${escapeHtml(settings.email)}</div>` : ""}</div></div><div class="tpl-sidebar-contact"><span class="tpl-sidebar-icon">●</span><div>${escapeHtml(settings.address || settings.clinicName || "")}</div></div></div></div>`;
     case "academic":
       return `<div class="tpl-shell"><div class="tpl-academic-top"></div>${logo ? `<div class="tpl-academic-logo">${logo}</div>` : ""}<div class="tpl-academic-head"><p class="tpl-academic-clinic">${escapeHtml(settings.clinicName || "RX Clinic")}</p><h1>${name}</h1><p class="tpl-academic-specialty">${specialty}</p>${settings.professionalTitle ? `<p class="tpl-academic-title">${escapeHtml(settings.professionalTitle)}</p>` : ""}</div>${settings.licenseNumber ? `<div class="tpl-academic-license-wrap"><p class="tpl-academic-license">رقم الإجازة أو النقابة: <span dir="ltr">${escapeHtml(settings.licenseNumber)}</span></p></div>` : ""}${services ? `<div class="tpl-academic-services">${services}</div>` : ""}<div class="tpl-academic-rule-light"></div><div class="tpl-academic-rule-strong"></div><div class="tpl-academic-patient"><div class="tpl-academic-field"><span>اسم المريض:</span><span class="tpl-academic-dots"></span></div><div class="tpl-academic-field"><span>العمر / الجنس:</span><span class="tpl-academic-dots"></span></div><div class="tpl-academic-field"><span>التاريخ:</span><span class="tpl-academic-dots"></span></div></div><div class="tpl-academic-patient-bottom"></div><div class="tpl-academic-writing-line" style="top:43%"></div><div class="tpl-academic-writing-line" style="top:56%"></div><div class="tpl-academic-writing-line" style="top:69%"></div>${contact ? `<div class="tpl-academic-footer">${settings.phoneNumber ? `<strong dir="ltr">${escapeHtml(settings.phoneNumber)}</strong>` : ""}${settings.phoneNumber && (settings.address || settings.email) ? " • " : ""}${escapeHtml(settings.address || settings.email || "")}</div>` : ""}</div>`;
     case "modern":

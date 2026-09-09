@@ -1123,6 +1123,8 @@ export const ar = {
     tplMedicalDesc: "مظهر مستشفى احترافي بأزرق",
     tplMinimal: "بسيط",
     tplMinimalDesc: "مساحات بيضاء وخطوط رفيعة",
+    tplSidebarBlue: "جانبي أزرق",
+    tplSidebarBlueDesc: "بطاقة طبيب جانبية قابلة للتخصيص بمقاس A5 أفقي",
     labelPatient: "اسم المريض",
     labelAgeGender: "العمر / الجنس",
     labelPhone: "الهاتف",

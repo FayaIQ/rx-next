@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { RECIPE_TEMPLATE_IDS } from "@/lib/recipe-templates";
 import { migrateRecipeFontId, RECIPE_FONT_IDS } from "@/lib/recipe-fonts";
+import { PAPER_SIZE_IDS } from "@/lib/recipe-paper";
 
 const optionalTrimmedText = (max: number) =>
   z.preprocess(
@@ -64,7 +65,7 @@ export const recipeSettingsSchema = z.object({
     z.string().min(1, "حجم الخط مطلوب")
   ),
   opacity: z.number().min(0).max(1),
-  paperSize: z.enum(["A4", "A5"]),
+  paperSize: z.enum(PAPER_SIZE_IDS),
   color: z.preprocess(
     (v) => (typeof v === "string" && v.trim() ? v.trim() : "#117e65"),
     z.string().min(1, "اللون مطلوب")

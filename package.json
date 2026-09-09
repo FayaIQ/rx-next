@@ -16,6 +16,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "doctor:apply-blue-sidebar": "tsx scripts/apply-mohammed-baqir-sidebar-template.ts",
     "postinstall": "prisma generate && node scripts/sync-recipe-fonts.mjs",
     "fonts:sync": "node scripts/sync-recipe-fonts.mjs"
   },
@@ -63,6 +64,7 @@
     "next-auth": "5.0.0-beta.32",
     "next-intl": "^4.13.4",
     "pg": "^8.22.0",
+    "qrcode-generator": "2.0.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.84.0",

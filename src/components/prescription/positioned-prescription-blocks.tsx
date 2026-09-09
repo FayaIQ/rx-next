@@ -23,6 +23,9 @@ export function PositionedPrescriptionBlocks({
   const usesAcademicTemplate =
     settings.designMode === "design" &&
     settings.designTemplate === "academic";
+  const usesBlueSidebarTemplate =
+    settings.designMode === "design" &&
+    settings.designTemplate === "sidebar_blue";
   const academicCoreValueStyle = {
     fontSize: "0.76em",
     fontWeight: 700,
@@ -39,6 +42,19 @@ export function PositionedPrescriptionBlocks({
         fontWeight: 700,
         lineHeight: 1.35,
       }
+    : undefined;
+  const sidebarBandValueStyle = usesBlueSidebarTemplate
+    ? {
+        backgroundColor: "rgba(225,225,225,0.98)",
+        borderRadius: "3px",
+        color: "#111827",
+        padding: "1px 5px",
+        fontWeight: 700,
+        lineHeight: 1.25,
+      }
+    : undefined;
+  const sidebarDateValueStyle = usesBlueSidebarTemplate
+    ? { ...sidebarBandValueStyle, backgroundColor: "rgba(255,255,255,0.98)" }
     : undefined;
 
   return (
@@ -57,6 +73,7 @@ export function PositionedPrescriptionBlocks({
               ? { width: "21%", ...academicCoreValueStyle }
               : {}),
             ...demoValueStyle,
+            ...sidebarBandValueStyle,
           }}
         >
           {data.patientName}
@@ -78,6 +95,7 @@ export function PositionedPrescriptionBlocks({
                 }
               : {}),
             ...demoValueStyle,
+            ...sidebarBandValueStyle,
           }}
         >
           {settings.printAge && data.patientBirthdate && (
@@ -116,6 +134,7 @@ export function PositionedPrescriptionBlocks({
             ? { width: "15%", ...academicCoreValueStyle }
             : {}),
           ...demoValueStyle,
+          ...sidebarDateValueStyle,
         }}
       >
         {formatPrescriptionDate(data.prescriptionDate)}
@@ -165,7 +184,10 @@ export function PositionedPrescriptionBlocks({
       <div
         className="absolute z-10 overflow-hidden break-words text-left [overflow-wrap:anywhere]"
         dir="ltr"
-        style={itemsBoxStyle(settings)}
+        style={{
+          ...itemsBoxStyle(settings),
+          color: usesBlueSidebarTemplate ? "#111827" : undefined,
+        }}
       >
         <PrescriptionItemsContent data={data} settings={settings} />
       </div>

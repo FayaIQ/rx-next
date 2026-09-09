@@ -42,6 +42,7 @@ const RECIPE_TEMPLATE_KEYS: Record<
   elegant: { name: "recipe.tplElegant", desc: "recipe.tplElegantDesc" },
   medical: { name: "recipe.tplMedical", desc: "recipe.tplMedicalDesc" },
   minimal: { name: "recipe.tplMinimal", desc: "recipe.tplMinimalDesc" },
+  sidebar_blue: { name: "recipe.tplSidebarBlue", desc: "recipe.tplSidebarBlueDesc" },
 };
 
 export function tToothStatus(t: TranslateFn, status: string): string {
