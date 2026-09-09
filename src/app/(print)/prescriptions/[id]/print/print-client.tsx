@@ -7,7 +7,7 @@ import {
   PrescriptionDocument,
   type PrescriptionDocumentData,
 } from "@/components/prescription/prescription-document";
-import { paperPageSizeCss } from "@/lib/recipe-paper";
+import { paperDimensions, paperPageSizeCss } from "@/lib/recipe-paper";
 import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
@@ -23,6 +23,7 @@ export default function PrescriptionPrintClient({
 }: Props) {
   const { t, dir } = useLocale();
   const paperSize = data.settings.paperSize;
+  const paper = paperDimensions(paperSize);
   const canHideBackground =
     data.settings.designMode === "image" && !!data.settings.designImagePath;
 
@@ -50,10 +51,21 @@ export default function PrescriptionPrintClient({
   return (
     <>
       <style jsx global>{`
+        @page {
+          size: ${paperPageSizeCss(paperSize)};
+          margin: 0;
+        }
+
         @media print {
-          @page {
-            size: ${paperPageSizeCss(paperSize)};
-            margin: 0;
+          html,
+          body,
+          body.prescription-print-page,
+          .prescription-print-root {
+            width: ${paper.width} !important;
+            height: ${paper.height} !important;
+            min-width: ${paper.width} !important;
+            min-height: ${paper.height} !important;
+            overflow: hidden !important;
           }
         }
       `}</style>

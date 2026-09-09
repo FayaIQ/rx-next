@@ -399,11 +399,6 @@ body {
 }
 
 @media print {
-  @page {
-    size: A4 portrait;
-    margin: 0;
-  }
-
   html,
   body {
     background: white !important;
@@ -441,6 +436,9 @@ body {
   .prescription-doc,
   .prescription-doc * {
     font-family: inherit;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    forced-color-adjust: none !important;
   }
 }
 

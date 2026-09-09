@@ -33,10 +33,10 @@ export function paperDimensionsMm(paperSize: string) {
 export function paperPageSizeCss(paperSize: string) {
   switch (normalizePaperSize(paperSize)) {
     case "A5":
-      return "A5 portrait";
+      return "148mm 210mm";
     case "A5_LANDSCAPE":
-      return "A5 landscape";
+      return "210mm 148mm";
     default:
-      return "A4 portrait";
+      return "210mm 297mm";
   }
 }

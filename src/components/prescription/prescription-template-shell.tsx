@@ -204,9 +204,23 @@ function BlueSidebarShell({ settings, logoUrl }: Props) {
 
   return (
     <>
+      <svg
+        aria-hidden
+        className="absolute inset-0 h-full w-full"
+        viewBox="0 0 1000 1000"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M680 0H1000V913H689Q680 913 680 904Z"
+          fill={color}
+        />
+        <rect x="0" y="913" width="1000" height="87" fill={color} />
+        <rect x="250" y="110.5" width="295" height="45" rx="8" fill="#e1e1e1" />
+        <rect x="38" y="110.5" width="202" height="45" rx="8" fill="#e1e1e1" />
+      </svg>
+
       <aside
         className="absolute bottom-[8.7%] right-0 top-0 w-[32%] overflow-hidden rounded-bl-[9px] text-center text-white"
-        style={{ backgroundColor: color }}
       >
         <div className="mx-auto mt-[1.2%] aspect-square w-[56%] overflow-hidden rounded-full border-[3px] border-white bg-white/10">
           {logoUrl ? (
@@ -262,8 +276,6 @@ function BlueSidebarShell({ settings, logoUrl }: Props) {
         </div>
       </aside>
 
-      <div className="absolute left-[25%] top-[11.05%] h-[4.5%] w-[29.5%] rounded-lg bg-[#e1e1e1]" />
-      <div className="absolute left-[3.8%] top-[11.05%] h-[4.5%] w-[20.2%] rounded-lg bg-[#e1e1e1]" />
       <div className="absolute right-[34%] top-[11.35%] text-[0.82em] font-black text-black">
         {t("recipe.labelPatient")}:
       </div>
@@ -273,7 +285,6 @@ function BlueSidebarShell({ settings, logoUrl }: Props) {
 
       <footer
         className="absolute inset-x-0 bottom-0 flex h-[8.7%] items-center justify-between gap-[1.5em] px-[2.2%] text-[0.68em] font-extrabold text-white"
-        style={{ backgroundColor: color }}
       >
         <div className="flex min-w-0 items-center gap-[0.5em]" dir="ltr">
           <span className="inline-flex size-[1.7em] shrink-0 items-center justify-center rounded-full border-2 border-white text-[1.1em]">

@@ -157,7 +157,9 @@ export async function GET(req: Request, { params }: Params) {
   <style>
     ${fontFacesCss}
     @page { size: ${paperPageSizeCss(s.paperSize)}; margin: 0; }
-    body { font-family: ${fontCss}; font-size: ${s.fontSize}px; color: ${s.color}; margin: 0; padding: 0; }
+    html, body { width: ${dims.width}; height: ${dims.height}; margin: 0; padding: 0; overflow: hidden; }
+    body { font-family: ${fontCss}; font-size: ${s.fontSize}px; color: ${s.color}; }
+    body, .wrap, .wrap * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; forced-color-adjust: none !important; }
     .wrap { position: relative; width: ${dims.width}; height: ${dims.height}; margin: 0 auto; overflow: hidden; background: white; }
     .bg { position: absolute; inset: 0; opacity: ${s.opacity}; z-index: 0; }
     .bg img { width: 100%; height: 100%; object-fit: fill; }

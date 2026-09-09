@@ -260,7 +260,7 @@ describe("doctor onboarding", () => {
       width: "210mm",
       height: "148mm",
     });
-    assert.equal(paperPageSizeCss(settings.paperSize), "A5 landscape");
+    assert.equal(paperPageSizeCss(settings.paperSize), "210mm 148mm");
     assert.equal(settings.designPatientX, 40);
     assert.equal(settings.designAgeX, 14);
     assert.equal(settings.designItemsWidth, 58);
