@@ -219,7 +219,7 @@ function BlueSidebarShell({ settings, logoUrl }: Props) {
           )}
         </div>
 
-        <div className="mx-auto mt-[1.1%] w-[26%]" dir="ltr">
+        <div className="mx-auto mt-[1%] w-[30%]" dir="ltr">
           <QRCode
             value={qrValue}
             bgColor="transparent"
@@ -232,51 +232,47 @@ function BlueSidebarShell({ settings, logoUrl }: Props) {
 
         <div className="px-[7%]">
           {settings.additionalText1 && (
-            <p className="mt-[0.55em] text-[0.73em] font-extrabold leading-[1.1]">
+            <p className="mt-[0.5em] text-[0.82em] font-extrabold leading-[1.1]">
               {settings.additionalText1}
             </p>
           )}
-          <h1 className="mt-[0.08em] text-[1.05em] font-black leading-[1.15]">
+          <h1 className="mt-[0.08em] text-[1.22em] font-black leading-[1.15]">
             {settings.doctorName}
           </h1>
-          <p className="mt-[0.4em] text-[0.61em] font-extrabold leading-[1.25]">
+          <p className="mt-[0.35em] text-[0.72em] font-extrabold leading-[1.25]">
             {settings.doctorSpecialty}
           </p>
           {services.length > 0 && (
-            <div className="mt-[0.35em] max-h-[7.3em] overflow-hidden text-[0.52em] font-bold leading-[1.28]">
+            <div className="mt-[0.35em] max-h-[7.3em] overflow-hidden text-[0.62em] font-bold leading-[1.3]">
               {services.map((service, index) => (
                 <div key={`${service}-${index}`}>{service}</div>
               ))}
             </div>
           )}
           {settings.professionalTitle && (
-            <p className="mt-[0.35em] max-h-[3em] overflow-hidden whitespace-pre-line text-[0.54em] font-extrabold leading-[1.2]">
+            <p className="mt-[0.35em] max-h-[3em] overflow-hidden whitespace-pre-line text-[0.64em] font-extrabold leading-[1.2]">
               {settings.professionalTitle}
             </p>
           )}
           {settings.licenseNumber && (
-            <p className="mt-[0.4em] text-[0.48em] font-bold leading-[1.2]">
+            <p className="mt-[0.4em] text-[0.58em] font-bold leading-[1.2]">
               رقم التسجيل <span dir="ltr">{settings.licenseNumber}</span>
             </p>
           )}
         </div>
       </aside>
 
-      <div className="absolute left-[3.8%] top-[11.4%] h-[3.9%] w-[50.5%] rounded-lg bg-[#e1e1e1]" />
-      <div className="absolute right-[34%] top-[11.2%] text-[0.83em] font-black text-black">
-        {t("recipe.labelPatient")}
+      <div className="absolute left-[25%] top-[11.05%] h-[4.5%] w-[29.5%] rounded-lg bg-[#e1e1e1]" />
+      <div className="absolute left-[3.8%] top-[11.05%] h-[4.5%] w-[20.2%] rounded-lg bg-[#e1e1e1]" />
+      <div className="absolute right-[34%] top-[11.35%] text-[0.82em] font-black text-black">
+        {t("recipe.labelPatient")}:
       </div>
-      <div className="absolute left-[13.6%] top-[11.62%] text-[0.8em] font-black text-black">
-        {t("recipe.labelAgeGender")} :
-      </div>
-      <div className="absolute left-[4.9%] top-[13.45%] w-[6.4%] border-b-[1.5px] border-[#333]" />
-      <div className="absolute left-[21.9%] top-[13.45%] w-[30.3%] border-b-[1.5px] border-[#333]" />
-      <div className="absolute left-[13.8%] top-[21%] text-[0.82em] font-black text-black">
+      <div className="absolute left-[13.8%] top-[20.8%] text-[0.82em] font-black text-black">
         {t("recipe.labelDate")} :
       </div>
 
       <footer
-        className="absolute inset-x-0 bottom-0 flex h-[8.7%] items-center justify-between gap-[1.5em] px-[2.2%] text-[0.58em] font-extrabold text-white"
+        className="absolute inset-x-0 bottom-0 flex h-[8.7%] items-center justify-between gap-[1.5em] px-[2.2%] text-[0.68em] font-extrabold text-white"
         style={{ backgroundColor: color }}
       >
         <div className="flex min-w-0 items-center gap-[0.5em]" dir="ltr">

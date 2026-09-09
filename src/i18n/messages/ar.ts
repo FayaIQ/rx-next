@@ -1126,6 +1126,8 @@ export const ar = {
     tplSidebarBlue: "جانبي أزرق",
     tplSidebarBlueDesc: "بطاقة طبيب جانبية قابلة للتخصيص بمقاس A5 أفقي",
     labelPatient: "اسم المريض",
+    labelAge: "العمر",
+    labelGender: "الجنس",
     labelAgeGender: "العمر / الجنس",
     labelPhone: "الهاتف",
     labelDate: "التاريخ",

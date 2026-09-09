@@ -12,7 +12,10 @@ import { itemsBoxSize } from "@/components/recipe/prescription-items-box";
 import { paperDimensions, paperPageSizeCss } from "@/lib/recipe-paper";
 import { resolveImageUrl } from "@/lib/image-url";
 import { formatAge, formatPrescriptionDate, genderLabel } from "@/lib/patient-utils";
-import { buildBlueSidebarQrValue } from "@/lib/blue-sidebar-recipe-template";
+import {
+  buildBlueSidebarQrValue,
+  resolveBlueSidebarCorePositions,
+} from "@/lib/blue-sidebar-recipe-template";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -67,10 +70,16 @@ export async function GET(req: Request, { params }: Params) {
   const templateId = s.designTemplate ?? "classic";
   const usesAcademicTemplate = !isImageMode && templateId === "academic";
   const usesBlueSidebarTemplate = !isImageMode && templateId === "sidebar_blue";
+  const corePositions = usesBlueSidebarTemplate
+    ? resolveBlueSidebarCorePositions(s)
+    : s;
   const academicCoreClass = usesAcademicTemplate ? " academic-core" : "";
-  const sidebarBandClass = usesBlueSidebarTemplate ? " sidebar-core sidebar-band" : "";
+  const sidebarNameClass = usesBlueSidebarTemplate ? " sidebar-core sidebar-name-value" : "";
+  const sidebarDemographicsClass = usesBlueSidebarTemplate
+    ? " sidebar-core sidebar-demographics"
+    : "";
   const sidebarDateClass = usesBlueSidebarTemplate ? " sidebar-core sidebar-date" : "";
-  const bandCoreClass = `${academicCoreClass}${sidebarBandClass}`;
+  const nameCoreClass = `${academicCoreClass}${sidebarNameClass}`;
   const dateCoreClass = `${academicCoreClass}${sidebarDateClass}`;
   const documentLabel =
     data.documentKind === "message" ? "رسالة" : "وصفة";
@@ -91,7 +100,7 @@ export async function GET(req: Request, { params }: Params) {
 
   const ageGenderHtml =
     s.printAge || s.printGender
-      ? `<div class="pos center age-row${bandCoreClass}" style="left:${s.designAgeX}%;top:${s.designAgeY}%">${s.printAge && data.patientBirthdate ? `<span>${formatAge(data.patientBirthdate)}</span>` : ""}${s.printGender ? `<span>${genderLabel(data.patientGender as "male" | "female")}</span>` : ""}</div>`
+      ? `<div class="pos center age-row${academicCoreClass}${sidebarDemographicsClass}" style="left:${corePositions.designAgeX}%;top:${corePositions.designAgeY}%">${s.printAge && data.patientBirthdate ? `<span>${usesBlueSidebarTemplate ? "العمر: " : ""}${formatAge(data.patientBirthdate)}</span>` : ""}${s.printGender ? `<span>${usesBlueSidebarTemplate ? "الجنس: " : ""}${genderLabel(data.patientGender as "male" | "female")}</span>` : ""}</div>`
       : "";
 
   const phoneHtml =
@@ -100,10 +109,10 @@ export async function GET(req: Request, { params }: Params) {
       : "";
 
   const positionedHtml = `
-      ${s.printName ? `<div class="pos center academic-name${bandCoreClass}" style="left:${s.designPatientX}%;top:${s.designPatientY}%">${escapeHtml(data.patientName)}</div>` : ""}
+      ${s.printName ? `<div class="pos center academic-name${nameCoreClass}" style="left:${corePositions.designPatientX}%;top:${corePositions.designPatientY}%">${escapeHtml(data.patientName)}</div>` : ""}
       ${ageGenderHtml}
       ${phoneHtml}
-      <div class="pos center academic-date${dateCoreClass}" style="left:${s.designDateX}%;top:${s.designDateY}%" dir="ltr">${formatPrescriptionDate(data.prescriptionDate)}</div>
+      <div class="pos center academic-date${dateCoreClass}" style="left:${corePositions.designDateX}%;top:${corePositions.designDateY}%" dir="ltr">${formatPrescriptionDate(data.prescriptionDate)}</div>
       ${(data.printableFields ?? [])
         .filter((field) => field.value.trim())
         .map(
@@ -165,9 +174,10 @@ export async function GET(req: Request, { params }: Params) {
     .academic-name.academic-core { width: 21%; }
     .academic-date.academic-core { width: 15%; }
     .age-row.academic-core { width: 11%; justify-content: center; }
-    .sidebar-core { padding: 1px 5px; border-radius: 3px; color: #111827; font-weight: 700; line-height: 1.25; }
-    .sidebar-band { background: rgba(225,225,225,.98); }
-    .sidebar-date { background: rgba(255,255,255,.98); }
+    .sidebar-core { overflow: hidden; padding: 1px 5px; color: #111827; font-weight: 700; line-height: 1.25; text-align: center; white-space: nowrap; }
+    .sidebar-name-value { width: 29%; font-size: .8em; text-overflow: ellipsis; }
+    .sidebar-demographics { width: 19.5%; justify-content: center; gap: .55em; font-size: .72em; }
+    .sidebar-date { width: 13%; background: rgba(255,255,255,.98); font-size: .8em; text-align: center; }
     .sidebar-items { color: #111827; }
     .items-box { overflow: hidden; word-break: break-word; overflow-wrap: anywhere; }
     .medication-content { display: flex; min-width: 0; align-items: flex-start; gap: .65em; direction: ltr; }

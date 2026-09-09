@@ -1146,6 +1146,8 @@ export const en: MessageCatalog = {
     tplSidebarBlue: "Blue sidebar",
     tplSidebarBlueDesc: "Customizable doctor sidebar in landscape A5",
     labelPatient: "Patient name",
+    labelAge: "Age",
+    labelGender: "Gender",
     labelAgeGender: "Age / gender",
     labelPhone: "Phone",
     labelDate: "Date",

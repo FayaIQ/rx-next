@@ -77,7 +77,7 @@ async function main() {
       designItemsHeight: BLUE_SIDEBAR_RECIPE_TEMPLATE_DEFAULTS.designItemsHeight,
       printName: true,
       printAge: true,
-      printGender: false,
+      printGender: true,
       printPhone: false,
       printDiagnosis: true,
     },

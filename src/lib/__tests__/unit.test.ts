@@ -17,7 +17,15 @@ import {
 } from "../dev-test-doctor";
 import { defaultRecipeSettingsForDoctor } from "../recipe-settings";
 import { ACADEMIC_RECIPE_TEMPLATE_DEFAULTS } from "../academic-recipe-template";
-import { applyRecipeTemplate, templatePrintStyles } from "../recipe-templates";
+import {
+  applyRecipeTemplate,
+  templatePrintHeaderHtml,
+  templatePrintStyles,
+} from "../recipe-templates";
+import {
+  buildBlueSidebarQrValue,
+  resolveBlueSidebarCorePositions,
+} from "../blue-sidebar-recipe-template";
 import { paperDimensions, paperPageSizeCss } from "../recipe-paper";
 import {
   ACCOUNT_DELETE_PHRASES,
@@ -254,7 +262,71 @@ describe("doctor onboarding", () => {
     });
     assert.equal(paperPageSizeCss(settings.paperSize), "A5 landscape");
     assert.equal(settings.designPatientX, 40);
+    assert.equal(settings.designAgeX, 14);
     assert.equal(settings.designItemsWidth, 58);
+  });
+
+  it("upgrades the untouched legacy sidebar positions but preserves custom layouts", () => {
+    assert.equal(
+      resolveBlueSidebarCorePositions({
+        designPatientX: 40,
+        designPatientY: 13.3,
+        designAgeX: 8.2,
+        designAgeY: 13.3,
+        designDateX: 8.3,
+        designDateY: 22.6,
+      }).designAgeX,
+      14
+    );
+    assert.equal(
+      resolveBlueSidebarCorePositions({
+        designPatientX: 38,
+        designPatientY: 13.3,
+        designAgeX: 8.2,
+        designAgeY: 13.3,
+        designDateX: 8.3,
+        designDateY: 22.6,
+      }).designAgeX,
+      8.2
+    );
+  });
+
+  it("renders separate patient and demographics bands in print output", () => {
+    const html = templatePrintHeaderHtml(
+      "sidebar_blue",
+      {
+        clinicName: "Clinic",
+        doctorName: "Doctor",
+        doctorSpecialty: "Specialty",
+        professionalTitle: null,
+        licenseNumber: null,
+        services: null,
+        phoneNumber: null,
+        email: null,
+        address: null,
+        additionalText1: null,
+      },
+      null,
+      (value) => value
+    );
+
+    assert.match(html, /tpl-sidebar-demographics-band/);
+    assert.doesNotMatch(html, /tpl-sidebar-age-label/);
+  });
+
+  it("encodes the sidebar QR as a contact card", () => {
+    const value = buildBlueSidebarQrValue({
+      clinicName: "RX Clinic",
+      doctorName: "Doctor",
+      phoneNumber: "+9647700000000",
+      email: "doctor@example.com",
+      address: "Baghdad",
+    });
+
+    assert.match(value, /^BEGIN:VCARD/m);
+    assert.match(value, /TEL:\+9647700000000/);
+    assert.match(value, /EMAIL:doctor@example\.com/);
+    assert.match(value, /END:VCARD$/m);
   });
 });
 

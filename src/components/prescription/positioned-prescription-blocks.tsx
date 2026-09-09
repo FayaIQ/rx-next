@@ -7,6 +7,8 @@ import type { RecipeSettingsDto } from "@/lib/recipe-settings";
 import { fieldFontSize } from "@/lib/patient-field-layout";
 import { formatAge, formatPrescriptionDate, genderLabel } from "@/lib/patient-utils";
 import { PUBLIC_DEMO_PRESCRIPTION_BACKGROUND } from "@/lib/demo/constants";
+import { resolveBlueSidebarCorePositions } from "@/lib/blue-sidebar-recipe-template";
+import { useLocale } from "@/i18n/locale-provider";
 
 export function PositionedPrescriptionBlocks({
   data,
@@ -15,6 +17,7 @@ export function PositionedPrescriptionBlocks({
   data: PrescriptionDocumentData;
   settings: RecipeSettingsDto;
 }) {
+  const { t } = useLocale();
   const printableFields =
     data.printableFields?.filter((field) => field.value.trim()) ?? [];
   const valueOnlyFields = settings.designMode === "image";
@@ -26,6 +29,9 @@ export function PositionedPrescriptionBlocks({
   const usesBlueSidebarTemplate =
     settings.designMode === "design" &&
     settings.designTemplate === "sidebar_blue";
+  const corePositions = usesBlueSidebarTemplate
+    ? resolveBlueSidebarCorePositions(settings)
+    : settings;
   const academicCoreValueStyle = {
     fontSize: "0.76em",
     fontWeight: 700,
@@ -45,8 +51,6 @@ export function PositionedPrescriptionBlocks({
     : undefined;
   const sidebarBandValueStyle = usesBlueSidebarTemplate
     ? {
-        backgroundColor: "rgba(225,225,225,0.98)",
-        borderRadius: "3px",
         color: "#111827",
         padding: "1px 5px",
         fontWeight: 700,
@@ -63,14 +67,23 @@ export function PositionedPrescriptionBlocks({
         <div
           className="absolute z-10 font-medium whitespace-nowrap"
           style={{
-            left: `${settings.designPatientX}%`,
-            top: `${settings.designPatientY}%`,
+            left: `${corePositions.designPatientX}%`,
+            top: `${corePositions.designPatientY}%`,
             transform: "translate(-50%, -50%)",
             maxWidth: usesPublicDemoBackground ? "23%" : undefined,
             overflow: usesPublicDemoBackground ? "hidden" : undefined,
             textOverflow: usesPublicDemoBackground ? "ellipsis" : undefined,
             ...(usesAcademicTemplate
               ? { width: "21%", ...academicCoreValueStyle }
+              : {}),
+            ...(usesBlueSidebarTemplate
+              ? {
+                  width: "29%",
+                  fontSize: "0.8em",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  textAlign: "center",
+                }
               : {}),
             ...demoValueStyle,
             ...sidebarBandValueStyle,
@@ -84,8 +97,8 @@ export function PositionedPrescriptionBlocks({
         <div
           className="absolute z-10 flex gap-2 whitespace-nowrap text-[length:inherit]"
           style={{
-            left: `${settings.designAgeX}%`,
-            top: `${settings.designAgeY}%`,
+            left: `${corePositions.designAgeX}%`,
+            top: `${corePositions.designAgeY}%`,
             transform: "translate(-50%, -50%)",
             ...(usesAcademicTemplate
               ? {
@@ -94,15 +107,28 @@ export function PositionedPrescriptionBlocks({
                   ...academicCoreValueStyle,
                 }
               : {}),
+            ...(usesBlueSidebarTemplate
+              ? {
+                  width: "19.5%",
+                  justifyContent: "center",
+                  gap: "0.55em",
+                  overflow: "hidden",
+                  fontSize: "0.72em",
+                }
+              : {}),
             ...demoValueStyle,
             ...sidebarBandValueStyle,
           }}
         >
           {settings.printAge && data.patientBirthdate && (
-            <span>{formatAge(data.patientBirthdate)}</span>
+            <span>
+              {usesBlueSidebarTemplate && `${t("recipe.labelAge")}: `}
+              {formatAge(data.patientBirthdate)}
+            </span>
           )}
           {settings.printGender && (
             <span>
+              {usesBlueSidebarTemplate && `${t("recipe.labelGender")}: `}
               {genderLabel(data.patientGender as "male" | "female")}
             </span>
           )}
@@ -127,11 +153,14 @@ export function PositionedPrescriptionBlocks({
         className="absolute z-10 whitespace-nowrap text-[length:inherit]"
         dir="ltr"
         style={{
-          left: `${settings.designDateX}%`,
-          top: `${settings.designDateY}%`,
+          left: `${corePositions.designDateX}%`,
+          top: `${corePositions.designDateY}%`,
           transform: "translate(-50%, -50%)",
           ...(usesAcademicTemplate
             ? { width: "15%", ...academicCoreValueStyle }
+            : {}),
+          ...(usesBlueSidebarTemplate
+            ? { width: "13%", fontSize: "0.8em", textAlign: "center" }
             : {}),
           ...demoValueStyle,
           ...sidebarDateValueStyle,

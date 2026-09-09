@@ -15,6 +15,7 @@ import { formatAge, formatPrescriptionDate, genderLabel } from "@/lib/patient-ut
 import { fontFamilyCss } from "@/lib/recipe-settings";
 import { paperDimensions } from "@/lib/recipe-paper";
 import { useLocale } from "@/i18n/locale-provider";
+import { resolveBlueSidebarCorePositions } from "@/lib/blue-sidebar-recipe-template";
 
 type Props = {
   data: PrescriptionDocumentData;
@@ -47,14 +48,20 @@ export function RecipePreviewEditor({
     s.designMode === "design" && s.designTemplate === "academic";
   const usesBlueSidebarTemplate =
     s.designMode === "design" && s.designTemplate === "sidebar_blue";
-  const sidebarBandClass = usesBlueSidebarTemplate
-    ? "rounded bg-[#e1e1e1]/95 px-1.5 py-0.5 font-bold text-slate-900"
+  const sidebarNameClass = usesBlueSidebarTemplate
+    ? "w-[29%] truncate px-1.5 py-0.5 text-center text-[0.8em] font-bold text-slate-900"
+    : undefined;
+  const sidebarDemographicsClass = usesBlueSidebarTemplate
+    ? "w-[19.5%] overflow-hidden px-1 py-0.5 text-center text-[0.72em] font-bold text-slate-900"
     : undefined;
   const sidebarDateClass = usesBlueSidebarTemplate
     ? "rounded bg-white/95 px-1.5 py-0.5 font-bold text-slate-900"
     : undefined;
   const itemsSize = itemsBoxSize(s);
   const dims = paperDimensions(s.paperSize);
+  const corePositions = usesBlueSidebarTemplate
+    ? resolveBlueSidebarCorePositions(s)
+    : s;
   const hideDesignBackground =
     isImageMode &&
     (previewBlankOverride ?? s.printWithoutDesignImage);
@@ -113,15 +120,15 @@ export function RecipePreviewEditor({
                 <DraggableBlock
                   id="patient"
                   label={labels.patient}
-                  x={s.designPatientX}
-                  y={s.designPatientY}
+                  x={corePositions.designPatientX}
+                  y={corePositions.designPatientY}
                   selected={selected === "patient"}
                   onSelect={setSelected}
                   onMove={(x, y) => move("patient", x, y)}
                   className={
                     usesAcademicTemplate
                       ? "w-[21%] text-center text-[0.76em] font-bold"
-                      : sidebarBandClass
+                      : sidebarNameClass
                   }
                 >
                   <span className="block truncate font-medium">
@@ -134,29 +141,35 @@ export function RecipePreviewEditor({
                 <DraggableBlock
                   id="ageGender"
                   label={labels.ageGender}
-                  x={s.designAgeX}
-                  y={s.designAgeY}
+                  x={corePositions.designAgeX}
+                  y={corePositions.designAgeY}
                   selected={selected === "ageGender"}
                   onSelect={setSelected}
                   onMove={(x, y) => move("ageGender", x, y)}
                   className={
                     usesAcademicTemplate
                       ? "w-[11%] text-center text-[0.76em] font-bold"
-                      : sidebarBandClass
+                      : sidebarDemographicsClass
                   }
                 >
                   <span
                     className={
                       usesAcademicTemplate
                         ? "flex justify-center gap-2 whitespace-nowrap"
-                        : "flex gap-3"
+                        : usesBlueSidebarTemplate
+                          ? "flex justify-center gap-[0.55em] whitespace-nowrap"
+                          : "flex gap-3"
                     }
                   >
                     {s.printAge && data.patientBirthdate && (
-                      <span>{formatAge(data.patientBirthdate)}</span>
+                      <span>
+                        {usesBlueSidebarTemplate && `${t("recipe.labelAge")}: `}
+                        {formatAge(data.patientBirthdate)}
+                      </span>
                     )}
                     {s.printGender && (
                       <span>
+                        {usesBlueSidebarTemplate && `${t("recipe.labelGender")}: `}
                         {genderLabel(data.patientGender as "male" | "female")}
                       </span>
                     )}
@@ -183,15 +196,17 @@ export function RecipePreviewEditor({
               <DraggableBlock
                 id="date"
                 label={labels.date}
-                x={s.designDateX}
-                y={s.designDateY}
+                x={corePositions.designDateX}
+                y={corePositions.designDateY}
                 selected={selected === "date"}
                 onSelect={setSelected}
                 onMove={(x, y) => move("date", x, y)}
                 className={
                   usesAcademicTemplate
                     ? "w-[15%] text-center text-[0.76em] font-bold"
-                    : sidebarDateClass
+                    : usesBlueSidebarTemplate
+                      ? `${sidebarDateClass} w-[13%] text-center text-[0.8em]`
+                      : sidebarDateClass
                 }
               >
                 <span
