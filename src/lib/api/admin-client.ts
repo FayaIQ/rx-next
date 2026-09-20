@@ -142,6 +142,15 @@ export const adminApi = {
       subscriptionHistory: Array<Record<string, unknown>>;
     }>(fetch(`/api/dashboard/users/${id}`)),
 
+  changeUserPassword: (id: number, password: string) =>
+    handleResponse<{ success: true }>(
+      fetch(`/api/dashboard/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      })
+    ),
+
   doctors: (tab?: string, params?: { page?: number; pageSize?: number }) => {
     const sp = new URLSearchParams();
     if (tab) sp.set("tab", tab);

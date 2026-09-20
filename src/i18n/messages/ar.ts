@@ -723,6 +723,18 @@ export const ar = {
     noHistoryDesc: "لم يتم تفعيل أي اشتراك بعد",
     userNotFound: "المستخدم غير موجود",
     userNotFoundDesc: "تعذّر العثور على هذا المستخدم",
+    changeUserPassword: "تغيير كلمة مرور المستخدم",
+    newPassword: "كلمة المرور الجديدة",
+    confirmNewPassword: "تأكيد كلمة المرور",
+    newPasswordPlaceholder: "8 أحرف على الأقل",
+    confirmNewPasswordPlaceholder: "أعد كتابة كلمة المرور",
+    passwordChangeSessionNotice:
+      "بعد التغيير سيتم تسجيل خروج المستخدم من جميع الأجهزة المفتوحة.",
+    saveNewPassword: "حفظ كلمة المرور",
+    changingPassword: "جاري التغيير…",
+    passwordChanged: "تم تغيير كلمة المرور بنجاح",
+    passwordMinLength: "كلمة المرور يجب أن تكون 8 أحرف على الأقل",
+    passwordsDoNotMatch: "كلمتا المرور غير متطابقتين",
   },
   appointments: {
     title: "المواعيد",

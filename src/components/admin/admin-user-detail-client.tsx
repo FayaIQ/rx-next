@@ -1,12 +1,16 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, FileText } from "lucide-react";
+import { toast } from "sonner";
+import { ArrowRight, FileText, KeyRound } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { DetailPageLoading } from "@/components/ui/page-loading";
 import { PageContent } from "@/components/ui/page-shell";
 import { adminApi } from "@/lib/api/admin-client";
@@ -15,6 +19,8 @@ import { useLocale } from "@/i18n/locale-provider";
 
 export function AdminUserDetailClient({ userId }: { userId: number }) {
   const { t, locale } = useLocale();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["admin-user", userId],
     queryFn: () => adminApi.user(userId),
@@ -23,6 +29,29 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
   const user = data?.user;
   const history = data?.subscriptionHistory ?? [];
   const dateLocale = locale === "en" ? "en-GB" : "ar-IQ";
+
+  const passwordMutation = useMutation({
+    mutationFn: () => adminApi.changeUserPassword(userId, password),
+    onSuccess: () => {
+      setPassword("");
+      setConfirmPassword("");
+      toast.success(t("admin.passwordChanged"));
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const submitPassword = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (password.length < 8) {
+      toast.error(t("admin.passwordMinLength"));
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error(t("admin.passwordsDoNotMatch"));
+      return;
+    }
+    passwordMutation.mutate();
+  };
 
   if (isLoading && !data) {
     return <DetailPageLoading />;
@@ -76,6 +105,72 @@ export function AdminUserDetailClient({ userId }: { userId: number }) {
                   </p>
                   <SubscriptionBadge subscription={user.subscription} />
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound size={19} className="text-rx-primary" />
+                  {t("admin.changeUserPassword")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form
+                  className="grid gap-4 sm:grid-cols-2"
+                  onSubmit={submitPassword}
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-new-password">
+                      {t("admin.newPassword")}
+                    </Label>
+                    <Input
+                      id="admin-new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={8}
+                      maxLength={128}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder={t("admin.newPasswordPlaceholder")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-confirm-password">
+                      {t("admin.confirmNewPassword")}
+                    </Label>
+                    <Input
+                      id="admin-confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={8}
+                      maxLength={128}
+                      value={confirmPassword}
+                      onChange={(event) =>
+                        setConfirmPassword(event.target.value)
+                      }
+                      placeholder={t("admin.confirmNewPasswordPlaceholder")}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs leading-5 text-rx-muted">
+                      {t("admin.passwordChangeSessionNotice")}
+                    </p>
+                    <Button
+                      type="submit"
+                      disabled={
+                        passwordMutation.isPending ||
+                        password.length < 8 ||
+                        confirmPassword.length < 8
+                      }
+                    >
+                      <KeyRound size={16} />
+                      {passwordMutation.isPending
+                        ? t("admin.changingPassword")
+                        : t("admin.saveNewPassword")}
+                    </Button>
+                  </div>
+                </form>
               </CardContent>
             </Card>
 

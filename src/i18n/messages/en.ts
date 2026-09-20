@@ -736,6 +736,18 @@ export const en: MessageCatalog = {
     noHistoryDesc: "No subscription has been activated yet",
     userNotFound: "User not found",
     userNotFoundDesc: "Could not find this user",
+    changeUserPassword: "Change user password",
+    newPassword: "New password",
+    confirmNewPassword: "Confirm password",
+    newPasswordPlaceholder: "At least 8 characters",
+    confirmNewPasswordPlaceholder: "Re-enter the new password",
+    passwordChangeSessionNotice:
+      "Changing the password signs the user out of every active device.",
+    saveNewPassword: "Save new password",
+    changingPassword: "Changing…",
+    passwordChanged: "Password changed successfully",
+    passwordMinLength: "Password must be at least 8 characters",
+    passwordsDoNotMatch: "Passwords do not match",
   },
   appointments: {
     title: "Appointments",

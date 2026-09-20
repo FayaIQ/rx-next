@@ -32,7 +32,17 @@ export const activateSubscriptionSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
+export const adminChangePasswordSchema = z.object({
+  password: z
+    .string()
+    .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
+    .max(128, "كلمة المرور طويلة جداً"),
+});
+
 export type CreateDoctorInput = z.infer<typeof createDoctorSchema>;
 export type CreateSecretaryInput = z.infer<typeof createSecretarySchema>;
 export type PackageInput = z.infer<typeof packageSchema>;
 export type ActivateSubscriptionInput = z.infer<typeof activateSubscriptionSchema>;
+export type AdminChangePasswordInput = z.infer<
+  typeof adminChangePasswordSchema
+>;

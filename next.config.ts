@@ -13,6 +13,15 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "bcryptjs"],
   transpilePackages: ["three", "@react-three/fiber", "@react-three/drei"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "nbg1.your-objectstorage.com",
+        pathname: "/fayapress/public/**",
+      },
+    ],
+  },
   turbopack: {
     root: process.cwd(),
   },
