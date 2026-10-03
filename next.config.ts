@@ -20,6 +20,11 @@ const nextConfig: NextConfig = {
         hostname: "nbg1.your-objectstorage.com",
         pathname: "/fayapress/public/**",
       },
+      {
+        protocol: "https",
+        hostname: "nbg1.your-objectstorage.com",
+        pathname: "/fayapress/faya-profile/**",
+      },
     ],
   },
   turbopack: {

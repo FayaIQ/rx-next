@@ -292,7 +292,6 @@ export function BlogArticle({ post, relatedPosts }: { post: BlogPost; relatedPos
               <div className="mt-8 flex flex-wrap gap-2">{tags.map((tag) => <span key={tag} className="inline-flex items-center gap-1.5 rounded-full bg-[#E8F5E0] px-3 py-1.5 text-xs font-bold text-[#0B5F5A]"><Tag size={12} />{tag}</span>)}</div>
             ) : null}
             <h1 className="mt-5 text-4xl font-bold leading-[1.3] tracking-tight text-[#0B2C3D] sm:text-5xl">{post.title[locale]}</h1>
-            <p className="mt-5 text-lg leading-8 text-slate-600">{excerpt(post.description[locale], 260)}</p>
             <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-6">
               <MetaLine post={post} locale={locale} />
               <ShareButton title={post.title[locale]} />
