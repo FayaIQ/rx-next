@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/lib/finance/constants";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -128,7 +129,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
               {t("waitingRoom.balance")}
             </p>
             <p className="mt-1 font-mono text-slate-600">
-              {data.financeBalance.toLocaleString(dateLocale)}
+              {data.financeBalances.map((row: { currency: string; balance: number }) => formatMoney(row.balance, row.currency, locale)).join(" · ") || "0"}
             </p>
           </div>
         </div>

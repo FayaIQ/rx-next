@@ -222,6 +222,8 @@ export function PrescriptionComposer() {
     Record<string, unknown> | null
   >(null);
   const [consultationFee, setConsultationFee] = useState(0);
+  const [consultationCurrency, setConsultationCurrency] = useState("IQD");
+  const [feeEditorCurrency, setFeeEditorCurrency] = useState("IQD");
   const [consultationFeeWaived, setConsultationFeeWaived] = useState(false);
   const [showConsultationFeeEditor, setShowConsultationFeeEditor] =
     useState(false);
@@ -280,8 +282,11 @@ export function PrescriptionComposer() {
   });
 
   useEffect(() => {
-    if (editId || !financeSettingsData) return;
+    if (!financeSettingsData) return;
+    setFeeEditorCurrency(financeSettingsData.currency);
+    if (editId) return;
     setConsultationFee(financeSettingsData.consultationFee);
+    setConsultationCurrency(financeSettingsData.currency);
   }, [editId, financeSettingsData]);
 
   const patientFieldVisibility = useMemo(
@@ -339,6 +344,7 @@ export function PrescriptionComposer() {
     setMessageText(documentMeta.messageText);
     setSavedAdditionalInfo(p.additionalInfo ?? null);
     setConsultationFee(p.consultationFee);
+    setConsultationCurrency(p.consultationCurrency ?? "IQD");
     setConsultationFeeWaived(p.consultationFeeWaived);
     setItems(
       p.items.length
@@ -419,6 +425,7 @@ export function PrescriptionComposer() {
       setDocumentKind(draft.documentKind ?? "prescription");
       setMessageText(draft.messageText ?? "");
       setConsultationFee(draft.consultationFee);
+      setConsultationCurrency(draft.consultationCurrency ?? "IQD");
       setConsultationFeeWaived(draft.consultationFeeWaived);
       setItems(draft.items.length ? draft.items : [emptyRow()]);
       setFieldValues(draft.fieldValues);
@@ -464,6 +471,7 @@ export function PrescriptionComposer() {
       documentKind,
       messageText,
       consultationFee,
+      consultationCurrency,
       consultationFeeWaived,
       items,
       fieldValues,
@@ -496,6 +504,7 @@ export function PrescriptionComposer() {
     documentKind,
     messageText,
     consultationFee,
+    consultationCurrency,
     consultationFeeWaived,
     items,
     fieldValues,
@@ -563,11 +572,12 @@ export function PrescriptionComposer() {
         consultationFee: amount,
         followUpFee: financeSettingsData.followUpFee,
         procedureFee: financeSettingsData.procedureFee,
-        currency: financeSettingsData.currency,
+        currency: feeEditorCurrency,
       });
     },
     onSuccess: ({ settings }) => {
       setConsultationFee(settings.consultationFee);
+      setConsultationCurrency(settings.currency);
       setConsultationFeeDraft("");
       setShowConsultationFeeEditor(false);
       cacheFinanceSettingsLocally(settings);
@@ -817,6 +827,7 @@ export function PrescriptionComposer() {
     setMessageText("");
     setSavedAdditionalInfo(null);
     setConsultationFee(financeSettingsData?.consultationFee ?? 0);
+    setConsultationCurrency(financeSettingsData?.currency ?? "IQD");
     setConsultationFeeWaived(false);
     setShowConsultationFeeEditor(false);
     setConsultationFeeDraft("");
@@ -1242,7 +1253,7 @@ export function PrescriptionComposer() {
                         : !financeSettingsData
                           ? "…"
                           : consultationFee > 0
-                            ? formatMoney(consultationFee, "IQD", locale)
+                            ? formatMoney(consultationFee, consultationCurrency, locale)
                             : t("composer.noConsultationFee")}
                     </span>
                     {!consultationFeeWaived &&
@@ -1279,9 +1290,9 @@ export function PrescriptionComposer() {
                       <Input
                         autoFocus
                         type="number"
-                        min={1}
-                        step={1}
-                        inputMode="numeric"
+                        min={feeEditorCurrency === "USD" ? 0.01 : 1}
+                        step={feeEditorCurrency === "USD" ? 0.01 : 1}
+                        inputMode="decimal"
                         dir="ltr"
                         value={consultationFeeDraft}
                         onChange={(event) =>
@@ -1289,6 +1300,13 @@ export function PrescriptionComposer() {
                         }
                         placeholder="25000"
                       />
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="block text-xs font-semibold">{t("finances.currency")}</span>
+                      <select className="h-10 rounded-lg border border-rx-border bg-white px-3 text-sm" value={feeEditorCurrency} onChange={(event) => { setFeeEditorCurrency(event.target.value); setConsultationFeeDraft(""); }}>
+                        <option value="IQD">{t("finances.iqd")}</option>
+                        <option value="USD">{t("finances.usd")}</option>
+                      </select>
                     </label>
                     <div className="flex gap-2">
                       <Button

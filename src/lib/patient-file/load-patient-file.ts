@@ -124,6 +124,7 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
           teeth: dentalChart.teeth.map((t) => ({
             toothFdi: t.toothFdi,
             status: t.status,
+            statuses: t.statuses.length ? t.statuses : [t.status],
             statusLabel: toothStatusLabel(t.status),
             notes: t.notes,
           })),
@@ -137,6 +138,7 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
       type: f.type,
       category: f.category,
       amount: Number(f.amount),
+      currency: f.currency,
       transactionDate: f.transactionDate.toISOString().slice(0, 10),
       description: f.description,
     })),

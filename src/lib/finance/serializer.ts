@@ -35,6 +35,7 @@ export function serializeFinanceTransaction(row: TransactionRow) {
     type: row.type as "income" | "expense",
     category: row.category,
     amount: decimalToNumber(row.amount),
+    currency: row.currency,
     paymentMethod: row.paymentMethod,
     description: row.description,
     transactionDate: row.transactionDate.toISOString().slice(0, 10),

@@ -78,7 +78,7 @@ type PatientFile = {
   }>;
   dentalChart: {
     notes: string | null;
-    teeth: Array<{ toothFdi: number; status: string; statusLabel: string; notes: string | null }>;
+    teeth: Array<{ toothFdi: number; status: string; statuses?: string[]; statusLabel: string; notes: string | null }>;
   } | null;
   treatmentPlans: Array<{
     id: number;
@@ -106,6 +106,7 @@ type PatientFile = {
     type: string;
     category: string;
     amount: number;
+    currency: string;
     transactionDate: string;
     description: string | null;
   }>;
@@ -383,7 +384,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
                   <strong>
                     {t("patientFile.toothLine", { fdi: tooth.toothFdi })}
                   </strong>{" "}
-                  — {tToothStatus(t, tooth.status)}
+                  — {(tooth.statuses?.length ? tooth.statuses : [tooth.status]).map((status) => tToothStatus(t, status)).join(" · ")}
                   {tooth.notes ? ` · ${tooth.notes}` : ""}
                 </li>
               ))}
@@ -460,7 +461,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
                   {f.category} — {f.description}
                 </span>
                 <span className="font-mono">
-                  {f.amount} ({f.type})
+                  {f.amount} {f.currency} ({f.type})
                 </span>
               </div>
             ))

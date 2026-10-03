@@ -71,7 +71,7 @@ export async function PUT(request: Request, { params }: Params) {
       });
 
       for (const tooth of data.teeth) {
-        if (tooth.status === "healthy" && !(tooth.notes?.trim())) {
+        if (tooth.status === "healthy" && !tooth.statuses?.some((status) => status !== "healthy") && !(tooth.notes?.trim())) {
           await tx.dentalToothRecord.deleteMany({
             where: {
               chartId: upserted.id,
@@ -92,10 +92,12 @@ export async function PUT(request: Request, { params }: Params) {
             chartId: upserted.id,
             toothFdi: tooth.toothFdi,
             status: tooth.status,
+            statuses: tooth.statuses ?? [tooth.status],
             notes: tooth.notes?.trim() || null,
           },
           update: {
             status: tooth.status,
+            statuses: tooth.statuses ?? [tooth.status],
             notes: tooth.notes?.trim() || null,
           },
         });

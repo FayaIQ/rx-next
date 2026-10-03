@@ -619,3 +619,83 @@ describe("CFlow welcome messages", () => {
     });
   });
 });
+
+// Clinical identifiers are verified against ADA's published ISO 3950 mapping.
+import { FDI_ALL } from "../dental/constants";
+import { getToothKind, TOOTH_TRANSFORMS } from "../dental/tooth-layout";
+import { toggleToothStatus } from "../dental/findings";
+import { dentalChartUpdateSchema } from "../validations/dental";
+import { currencyTotals } from "../finance/currency-totals";
+import { formatMoney } from "../finance/constants";
+import { financeTransactionSchema } from "../validations/finance";
+
+describe("permanent FDI chart and multiple findings", () => {
+  it("contains all 32 unique ISO identifiers including the four wisdom teeth", () => {
+    const expected = [1, 2, 3, 4].flatMap((quadrant) => Array.from({ length: 8 }, (_, i) => quadrant * 10 + i + 1));
+    assert.deepEqual([...FDI_ALL].sort((a, b) => a - b), expected);
+    assert.equal(Object.keys(TOOTH_TRANSFORMS).length, 32);
+    for (const quadrant of [1, 2, 3, 4]) {
+      assert.deepEqual(Array.from({ length: 8 }, (_, i) => getToothKind(quadrant * 10 + i + 1)), ["incisor", "incisor", "canine", "premolar", "premolar", "molar", "molar", "molar"]);
+    }
+    for (const invalid of [0, 19, 20, 29, 39, 49, 51]) assert.throws(() => getToothKind(invalid));
+  });
+  it("places patient right on screen left and aligns opposing incisors", () => {
+    assert.ok(TOOTH_TRANSFORMS[11].position[0] < 0);
+    assert.ok(TOOTH_TRANSFORMS[41].position[0] < 0);
+    assert.ok(TOOTH_TRANSFORMS[21].position[0] > 0);
+    assert.ok(TOOTH_TRANSFORMS[31].position[0] > 0);
+    for (let unit = 1; unit <= 8; unit++) {
+      const right = TOOTH_TRANSFORMS[(10 + unit) as keyof typeof TOOTH_TRANSFORMS];
+      const left = TOOTH_TRANSFORMS[(20 + unit) as keyof typeof TOOTH_TRANSFORMS];
+      assert.equal(right.position[0], -left.position[0]);
+      assert.equal(right.position[2], left.position[2]);
+      const lower = TOOTH_TRANSFORMS[(40 + unit) as keyof typeof TOOTH_TRANSFORMS];
+      assert.equal(lower.position[0], right.position[0]);
+      assert.ok(right.position[1] > lower.position[1]);
+    }
+  });
+  it("keeps root canal and crown together, removes each independently, and clears to healthy", () => {
+    const root = toggleToothStatus(["healthy"], "root_canal");
+    const combined = toggleToothStatus(root.statuses, "crown");
+    assert.deepEqual(combined.statuses, ["root_canal", "crown"]);
+    const saved = dentalChartUpdateSchema.parse({ teeth: [{ toothFdi: 16, ...combined }] });
+    assert.deepEqual(saved.teeth[0].statuses, ["root_canal", "crown"]);
+    assert.deepEqual(toggleToothStatus(combined.statuses, "crown").statuses, ["root_canal"]);
+    assert.deepEqual(toggleToothStatus(combined.statuses, "healthy"), { status: "healthy", statuses: ["healthy"] });
+    assert.equal(dentalChartUpdateSchema.parse({ teeth: [{ toothFdi: 16, status: "root_canal" }] }).teeth[0].statuses[0], "root_canal");
+    assert.equal(dentalChartUpdateSchema.safeParse({ teeth: [{ toothFdi: 19, status: "healthy" }] }).success, false);
+  });
+});
+
+describe("currency amounts", () => {
+  it("keeps USD and IQD balances separate", () => {
+    assert.deepEqual(currencyTotals([
+      { type: "income", currency: "IQD", amount: 25000 },
+      { type: "income", currency: "USD", amount: 20.5 },
+      { type: "expense", currency: "USD", amount: 0.5 },
+    ]), [
+      { currency: "IQD", income: 25000, expense: 0, balance: 25000 },
+      { currency: "USD", income: 20.5, expense: 0.5, balance: 20 },
+    ]);
+    assert.equal(formatMoney(20.5, "USD", "en"), "20.5 USD");
+  });
+  it("validates currency and preserves dollar cents", () => {
+    const transaction = { type: "income", category: "consultation", amount: 12.75, currency: "USD", transactionDate: "2026-10-03" };
+    assert.equal(financeTransactionSchema.parse(transaction).amount, 12.75);
+    assert.equal(financeTransactionSchema.safeParse({ ...transaction, currency: "EUR" }).success, false);
+  });
+});
+
+import { buildTreatmentPlanMarkers } from "../dental/treatment-plan-markers";
+import type { TreatmentPlanDto } from "../api/rx-client";
+it("counts sessions from both procedures on the same tooth", () => {
+  const plans = [
+    { toothFdi: 16, treatmentType: "root_canal", status: "active", totalSessions: 3, sessions: [{ status: "completed" }] },
+    { toothFdi: 16, treatmentType: "crown", status: "active", totalSessions: 2, sessions: [] },
+    { toothFdi: 16, treatmentType: "implant", status: "cancelled", totalSessions: 4, sessions: [] },
+  ] as unknown as TreatmentPlanDto[];
+  const markers = buildTreatmentPlanMarkers(plans);
+  assert.equal(markers.length, 1);
+  assert.equal(markers[0].totalSessions, 5);
+  assert.equal(markers[0].completedSessions, 1);
+});

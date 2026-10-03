@@ -1,3 +1,4 @@
+import { currencyTotals } from "@/lib/finance/currency-totals";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
 import { treatmentTypeLabel } from "@/lib/treatment/constants";
@@ -53,17 +54,13 @@ export async function loadPatientQueueSummary(
       orderBy: { bookingDate: "asc" },
     }),
     prisma.financeTransaction.groupBy({
-      by: ["type"],
+      by: ["type", "currency"],
       where: { patientId: patientDbId, doctorId: doctorDbId },
       _sum: { amount: true },
     }),
   ]);
 
-  let balance = 0;
-  for (const row of finance) {
-    const amount = Number(row._sum.amount ?? 0);
-    balance += row.type === "income" ? amount : -amount;
-  }
+  const financeBalances = currencyTotals(finance.map((row) => ({ type: row.type, currency: row.currency, amount: Number(row._sum.amount ?? 0) })));
 
   const nextSession = treatmentEnabled
     ? await prisma.treatmentSession.findFirst({
@@ -117,6 +114,6 @@ export async function loadPatientQueueSummary(
           notes: nextAppointment.notes,
         }
       : null,
-    financeBalance: balance,
+    financeBalances,
   };
 }

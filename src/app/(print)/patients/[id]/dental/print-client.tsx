@@ -10,6 +10,7 @@ import { tToothStatus, tTreatmentType } from "@/lib/i18n-labels";
 type ToothRow = {
   toothFdi: number;
   status: string;
+  statuses?: string[];
   notes: string | null;
 };
 
@@ -87,7 +88,7 @@ export function PatientDentalPrintClient({
             teeth.map((row) => (
               <tr key={row.toothFdi} className="border-b">
                 <td className="py-2">{row.toothFdi}</td>
-                <td className="py-2">{tToothStatus(t, row.status)}</td>
+                <td className="py-2">{(row.statuses?.length ? row.statuses : [row.status]).map((status) => tToothStatus(t, status)).join(" · ")}</td>
                 <td className="py-2">{row.notes ?? "—"}</td>
               </tr>
             ))

@@ -20,12 +20,14 @@ export async function GET(request: Request) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const category = searchParams.get("category");
+  const currency = searchParams.get("currency");
   const patientIdParam = Number(searchParams.get("patientId"));
 
   const where = {
     doctorId: toDbId(ctx.doctorId),
     ...(type === "income" || type === "expense" ? { type } : {}),
     ...(category ? { category } : {}),
+    ...(currency === "IQD" || currency === "USD" ? { currency } : {}),
     ...(Number.isInteger(patientIdParam) && patientIdParam > 0
       ? { patientId: toDbId(patientIdParam) }
       : {}),
@@ -94,6 +96,7 @@ export async function POST(request: Request) {
         type: data.type,
         category: data.category,
         amount: data.amount,
+        currency: data.currency ?? (await prisma.clinicFinanceSettings.findUnique({ where: { doctorId: toDbId(ctx.doctorId) } }))?.currency ?? "IQD",
         paymentMethod: data.paymentMethod ?? null,
         description: data.description?.trim() || null,
         transactionDate: new Date(data.transactionDate),

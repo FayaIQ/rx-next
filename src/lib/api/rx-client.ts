@@ -92,6 +92,7 @@ export type PrescriptionDto = {
   prescriptionDate: string;
   diagnosis: string | null;
   consultationFee: number;
+  consultationCurrency?: string;
   consultationFeeWaived: boolean;
   xrayImage: string | null;
   analysisImage: string | null;
@@ -156,6 +157,7 @@ export type FinanceTransactionDto = {
   type: "income" | "expense";
   category: string;
   amount: number;
+  currency: string;
   paymentMethod: string | null;
   description: string | null;
   transactionDate: string;
@@ -166,6 +168,7 @@ export type FinanceTransactionDto = {
 };
 
 export type FinanceSummaryDto = {
+  currency: string;
   totalIncome: number;
   totalExpenses: number;
   balance: number;
@@ -368,6 +371,7 @@ export const rxApi = {
           teeth: Array<{
             toothFdi: number;
             status: string;
+            statuses: string[];
             notes: string | null;
             updatedAt: string | null;
           }>;
@@ -384,6 +388,7 @@ export const rxApi = {
           teeth: Array<{
             toothFdi: number;
             status: string;
+            statuses: string[];
             notes: string | null;
             updatedAt: string | null;
           }>;
@@ -679,6 +684,10 @@ export const rxApi = {
           body: JSON.stringify(body),
         })
       ),
+    removeImage: (kind: "logo" | "design") =>
+      handleResponse<{ settings: RecipeSettingsDto }>(
+        fetch(`/api/recipe-settings/upload?kind=${kind}`, { method: "DELETE" })
+      ),
     upload: async (kind: "logo" | "design", file: File) => {
       const form = new FormData();
       form.append("kind", kind);
@@ -893,8 +902,9 @@ export const rxApi = {
           body: JSON.stringify(body),
         })
       ),
-    getSummary: (params?: { from?: string; to?: string }) => {
+    getSummary: (params?: { from?: string; to?: string; currency?: string }) => {
       const sp = new URLSearchParams();
+      if (params?.currency) sp.set("currency", params.currency);
       if (params?.from) sp.set("from", params.from);
       if (params?.to) sp.set("to", params.to);
       const q = sp.toString();
@@ -905,6 +915,7 @@ export const rxApi = {
     listTransactions: (params?: {
       type?: "income" | "expense";
       category?: string;
+      currency?: string;
       patientId?: number;
       from?: string;
       to?: string;
@@ -915,6 +926,7 @@ export const rxApi = {
       if (params?.type) sp.set("type", params.type);
       if (params?.category) sp.set("category", params.category);
       if (params?.patientId) sp.set("patientId", String(params.patientId));
+      if (params?.currency) sp.set("currency", params.currency);
       if (params?.from) sp.set("from", params.from);
       if (params?.to) sp.set("to", params.to);
       if (params?.page) sp.set("page", String(params.page));

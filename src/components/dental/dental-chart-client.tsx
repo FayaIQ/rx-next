@@ -27,6 +27,7 @@ import {
   type ToothStatusId,
 } from "@/lib/dental/constants";
 import { cn } from "@/lib/utils";
+import { toggleToothStatus } from "@/lib/dental/findings";
 import { useLocale } from "@/i18n/locale-provider";
 import { tToothQuadrant, tToothStatus } from "@/lib/i18n-labels";
 import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
@@ -63,7 +64,7 @@ export function DentalChartClient({ patientId }: Props) {
   const [selectedFdi, setSelectedFdi] = useState<number | null>(null);
   const [chartNotes, setChartNotes] = useState("");
   const [toothMap, setToothMap] = useState<
-    Record<number, { status: ToothStatusId; notes: string }>
+    Record<number, { status: ToothStatusId; statuses: ToothStatusId[]; notes: string }>
   >({});
 
   const { data, isLoading } = useQuery({
@@ -96,10 +97,11 @@ export function DentalChartClient({ patientId }: Props) {
   useEffect(() => {
     if (!data?.chart) return;
     setChartNotes(data.chart.notes ?? "");
-    const map: Record<number, { status: ToothStatusId; notes: string }> = {};
+    const map: Record<number, { status: ToothStatusId; statuses: ToothStatusId[]; notes: string }> = {};
     for (const tooth of data.chart.teeth) {
       map[tooth.toothFdi] = {
         status: tooth.status as ToothStatusId,
+        statuses: (tooth.statuses?.length ? tooth.statuses : [tooth.status]) as ToothStatusId[],
         notes: tooth.notes ?? "",
       };
     }
@@ -111,6 +113,7 @@ export function DentalChartClient({ patientId }: Props) {
       FDI_ALL.map((fdi) => ({
         toothFdi: fdi,
         status: toothMap[fdi]?.status ?? ("healthy" as ToothStatusId),
+        statuses: toothMap[fdi]?.statuses ?? ["healthy" as ToothStatusId],
         notes: toothMap[fdi]?.notes ?? "",
       })),
     [toothMap]
@@ -128,9 +131,7 @@ export function DentalChartClient({ patientId }: Props) {
     mutationFn: () =>
       saveDentalChartOffline(patientId, {
         notes: chartNotes || null,
-        teeth: teethList.filter(
-          (tooth) => tooth.status !== "healthy" || tooth.notes.trim().length > 0
-        ),
+        teeth: teethList,
       }),
     onSuccess: (res) => {
       queryClient.setQueryData(["dental-chart", patientId], {
@@ -143,11 +144,12 @@ export function DentalChartClient({ patientId }: Props) {
   });
 
   const updateTooth = useCallback(
-    (fdi: number, patch: Partial<{ status: ToothStatusId; notes: string }>) => {
+    (fdi: number, patch: Partial<{ status: ToothStatusId; statuses: ToothStatusId[]; notes: string }>) => {
       setToothMap((current) => ({
         ...current,
         [fdi]: {
           status: patch.status ?? current[fdi]?.status ?? "healthy",
+          statuses: patch.statuses ?? current[fdi]?.statuses ?? ["healthy"],
           notes: patch.notes ?? current[fdi]?.notes ?? "",
         },
       }));
@@ -238,14 +240,15 @@ export function DentalChartClient({ patientId }: Props) {
                       <div className="grid grid-cols-3 gap-1.5">
                         {TOOTH_STATUSES.map((s) => {
                           const active =
-                            (selected?.status ?? "healthy") === s.id;
+                            (selected?.statuses ?? ["healthy"]).includes(s.id);
                           return (
                             <button
                               key={s.id}
                               type="button"
                               onClick={() =>
-                                updateTooth(selectedFdi, { status: s.id })
+                                updateTooth(selectedFdi, toggleToothStatus(selected?.statuses ?? ["healthy"], s.id))
                               }
+                              aria-pressed={active}
                               className={cn(
                                 "rounded-md border px-2 py-1.5 text-right text-[11px] transition",
                                 active
@@ -330,7 +333,7 @@ export function DentalChartClient({ patientId }: Props) {
                       >
                         <span>
                           <strong>{tooth.toothFdi}</strong> —{" "}
-                          {tToothStatus(t, tooth.status)}
+                          {tooth.statuses.map((status) => tToothStatus(t, status)).join(" · ")}
                         </span>
                         <Badge variant="secondary">{tooth.toothFdi}</Badge>
                       </button>

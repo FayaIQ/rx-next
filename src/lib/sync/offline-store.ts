@@ -112,6 +112,7 @@ export async function persistHydration(data: {
             prescriptionDate: string;
             diagnosis?: string;
             consultationFee?: number;
+            consultationCurrency?: string;
             consultationFeeWaived?: boolean;
             additionalInfo?: Record<string, unknown>;
             prescriptionNumber?: number;
@@ -128,6 +129,7 @@ export async function persistHydration(data: {
             prescriptionDate: r.prescriptionDate,
             diagnosis: r.diagnosis,
             consultationFee: r.consultationFee ?? 0,
+            consultationCurrency: r.consultationCurrency ?? "IQD",
             consultationFeeWaived: r.consultationFeeWaived ?? false,
             additionalInfo: r.additionalInfo,
             prescriptionNumber: r.prescriptionNumber,
@@ -343,6 +345,7 @@ export async function mergePartialHydration(data: {
           prescriptionDate: string;
           diagnosis?: string;
           consultationFee?: number;
+            consultationCurrency?: string;
           consultationFeeWaived?: boolean;
           additionalInfo?: Record<string, unknown>;
           prescriptionNumber?: number;
@@ -359,6 +362,7 @@ export async function mergePartialHydration(data: {
           prescriptionDate: r.prescriptionDate,
           diagnosis: r.diagnosis,
           consultationFee: r.consultationFee ?? 0,
+            consultationCurrency: r.consultationCurrency ?? "IQD",
           consultationFeeWaived: r.consultationFeeWaived ?? false,
           additionalInfo: r.additionalInfo,
           prescriptionNumber: r.prescriptionNumber,
@@ -891,6 +895,7 @@ function localPrescriptionToDto(
     prescriptionDate: rx.prescriptionDate,
     diagnosis: rx.diagnosis ?? null,
     consultationFee: rx.consultationFee ?? 0,
+    consultationCurrency: rx.consultationCurrency ?? "IQD",
     consultationFeeWaived: rx.consultationFeeWaived ?? false,
     xrayImage: rx.xrayImage ?? null,
     analysisImage: rx.analysisImage ?? null,
@@ -967,6 +972,7 @@ export async function syncLocalPrescriptionFromDto(
     prescriptionDate: prescription.prescriptionDate ?? new Date().toISOString(),
     diagnosis: prescription.diagnosis ?? undefined,
     consultationFee: prescription.consultationFee ?? 0,
+    consultationCurrency: prescription.consultationCurrency ?? "IQD",
     consultationFeeWaived: prescription.consultationFeeWaived ?? false,
     xrayImage: prescription.xrayImage ?? undefined,
     analysisImage: prescription.analysisImage ?? undefined,

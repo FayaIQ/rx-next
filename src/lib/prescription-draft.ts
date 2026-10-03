@@ -41,6 +41,7 @@ export type PrescriptionComposerDraft = {
   documentKind?: PrescriptionDocumentKind;
   messageText?: string;
   consultationFee: number;
+  consultationCurrency?: string;
   consultationFeeWaived: boolean;
   items: PrescriptionDraftMedicineRow[];
   fieldValues: Record<number, string>;

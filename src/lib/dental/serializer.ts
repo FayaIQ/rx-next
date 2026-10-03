@@ -9,6 +9,7 @@ export function serializeDentalChart(chart: {
   teeth: Array<{
     toothFdi: number;
     status: string;
+    statuses?: string[];
     notes: string | null;
     updatedAt: Date | null;
   }>;
@@ -22,6 +23,7 @@ export function serializeDentalChart(chart: {
     teeth: chart.teeth.map((t) => ({
       toothFdi: t.toothFdi,
       status: t.status,
+      statuses: t.statuses?.length ? t.statuses : [t.status],
       notes: t.notes,
       updatedAt: t.updatedAt?.toISOString() ?? null,
     })),

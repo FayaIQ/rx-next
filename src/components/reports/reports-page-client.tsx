@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/lib/finance/constants";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, Users, FileText, Smile, Wallet, TrendingUp } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
@@ -86,16 +87,12 @@ export function ReportsPageClient() {
               />
               <StatCard
                 label={t("reports.totalIncome")}
-                value={data.summary.totalIncome.toLocaleString(numberLocale, {
-                  numberingSystem: "latn",
-                })}
+                value={data.summary.financialTotals.map((row: { currency: string; income: number }) => formatMoney(row.income, row.currency, locale)).join(" · ") || "0"}
                 icon={Wallet}
               />
               <StatCard
                 label={t("reports.netIncome")}
-                value={data.summary.netIncome.toLocaleString(numberLocale, {
-                  numberingSystem: "latn",
-                })}
+                value={data.summary.financialTotals.map((row: { currency: string; balance: number }) => formatMoney(row.balance, row.currency, locale)).join(" · ") || "0"}
                 icon={TrendingUp}
               />
             </div>

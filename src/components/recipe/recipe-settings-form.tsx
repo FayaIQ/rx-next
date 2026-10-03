@@ -148,6 +148,17 @@ export function RecipeSettingsForm() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const removeImageMutation = useMutation({
+    mutationFn: (kind: "logo" | "design") => rxApi.recipeSettings.removeImage(kind),
+    onSuccess: (res, kind) => {
+      const key = kind === "logo" ? "logoPath" : "designImagePath";
+      setForm((prev) => ({ ...prev, [key]: null }));
+      queryClient.setQueryData(queryKeys.recipeSettings.all, { settings: normalizeRecipeSettingsDto(res.settings) });
+      toast.success(t("recipe.imageRemoved"));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   function patch<K extends keyof RecipeSettingsDto>(
     key: K,
     value: RecipeSettingsDto[K]
@@ -296,7 +307,8 @@ export function RecipeSettingsForm() {
                 }
                 onDesignModeChange={(mode) => patch("designMode", mode)}
                 onUpload={(kind, file) => uploadMutation.mutate({ kind, file })}
-                uploadPending={uploadMutation.isPending}
+                onRemove={(kind) => removeImageMutation.mutate(kind)}
+                uploadPending={uploadMutation.isPending || removeImageMutation.isPending}
               />
             )}
             {activeTab === "fields" && (

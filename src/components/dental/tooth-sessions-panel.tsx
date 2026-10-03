@@ -70,7 +70,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
       const template = TREATMENT_TEMPLATES.find((tpl) => tpl.id === selectedTemplate);
       const count =
         totalSessions || defaultSessionsForType(treatmentType);
-      const sessions = template
+      const sessions = template && template.treatmentType === treatmentType && template.totalSessions === count
         ? buildSessionsFromTemplate(template)
         : Array.from({ length: count }, (_, i) => ({
             sessionNumber: i + 1,
@@ -79,8 +79,8 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
           }));
       return createTreatmentPlanOffline(patientId, {
         toothFdi,
-        treatmentType: template?.treatmentType ?? treatmentType,
-        totalSessions: template?.totalSessions ?? count,
+        treatmentType,
+        totalSessions: count,
         sessions,
       });
     },
@@ -168,6 +168,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
                 }
               }}
             >
+              <option value="">{t("dental.customPlan")}</option>
               {TREATMENT_TEMPLATES.map((tpl) => (
                 <option key={tpl.id} value={tpl.id}>
                   {tTreatmentTemplate(t, tpl.id)}
@@ -184,6 +185,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
                   value={treatmentType}
                   onChange={(e) => {
                     const next = e.target.value as TreatmentTypeId;
+                    setSelectedTemplate("");
                     setTreatmentType(next);
                     setTotalSessions(defaultSessionsForType(next));
                   }}

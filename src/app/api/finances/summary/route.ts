@@ -22,9 +22,13 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const dateFilter = parseDateRange(searchParams);
+  const settings = await prisma.clinicFinanceSettings.findUnique({ where: { doctorId: toDbId(ctx.doctorId) } });
+  const currencyParam = searchParams.get("currency");
+  const currency = currencyParam === "USD" || currencyParam === "IQD" ? currencyParam : settings?.currency ?? "IQD";
 
   const where = {
     doctorId: toDbId(ctx.doctorId),
+    currency,
     ...(dateFilter ? { transactionDate: dateFilter } : {}),
   };
 
@@ -102,6 +106,7 @@ export async function GET(request: Request) {
 
   return apiOk({
     summary: {
+      currency,
       totalIncome,
       totalExpenses,
       balance: totalIncome - totalExpenses,

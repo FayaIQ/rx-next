@@ -13,26 +13,28 @@ export type TreatmentPlanMarker = {
 export function buildTreatmentPlanMarkers(
   plans: TreatmentPlanDto[]
 ): TreatmentPlanMarker[] {
-  const byTooth = new Map<number, TreatmentPlanDto>();
-
+  const byTooth = new Map<number, TreatmentPlanMarker>();
   for (const plan of plans) {
     if (plan.status === "cancelled") continue;
+    const completed = plan.sessions?.filter((session) => session.status === "completed").length ?? 0;
+    const total = plan.totalSessions ?? plan.sessions?.length ?? 0;
     const existing = byTooth.get(plan.toothFdi);
-    if (
-      !existing ||
-      (plan.status === "active" && existing.status !== "active")
-    ) {
-      byTooth.set(plan.toothFdi, plan);
+    if (existing) {
+      existing.completedSessions += completed;
+      existing.totalSessions += total;
+      const label = treatmentTypeLabel(plan.treatmentType);
+      if (!existing.label.split(" · ").includes(label)) existing.label += ` · ${label}`;
+      if (plan.status === "active") existing.status = "active";
+    } else {
+      byTooth.set(plan.toothFdi, {
+        toothFdi: plan.toothFdi,
+        treatmentType: plan.treatmentType,
+        label: treatmentTypeLabel(plan.treatmentType),
+        status: plan.status,
+        completedSessions: completed,
+        totalSessions: total,
+      });
     }
   }
-
-  return Array.from(byTooth.values()).map((plan) => ({
-    toothFdi: plan.toothFdi,
-    treatmentType: plan.treatmentType,
-    label: treatmentTypeLabel(plan.treatmentType),
-    status: plan.status,
-    completedSessions:
-      plan.sessions?.filter((s) => s.status === "completed").length ?? 0,
-    totalSessions: plan.totalSessions ?? plan.sessions?.length ?? 0,
-  }));
+  return [...byTooth.values()];
 }

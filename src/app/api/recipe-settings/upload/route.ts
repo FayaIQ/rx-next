@@ -48,3 +48,23 @@ export async function POST(req: Request) {
     return apiError(e instanceof Error ? e.message : "فشل رفع الملف");
   }
 }
+
+export async function DELETE(req: Request) {
+  const ctx = await requireDoctorApi();
+  if (isApiError(ctx)) return ctx;
+  const kind = new URL(req.url).searchParams.get("kind");
+  if (kind !== "logo" && kind !== "design") return apiError("نوع الصورة غير صالح");
+  try {
+    const settings = await ensureRecipeSettings(ctx.doctorId);
+    const field = FIELD_MAP[kind];
+    const updated = await prisma.recipeSettings.update({
+      where: { id: settings.id },
+      data: { [field]: null },
+    });
+    // Database removal succeeds even when storage cleanup is temporarily unavailable.
+    await deleteUploadedFile(settings[field]).catch((error) => console.error("Image cleanup failed", error));
+    return apiOk({ settings: serializeRecipeSettings(updated) });
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : "فشل حذف الصورة");
+  }
+}

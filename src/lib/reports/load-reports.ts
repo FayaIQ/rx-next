@@ -1,3 +1,4 @@
+import { currencyTotals } from "@/lib/finance/currency-totals";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
 import { treatmentTypeLabel } from "@/lib/treatment/constants";
@@ -26,8 +27,7 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
     prescriptions,
     completedSessions,
     cancelledAppointments,
-    income,
-    expense,
+    finance,
     plansByType,
     recentPatients,
   ] = await Promise.all([
@@ -51,20 +51,9 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
         updatedAt: { gte: from, lte: to },
       },
     }),
-    prisma.financeTransaction.aggregate({
-      where: {
-        doctorId: doctorDbId,
-        type: "income",
-        transactionDate: { gte: from, lte: to },
-      },
-      _sum: { amount: true },
-    }),
-    prisma.financeTransaction.aggregate({
-      where: {
-        doctorId: doctorDbId,
-        type: "expense",
-        transactionDate: { gte: from, lte: to },
-      },
+    prisma.financeTransaction.groupBy({
+      by: ["currency", "type"],
+      where: { doctorId: doctorDbId, transactionDate: { gte: from, lte: to } },
       _sum: { amount: true },
     }),
     prisma.treatmentPlan.groupBy({
@@ -80,8 +69,7 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
     }),
   ]);
 
-  const totalIncome = Number(income._sum.amount ?? 0);
-  const totalExpense = Number(expense._sum.amount ?? 0);
+  const financialTotals = currencyTotals(finance.map((row) => ({ type: row.type, currency: row.currency, amount: Number(row._sum.amount ?? 0) })));
 
   return {
     month: key,
@@ -90,9 +78,7 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
       prescriptions,
       completedSessions,
       cancelledAppointments,
-      totalIncome,
-      totalExpense,
-      netIncome: totalIncome - totalExpense,
+      financialTotals,
     },
     treatmentBreakdown: plansByType
       .map((row) => ({

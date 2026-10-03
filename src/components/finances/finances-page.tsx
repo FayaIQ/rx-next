@@ -61,6 +61,7 @@ type TransactionFormState = {
   type: "income" | "expense";
   category: string;
   amount: string;
+  currency: string;
   paymentMethod: string;
   description: string;
   transactionDate: string;
@@ -120,6 +121,7 @@ function emptyForm(type: "income" | "expense"): TransactionFormState {
     type,
     category: type === "income" ? "consultation" : "rent",
     amount: "",
+    currency: "IQD",
     paymentMethod: "cash",
     description: "",
     transactionDate: todayKey(),
@@ -175,6 +177,8 @@ export function FinancesPage({ title, subtitle }: Props) {
   const { page, pageSize, onPageChange, onPageSizeChange } = usePaginationState(
     `${filterType}-${periodFrom}-${periodTo}`
   );
+  const [selectedReportCurrency, setSelectedReportCurrency] = useState<string | null>(null);
+  const [feeCurrency, setFeeCurrency] = useState("IQD");
   const [showSettings, setShowSettings] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FinanceTransactionDto | null>(null);
@@ -207,16 +211,18 @@ export function FinancesPage({ title, subtitle }: Props) {
     queryFn: () => rxApi.finances.getSettings(),
   });
   const settings = settingsData?.settings;
+  const reportCurrency = selectedReportCurrency ?? settings?.currency ?? "IQD";
 
   const { data: summaryData, isLoading: summaryLoading } = useQuery({
-    queryKey: ["finance-summary", periodFrom, periodTo],
+    queryKey: ["finance-summary", periodFrom, periodTo, reportCurrency],
     queryFn: () =>
-      rxApi.finances.getSummary({ from: periodFrom, to: periodTo }),
+      rxApi.finances.getSummary({ from: periodFrom, to: periodTo, currency: reportCurrency }),
   });
 
   const { data: txData, isLoading: txLoading } = useQuery({
     queryKey: [
       "finance-transactions",
+      reportCurrency,
       filterType,
       periodFrom,
       periodTo,
@@ -225,6 +231,7 @@ export function FinancesPage({ title, subtitle }: Props) {
     ],
     queryFn: () =>
       rxApi.finances.listTransactions({
+        currency: reportCurrency,
         type: filterType === "all" ? undefined : filterType,
         from: periodFrom,
         to: periodTo,
@@ -276,6 +283,7 @@ export function FinancesPage({ title, subtitle }: Props) {
         type: form.type,
         category: form.category,
         amount: Number(form.amount),
+        currency: form.currency,
         paymentMethod: form.paymentMethod || null,
         description: form.description || null,
         transactionDate: form.transactionDate,
@@ -332,7 +340,8 @@ export function FinancesPage({ title, subtitle }: Props) {
 
   function openCreate(type: "income" | "expense") {
     const next = emptyForm(type);
-    if (settings && type === "income") {
+    next.currency = reportCurrency;
+    if (settings && settings.currency === next.currency && type === "income") {
       const suggested = defaultAmountForCategory(next.category, settings);
       if (suggested != null && suggested > 0) {
         next.amount = String(suggested);
@@ -349,6 +358,7 @@ export function FinancesPage({ title, subtitle }: Props) {
       type: tx.type,
       category: tx.category,
       amount: String(tx.amount),
+      currency: tx.currency,
       paymentMethod: tx.paymentMethod ?? "cash",
       description: tx.description ?? "",
       transactionDate: tx.transactionDate,
@@ -359,6 +369,7 @@ export function FinancesPage({ title, subtitle }: Props) {
 
   function loadSettingsToForm() {
     if (!settings) return;
+    setFeeCurrency(settings.currency);
     setFeeForm({
       consultationFee: String(settings.consultationFee),
       followUpFee: String(settings.followUpFee),
@@ -374,7 +385,8 @@ export function FinancesPage({ title, subtitle }: Props) {
       let fetchPage = 1;
       for (;;) {
         const res = await rxApi.finances.listTransactions({
-          type: filterType === "all" ? undefined : filterType,
+          currency: reportCurrency,
+        type: filterType === "all" ? undefined : filterType,
           from: periodFrom,
           to: periodTo,
           page: fetchPage,
@@ -414,6 +426,7 @@ export function FinancesPage({ title, subtitle }: Props) {
       t("finances.csvType"),
       t("finances.csvCategory"),
       t("finances.csvAmount"),
+      t("finances.currency"),
       t("finances.csvPayment"),
       t("finances.csvPatient"),
       t("finances.csvNotes"),
@@ -424,6 +437,7 @@ export function FinancesPage({ title, subtitle }: Props) {
         tx.type === "income" ? t("finances.income") : t("finances.expense"),
         categoryLabel(t, tx.category),
         tx.amount,
+        tx.currency,
         methodLabel(t, tx.paymentMethod),
         tx.patient?.name ?? "",
         (tx.description ?? "").replace(/"/g, '""'),
@@ -444,7 +458,7 @@ export function FinancesPage({ title, subtitle }: Props) {
     toast.success(t("finances.exportDone"));
   }
 
-  const currency = settings?.currency ?? "IQD";
+  const currency = reportCurrency;
   const balance = summary?.balance ?? 0;
 
   return (
@@ -492,6 +506,10 @@ export function FinancesPage({ title, subtitle }: Props) {
         </div>
 
         <section className="rounded-2xl border border-rx-border/80 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <Label htmlFor="report-currency">{t("finances.currency")}</Label>
+            <CurrencySelect id="report-currency" value={reportCurrency} onChange={(value) => { setSelectedReportCurrency(value); onPageChange(1); }} t={t} />
+          </div>
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-rx-text">
             <CalendarRange size={16} className="text-rx-primary" />
             {t("finances.reportPeriod")}
@@ -751,11 +769,12 @@ export function FinancesPage({ title, subtitle }: Props) {
               ).map((field) => (
                 <div key={field.key} className="space-y-1.5">
                   <Label>
-                    {t("finances.feeLabelSyp", { label: field.label })}
+                    {field.label} ({feeCurrency})
                   </Label>
                   <Input
                     type="number"
                     min={0}
+                    step={feeCurrency === "USD" ? 0.01 : 1}
                     value={feeForm[field.key]}
                     onChange={(e) =>
                       setFeeForm((f) => ({
@@ -766,6 +785,10 @@ export function FinancesPage({ title, subtitle }: Props) {
                   />
                 </div>
               ))}
+            </div>
+            <div className="mt-3 space-y-1.5">
+              <Label htmlFor="fee-currency">{t("finances.currency")}</Label>
+              <CurrencySelect id="fee-currency" value={feeCurrency} onChange={setFeeCurrency} t={t} />
             </div>
             <div className="mt-4">
               <Button
@@ -790,7 +813,7 @@ export function FinancesPage({ title, subtitle }: Props) {
                   }
                   saveSettingsMutation.mutate({
                     ...fees,
-                    currency: settings?.currency ?? "IQD",
+                    currency: feeCurrency,
                   });
                 }}
               >
@@ -960,7 +983,7 @@ export function FinancesPage({ title, subtitle }: Props) {
                             )}
                           >
                             {tx.type === "income" ? "+" : "−"}
-                            {formatMoney(tx.amount, currency, locale)}
+                            {formatMoney(tx.amount, tx.currency, locale)}
                           </td>
                           <td className="px-3 py-3">
                             <div className="flex justify-end gap-1">
@@ -1248,7 +1271,7 @@ function TransactionCard({
           )}
         >
           {isIncome ? "+" : "−"}
-          {formatMoney(tx.amount, currency, locale)}
+          {formatMoney(tx.amount, tx.currency, locale)}
         </p>
       </div>
       <div className="mt-2 flex justify-end gap-1">
@@ -1327,7 +1350,8 @@ function TransactionDialog({
                   setForm((f) => {
                     const next = emptyForm(tab.id);
                     next.transactionDate = f.transactionDate;
-                    if (settings && tab.id === "income") {
+                    next.currency = f.currency;
+                    if (settings && settings.currency === next.currency && tab.id === "income") {
                       const suggested = defaultAmountForCategory(
                         next.category,
                         settings
@@ -1364,7 +1388,7 @@ function TransactionDialog({
                 const category = e.target.value;
                 setForm((f) => {
                   const next = { ...f, category };
-                  if (!editing && f.type === "income" && settings) {
+                  if (!editing && f.type === "income" && settings && settings.currency === f.currency) {
                     const suggested = defaultAmountForCategory(
                       category,
                       settings
@@ -1385,12 +1409,17 @@ function TransactionDialog({
             </select>
           </div>
 
+          <div className="space-y-1.5">
+            <Label htmlFor="transaction-currency">{t("finances.currency")}</Label>
+            <CurrencySelect id="transaction-currency" value={form.currency} onChange={(value) => setForm((f) => ({ ...f, currency: value, amount: "" }))} t={t} />
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>{t("finances.amountSyp")}</Label>
+              <Label>{t("finances.amount")} ({form.currency})</Label>
               <Input
                 type="number"
-                min={1}
+                min={form.currency === "USD" ? 0.01 : 1}
+                step={form.currency === "USD" ? "0.01" : "1"}
                 required
                 value={form.amount}
                 onChange={(e) =>
@@ -1484,4 +1513,11 @@ function TransactionDialog({
       </div>
     </div>
   );
+}
+
+function CurrencySelect({ id, value, onChange, t }: { id: string; value: string; onChange: (value: string) => void; t: TranslateFn }) {
+  return <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="h-10 rounded-lg border border-rx-border bg-white px-3 text-sm">
+    <option value="IQD">{t("finances.iqd")} (IQD)</option>
+    <option value="USD">{t("finances.usd")} (USD)</option>
+  </select>;
 }

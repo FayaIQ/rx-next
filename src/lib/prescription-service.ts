@@ -63,7 +63,7 @@ export async function createPrescription(
       where: { doctorId: doctorDbId },
       update: {},
       create: { doctorId: doctorDbId },
-      select: { consultationFee: true },
+      select: { consultationFee: true, currency: true },
     });
     // Snapshot the fee at creation time. Clinic settings are authoritative;
     // a client-sent zero (e.g. settings not loaded yet) must not undercharge,
@@ -81,6 +81,7 @@ export async function createPrescription(
         prescriptionDate,
         diagnosis: data.diagnosis ?? null,
         consultationFee,
+        consultationCurrency: financeSettings.currency,
         consultationFeeWaived,
         clientRequestId: options?.clientRequestId ?? null,
         additionalInfo: (data.additionalInfo ?? undefined) as
@@ -119,6 +120,7 @@ export async function createPrescription(
         type: "income",
         category: "consultation",
         amount: consultationFeeWaived ? 0 : consultationFee,
+        currency: financeSettings.currency,
         paymentMethod: "cash",
         description: `${documentMeta.documentKind === "message" ? "رسالة" : "وصفة"} #${prescriptionNumber}`,
         transactionDate: prescriptionDate,
@@ -278,6 +280,7 @@ export function serializePrescription(prescription: {
   prescriptionDate: Date | null;
   diagnosis: string | null;
   consultationFee: unknown;
+  consultationCurrency?: string;
   consultationFeeWaived: boolean;
   xrayImage?: string | null;
   analysisImage?: string | null;
@@ -316,6 +319,7 @@ export function serializePrescription(prescription: {
     prescriptionDate: prescription.prescriptionDate?.toISOString() ?? null,
     diagnosis: prescription.diagnosis,
     consultationFee: Number(prescription.consultationFee),
+    consultationCurrency: prescription.consultationCurrency ?? "IQD",
     consultationFeeWaived: prescription.consultationFeeWaived,
     xrayImage: prescription.xrayImage ?? null,
     analysisImage: prescription.analysisImage ?? null,

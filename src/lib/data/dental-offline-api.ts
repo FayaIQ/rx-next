@@ -68,6 +68,7 @@ export async function fetchDentalChartOfflineFirst(
         ...cached.chart,
         teeth: cached.chart.teeth.map((t) => ({
           ...t,
+          statuses: t.statuses?.length ? t.statuses : [t.status],
           updatedAt: t.updatedAt ?? null,
         })),
       },
@@ -85,7 +86,7 @@ export async function saveDentalChartOffline(
   patientId: number,
   body: {
     notes: string | null;
-    teeth: Array<{ toothFdi: number; status: string; notes?: string | null }>;
+    teeth: Array<{ toothFdi: number; status: string; statuses?: string[]; notes?: string | null }>;
   }
 ) {
   if (navigator.onLine) {
@@ -110,6 +111,7 @@ export async function saveDentalChartOffline(
     teeth: body.teeth.map((t) => ({
       toothFdi: t.toothFdi,
       status: t.status,
+      statuses: t.statuses ?? [t.status],
       notes: t.notes ?? null,
       updatedAt: now,
     })),
@@ -143,7 +145,9 @@ export async function fetchTreatmentPlansOfflineFirst(
   if (navigator.onLine) {
     try {
       const res = await rxApi.treatment.listPlans(patientId, opts);
-      await cacheTreatmentPlansLocally(patientId, res.plans);
+      const cached = opts?.toothFdi != null ? await getRxDb().treatment_cache.get(patientId) : null;
+      const otherTeeth = (cached?.plans as unknown as TreatmentPlanDto[] | undefined)?.filter((plan) => plan.toothFdi !== opts?.toothFdi) ?? [];
+      await cacheTreatmentPlansLocally(patientId, [...otherTeeth, ...res.plans]);
       return res;
     } catch {
       // fall through

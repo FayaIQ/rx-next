@@ -71,7 +71,7 @@ export function formatMoney(
   const value = Number(amount);
   if (Number.isNaN(value)) return "—";
   const formatted = value.toLocaleString(locale === "en" ? "en-GB" : "ar-IQ", {
-    maximumFractionDigits: 0,
+    maximumFractionDigits: currency === "USD" ? 2 : 0,
     numberingSystem: "latn",
   });
   const code = currency === "SYP" ? "IQD" : currency;

@@ -46,6 +46,7 @@ export async function PUT(request: Request, { params }: Params) {
         ...(data.type != null ? { type: data.type } : {}),
         ...(data.category != null ? { category: data.category } : {}),
         ...(data.amount != null ? { amount: data.amount } : {}),
+        ...(data.currency != null ? { currency: data.currency } : {}),
         ...(data.paymentMethod !== undefined
           ? { paymentMethod: data.paymentMethod }
           : {}),

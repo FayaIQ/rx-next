@@ -1,6 +1,6 @@
 "use client";
 
-import { Upload } from "lucide-react";
+import { Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,11 +30,13 @@ function ImageUploadField({
   label,
   path,
   onFile,
+  onRemove,
   disabled,
 }: {
   label: string;
   path: string | null;
   onFile: (file: File) => void;
+  onRemove: () => void;
   disabled?: boolean;
 }) {
   const { t } = useLocale();
@@ -71,6 +73,11 @@ function ImageUploadField({
             }}
           />
         </label>
+        {preview ? (
+          <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={onRemove} className="text-red-600">
+            <Trash2 size={14} /> {t("recipe.removeImage")}
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -313,6 +320,7 @@ export function DesignTemplateSection({
   onTemplateSelect,
   onDesignModeChange,
   onUpload,
+  onRemove,
   uploadPending,
 }: {
   form: RecipeSettingsDto;
@@ -320,6 +328,7 @@ export function DesignTemplateSection({
   onTemplateSelect: (id: RecipeTemplateId) => void;
   onDesignModeChange: (mode: "design" | "image") => void;
   onUpload: (kind: "logo" | "design", file: File) => void;
+  onRemove: (kind: "logo" | "design") => void;
   uploadPending?: boolean;
 }) {
   const { t } = useLocale();
@@ -391,6 +400,7 @@ export function DesignTemplateSection({
             path={form.logoPath}
             disabled={uploadPending}
             onFile={(file) => onUpload("logo", file)}
+            onRemove={() => onRemove("logo")}
           />
           {form.designMode === "image" && (
             <ImageUploadField
@@ -398,6 +408,7 @@ export function DesignTemplateSection({
               path={form.designImagePath}
               disabled={uploadPending}
               onFile={(file) => onUpload("design", file)}
+              onRemove={() => onRemove("design")}
             />
           )}
         </CardContent>

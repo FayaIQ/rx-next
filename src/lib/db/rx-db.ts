@@ -78,6 +78,7 @@ export interface LocalPrescription {
   prescriptionDate: string;
   diagnosis?: string;
   consultationFee: number;
+  consultationCurrency?: string;
   consultationFeeWaived: boolean;
   xrayImage?: string;
   analysisImage?: string;
@@ -160,6 +161,7 @@ export interface LocalDentalChart {
     teeth: Array<{
       toothFdi: number;
       status: string;
+      statuses?: string[];
       notes: string | null;
       updatedAt?: string | null;
     }>;

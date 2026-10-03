@@ -429,6 +429,7 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
       consultationFee: Number(
         body.consultationFee ?? cachedSettings.consultationFee ?? 0
       ),
+      consultationCurrency: cachedSettings.currency,
       consultationFeeWaived: Boolean(body.consultationFeeWaived),
       additionalInfo:
         body.additionalInfo && typeof body.additionalInfo === "object"
@@ -505,6 +506,7 @@ export async function updatePrescriptionOffline(
       consultationFee: Number(
         body.consultationFee ?? existing?.consultationFee ?? 0
       ),
+      consultationCurrency: existing?.consultationCurrency ?? "IQD",
       consultationFeeWaived: Boolean(
         body.consultationFeeWaived ?? existing?.consultationFeeWaived
       ),

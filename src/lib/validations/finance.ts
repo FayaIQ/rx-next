@@ -13,7 +13,7 @@ export const financeSettingsSchema = z.object({
   consultationFee: z.coerce.number().min(0, "السعر لا يمكن أن يكون سالباً"),
   followUpFee: z.coerce.number().min(0, "السعر لا يمكن أن يكون سالباً"),
   procedureFee: z.coerce.number().min(0, "السعر لا يمكن أن يكون سالباً"),
-  currency: z.string().min(1).default("IQD"),
+  currency: z.enum(["IQD", "USD"]).default("IQD"),
 });
 
 export const financeTransactionSchema = z
@@ -21,6 +21,7 @@ export const financeTransactionSchema = z
     type: z.enum(["income", "expense"]),
     category: z.string().min(1, "اختر التصنيف"),
     amount: z.coerce.number().positive("المبلغ يجب أن يكون أكبر من صفر"),
+    currency: z.enum(["IQD", "USD"]).optional(),
     paymentMethod: z.enum(paymentIds).nullable().optional(),
     description: z.string().nullable().optional(),
     transactionDate: z.string().min(1, "التاريخ مطلوب"),
@@ -52,6 +53,7 @@ export const financeTransactionUpdateSchema = z.object({
   type: z.enum(["income", "expense"]).optional(),
   category: z.string().min(1).optional(),
   amount: z.coerce.number().positive().optional(),
+  currency: z.enum(["IQD", "USD"]).optional(),
   paymentMethod: z.enum(paymentIds).nullable().optional(),
   description: z.string().nullable().optional(),
   transactionDate: z.string().min(1).optional(),

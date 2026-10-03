@@ -1,11 +1,12 @@
 "use client";
 
-import { AnatomicalDentalViewer } from "@/components/dental/anatomical-dental-viewer";
+import { FdiDentalViewer } from "@/components/dental/fdi-dental-viewer";
 import type { TreatmentPlanMarker } from "@/lib/dental/treatment-plan-markers";
 
 type ToothRecord = {
   toothFdi: number;
   status: string;
+  statuses?: string[];
   notes?: string | null;
 };
 
@@ -19,7 +20,7 @@ type Props = {
 
 export function DentalViewerShell(props: Props) {
   return (
-    <AnatomicalDentalViewer
+    <FdiDentalViewer
       teeth={props.teeth}
       selectedFdi={props.selectedFdi}
       onSelect={props.onSelect}

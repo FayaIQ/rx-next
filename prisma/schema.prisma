@@ -93,6 +93,7 @@ model DentalToothRecord {
   chartId   BigInt      @map("chart_id")
   toothFdi  Int         @map("tooth_fdi")
   status    String      @db.VarChar(64)
+  statuses  String[]    @default([])
   notes     String?
   createdAt DateTime?   @default(now()) @map("created_at") @db.Timestamp(0)
   updatedAt DateTime?   @updatedAt @map("updated_at") @db.Timestamp(0)
@@ -205,6 +206,7 @@ model FinanceTransaction {
   type            String        @db.VarChar(16)
   category        String        @db.VarChar(64)
   amount          Decimal       @db.Decimal(12, 2)
+  currency        String        @default("IQD") @db.VarChar(8)
   paymentMethod   String?       @map("payment_method") @db.VarChar(32)
   description     String?
   transactionDate DateTime      @map("transaction_date") @db.Date
@@ -229,6 +231,7 @@ model Prescription {
   doctorId              BigInt?                  @map("doctor_id")
   diagnosis             String?
   consultationFee       Decimal                  @default(0) @map("consultation_fee") @db.Decimal(12, 2)
+  consultationCurrency String @default("IQD") @map("consultation_currency") @db.VarChar(8)
   consultationFeeWaived Boolean                  @default(false) @map("consultation_fee_waived")
   clientRequestId       String?                  @unique(map: "prescriptions_client_request_id_key") @map("client_request_id") @db.VarChar(64)
   xrayImage             String?                  @map("xray_image") @db.VarChar(255)
