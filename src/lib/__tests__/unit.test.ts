@@ -54,6 +54,21 @@ import {
 import { buildDashboardVisitActivity } from "../dashboard-visit-activity";
 import { seoPages } from "../seo-pages";
 import { readApiResponse } from "../api/read-response";
+import { manualVisitCreateSchema } from "../validations/visit";
+
+describe("manual visit validation", () => {
+  it("rejects an empty visit after the form has been cleared", () => {
+    assert.equal(manualVisitCreateSchema.safeParse({
+      visitDate: "2026-10-04", summary: "  ", notes: "\n",
+    }).success, false);
+  });
+
+  it("accepts clinical notes without a summary and validates request IDs", () => {
+    const body = { visitDate: "2026-10-04", notes: "فتح حجرة" };
+    assert.equal(manualVisitCreateSchema.safeParse(body).success, true);
+    assert.equal(manualVisitCreateSchema.safeParse({ ...body, clientRequestId: "invalid" }).success, false);
+  });
+});
 
 const originalFetch = globalThis.fetch;
 const originalCflowKey = process.env.CFLOW_OTP_KEY;

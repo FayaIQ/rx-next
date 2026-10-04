@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
 import {
@@ -119,6 +119,13 @@ type PatientFile = {
   }>;
 };
 
+type ManualVisitInput = {
+  visitDate: string;
+  summary: string;
+  notes: string;
+  clientRequestId: string;
+};
+
 export function PatientFileClient({ patientId }: { patientId: number }) {
   const { t, locale } = useLocale();
   const dentalEnabled = useClinicFeatureEnabled("dental");
@@ -139,7 +146,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
   });
 
   const addVisitMutation = useMutation({
-    mutationFn: async (body: { visitDate: string; summary: string; notes: string }) => {
+    mutationFn: async (body: ManualVisitInput) => {
       const res = await fetch(`/api/patients/${patientId}/visits`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -434,7 +441,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
       {tab === "visits" ? (
         <VisitLogSection
           visits={data.visits}
-          onAdd={(body) => addVisitMutation.mutate(body)}
+          onAdd={(body) => addVisitMutation.mutateAsync(body)}
           isPending={addVisitMutation.isPending}
           t={t}
         />
@@ -653,7 +660,7 @@ function VisitLogSection({
   t,
 }: {
   visits: PatientFile["visits"];
-  onAdd: (body: { visitDate: string; summary: string; notes: string }) => void;
+  onAdd: (body: ManualVisitInput) => Promise<unknown>;
   isPending: boolean;
   t: TranslateFn;
 }) {
@@ -662,6 +669,25 @@ function VisitLogSection({
   );
   const [summary, setSummary] = useState("");
   const [notes, setNotes] = useState("");
+  const saving = useRef(false);
+  const requestId = useRef<string | null>(null);
+
+  async function saveVisit() {
+    if (saving.current || isPending || !visitDate || (!summary.trim() && !notes.trim())) return;
+    saving.current = true;
+    requestId.current ??= crypto.randomUUID();
+    try {
+      await onAdd({ visitDate, summary, notes, clientRequestId: requestId.current });
+      setSummary("");
+      setNotes("");
+      requestId.current = null;
+    } catch {
+      // The mutation displays the error. Reuse the request ID on retry because
+      // the server may have saved the visit before the response was lost.
+    } finally {
+      saving.current = false;
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -670,12 +696,13 @@ function VisitLogSection({
         <div className="grid gap-2 sm:grid-cols-2">
           <div>
             <Label className="text-xs">{t("patientFile.date")}</Label>
-            <Input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
+            <Input type="date" value={visitDate} disabled={isPending} onChange={(e) => setVisitDate(e.target.value)} />
           </div>
           <div>
             <Label className="text-xs">{t("patientFile.summary")}</Label>
             <Input
               value={summary}
+              disabled={isPending}
               onChange={(e) => setSummary(e.target.value)}
               placeholder={t("patientFile.summaryPh")}
             />
@@ -684,13 +711,14 @@ function VisitLogSection({
         <Textarea
           rows={2}
           value={notes}
+          disabled={isPending}
           onChange={(e) => setNotes(e.target.value)}
           placeholder={t("patientFile.visitNotesPh")}
         />
         <Button
           size="sm"
-          disabled={isPending}
-          onClick={() => onAdd({ visitDate, summary, notes })}
+          disabled={isPending || !visitDate || (!summary.trim() && !notes.trim())}
+          onClick={saveVisit}
         >
           <Stethoscope size={14} />
           {t("patientFile.saveVisit")}
