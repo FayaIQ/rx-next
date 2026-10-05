@@ -462,10 +462,15 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
             data.finance.map((f) => (
               <div
                 key={f.id}
-                className="flex justify-between rounded-lg border px-3 py-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border px-3 py-2 text-sm"
               >
-                <span>
-                  {f.category} — {f.description}
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span>{f.category} — {f.description}</span>
+                  <time dateTime={f.transactionDate} className="text-xs text-rx-muted">
+                    {new Date(f.transactionDate).toLocaleDateString(dateLocale, {
+                      timeZone: "UTC",
+                    })}
+                  </time>
                 </span>
                 <span className="font-mono">
                   {f.amount} {f.currency} ({f.type})
