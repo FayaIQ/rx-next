@@ -1432,6 +1432,8 @@ export const ar = {
     importCatalog: "استيراد كتالوج",
     newMedicine: "دواء جديد",
     catalogHint: "اختر فئة لإضافة أدوية جاهزة إلى مكتبتك",
+    sharedCatalog: "القائمة العامة",
+    addToLibrary: "إضافة إلى مكتبتي",
     emptySearchTitle: "لا توجد نتائج",
     emptyLibraryTitle: "مكتبتك فارغة",
     emptySearchDesc: "جرّب كلمة بحث أخرى أو أضف دواءً جديداً",

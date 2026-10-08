@@ -1453,6 +1453,8 @@ export const en: MessageCatalog = {
     importCatalog: "Import catalog",
     newMedicine: "New medicine",
     catalogHint: "Choose a category to add ready-made medicines to your library",
+    sharedCatalog: "Shared catalog",
+    addToLibrary: "Add to my library",
     emptySearchTitle: "No results",
     emptyLibraryTitle: "Your library is empty",
     emptySearchDesc: "Try another search term or add a new medicine",

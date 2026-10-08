@@ -49,6 +49,7 @@ export type PatientDto = {
 
 export type MedicineDto = {
   id: number;
+  catalogId?: number;
   doctorId: number;
   name: string;
   type: string | null;
@@ -573,11 +574,12 @@ export const rxApi = {
       ),
   },
   medicines: {
-    list: (params?: { q?: string; page?: number; pageSize?: number }) => {
+    list: (params?: { q?: string; page?: number; pageSize?: number; includeCatalog?: boolean }) => {
       const sp = new URLSearchParams();
       if (params?.q) sp.set("q", params.q);
       if (params?.page) sp.set("page", String(params.page));
       if (params?.pageSize) sp.set("pageSize", String(params.pageSize));
+      if (params?.includeCatalog) sp.set("includeCatalog", "true");
       const q = sp.toString();
       return handleResponse<{ medicines: MedicineDto[]; pagination: PaginationMeta }>(
         fetch(`/api/medicines${q ? `?${q}` : ""}`)

@@ -178,7 +178,7 @@ export async function fetchMedicinesPaginated(
     online: navigator.onLine,
     page,
     pageSize,
-    remote: () => rxApi.medicines.list({ q, page, pageSize }),
+    remote: () => rxApi.medicines.list({ q, page, pageSize, includeCatalog: Boolean(q?.trim()) }),
     local: () => getLocalMedicines(q),
   });
 }

@@ -83,12 +83,16 @@ function MedicineRow({
   medicine,
   onEdit,
   onDelete,
+  onInclude,
+  includePending,
   deletePending,
   t,
 }: {
   medicine: MedicineDto;
   onEdit: (m: MedicineDto) => void;
   onDelete: (id: number) => void;
+  onInclude: (m: MedicineDto) => void;
+  includePending: boolean;
   deletePending: boolean;
   t: TranslateFn;
 }) {
@@ -101,6 +105,7 @@ function MedicineRow({
           </span>
           <div className="min-w-0">
             <p className="font-semibold text-rx-text">{medicine.name}</p>
+            {medicine.catalogId && <Badge variant="secondary">{t("medicines.sharedCatalog")}</Badge>}
             <div className="mt-2">
               <MedicineMeta medicine={medicine} t={t} />
             </div>
@@ -108,31 +113,40 @@ function MedicineRow({
         </div>
       </div>
       <div className="flex shrink-0 gap-2 sm:flex-col sm:items-stretch">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1 sm:flex-none"
-          onClick={() => onEdit(medicine)}
-        >
-          <Pencil size={14} />
-          {t("medicines.edit")}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1 text-rx-danger hover:bg-red-50 hover:text-rx-danger sm:flex-none"
-          disabled={deletePending}
-          onClick={() => {
-            if (
-              confirm(t("medicines.deleteConfirm", { name: medicine.name }))
-            ) {
-              onDelete(medicine.id);
-            }
-          }}
-        >
-          <Trash2 size={14} />
-          {t("medicines.delete")}
-        </Button>
+        {medicine.catalogId ? (
+          <Button variant="outline" size="sm" disabled={includePending} onClick={() => onInclude(medicine)}>
+            <Plus size={14} />
+            {t("medicines.addToLibrary")}
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 sm:flex-none"
+              onClick={() => onEdit(medicine)}
+            >
+              <Pencil size={14} />
+              {t("medicines.edit")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-rx-danger hover:bg-red-50 hover:text-rx-danger sm:flex-none"
+              disabled={deletePending}
+              onClick={() => {
+                if (
+                  confirm(t("medicines.deleteConfirm", { name: medicine.name }))
+                ) {
+                  onDelete(medicine.id);
+                }
+              }}
+            >
+              <Trash2 size={14} />
+              {t("medicines.delete")}
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -189,6 +203,18 @@ export function PharmaceuticalPageClient() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["medicines"] });
       toast.success(t("medicines.deleted"));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const includeMedicineMutation = useMutation({
+    mutationFn: (medicine: MedicineDto) => rxApi.medicines.create({
+      name: medicine.name, type: medicine.type, dosage: medicine.dosage,
+      quantity: medicine.quantity, period: medicine.period, timeOfUse: medicine.timeOfUse,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["medicines"] });
+      toast.success(t("medicines.added"));
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -367,6 +393,8 @@ export function PharmaceuticalPageClient() {
                       medicine={med}
                       onEdit={openEditForm}
                       onDelete={(id) => deleteMutation.mutate(id)}
+                      onInclude={(medicine) => includeMedicineMutation.mutate(medicine)}
+                      includePending={includeMedicineMutation.isPending}
                       deletePending={deleteMutation.isPending}
                       t={t}
                     />

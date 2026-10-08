@@ -9,6 +9,7 @@ import {
   parsePaginationParams,
 } from "@/lib/pagination";
 import { z } from "zod";
+import { searchMedicineLibrary } from "@/lib/medicine-library-search";
 
 function serializeMedicine(medicine: {
   id: bigint | number;
@@ -43,6 +44,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();
   const { page, pageSize, skip } = parsePaginationParams(searchParams);
+
+  if (q && searchParams.get("includeCatalog") === "true") {
+    return apiOk(await searchMedicineLibrary(toDbId(ctx.doctorId), q, page, pageSize));
+  }
 
   const where = {
     doctorId: toDbId(ctx.doctorId),
