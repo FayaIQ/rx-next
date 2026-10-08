@@ -55,6 +55,62 @@ import { buildDashboardVisitActivity } from "../dashboard-visit-activity";
 import { seoPages } from "../seo-pages";
 import { readApiResponse } from "../api/read-response";
 import { manualVisitCreateSchema } from "../validations/visit";
+import { readMedicinePage } from "../data/medicine-page";
+import { buildPaginationMeta } from "../pagination";
+import { sessionDateTimeInput, sessionVisitDate } from "../treatment/session-datetime";
+import { treatmentSessionUpdateSchema } from "../validations/treatment";
+
+describe("medicine library searches", () => {
+  it("uses all server matches even when the offline cache already has a match", async () => {
+    const remote = { medicines: ["match on page 1", "match from another page"], pagination: buildPaginationMeta(1, 20, 121) };
+    const result = await readMedicinePage({
+      online: true, page: 1, pageSize: 20,
+      remote: async () => remote,
+      local: async () => { throw new Error("Partial cache must not override the server"); },
+    });
+    assert.deepEqual(result, remote);
+    assert.equal(result.pagination.total, 121);
+  });
+
+  it("keeps a successful empty search empty instead of returning stale cached matches", async () => {
+    const result = await readMedicinePage({
+      online: true, page: 1, pageSize: 20,
+      remote: async () => ({ medicines: [], pagination: buildPaginationMeta(1, 20, 0) }),
+      local: async () => ["deleted cached match"],
+    });
+    assert.deepEqual(result.medicines, []);
+  });
+
+  it("paginates the offline library when disconnected or the server is unreachable", async () => {
+    const local = Array.from({ length: 41 }, (_, index) => `Medicine ${index}`);
+    for (const online of [false, true]) {
+      const result = await readMedicinePage({
+        online, page: 2, pageSize: 20,
+        remote: async () => { if (!online) assert.fail("Offline search called the server"); throw new Error("Network unavailable"); },
+        local: async () => local,
+      });
+      assert.deepEqual(result.medicines, local.slice(20, 40));
+      assert.equal(result.pagination.total, 41);
+    }
+  });
+});
+
+describe("treatment session date and time", () => {
+  it("initializes datetime-local with the doctor's current local day and time", () => {
+    assert.equal(sessionDateTimeInput(new Date(2026, 9, 8, 0, 30)), "2026-10-08T00:30");
+  });
+
+  it("keeps the clinic visit on the selected Baghdad day after midnight", () => {
+    assert.equal(sessionVisitDate(new Date("2026-10-07T21:30:00Z")).toISOString(), "2026-10-08T00:00:00.000Z");
+    assert.equal(sessionVisitDate(new Date("2026-10-07T20:30:00Z")).toISOString(), "2026-10-07T00:00:00.000Z");
+  });
+
+  it("accepts a chosen historical timestamp for online and offline completion", () => {
+    const performedAt = "2026-09-30T08:45:00.000Z";
+    assert.equal(treatmentSessionUpdateSchema.parse({ status: "completed", performedAt }).performedAt, performedAt);
+    assert.equal(treatmentSessionUpdateSchema.safeParse({ performedAt: "invalid" }).success, false);
+  });
+});
 
 describe("manual visit validation", () => {
   it("rejects an empty visit after the form has been cleared", () => {

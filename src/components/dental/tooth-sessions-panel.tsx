@@ -277,11 +277,11 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
         subtitle={completingSession?.subtitle}
         isPending={updateSessionMutation.isPending}
         onClose={() => setCompletingSession(null)}
-        onConfirm={(notes) => {
+        onConfirm={(notes, performedAt) => {
           if (!completingSession) return;
           updateSessionMutation.mutate({
             sessionId: completingSession.id,
-            body: { status: "completed", notes: notes || null },
+            body: { status: "completed", notes: notes || null, performedAt },
           });
         }}
       />
@@ -312,6 +312,7 @@ function PlanBlock({
   onAddSession: () => void;
   onDeletePlan: () => void;
 }) {
+  const { locale } = useLocale();
   const sessions = plan.sessions ?? [];
   const completed = sessions.filter((s) => s.status === "completed").length;
   const total = plan.totalSessions ?? sessions.length;
@@ -386,16 +387,27 @@ function PlanBlock({
                         ? t("dental.statusNext")
                         : t("dental.statusScheduled")}
                   </span>
-                  <input
-                    type="date"
-                    className="h-7 rounded border border-slate-200 bg-white px-2 text-xs text-slate-600"
-                    value={session.scheduledDate ?? ""}
-                    onChange={(e) =>
-                      onUpdateSession(session.id, {
-                        scheduledDate: e.target.value || null,
-                      })
-                    }
-                  />
+                  {done && session.performedAt ? (
+                    <time dateTime={session.performedAt} className="text-xs text-slate-600">
+                      {new Date(session.performedAt).toLocaleString(locale === "ar" ? "ar-IQ" : "en-GB", {
+                        year: "numeric", month: "2-digit", day: "2-digit",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
+                    </time>
+                  ) : (
+                    <input
+                      type="date"
+                      aria-label={t("patientFile.date")}
+                      disabled={isBusy}
+                      className="h-7 rounded border border-slate-200 bg-white px-2 text-xs text-slate-600"
+                      value={session.scheduledDate ?? ""}
+                      onChange={(e) =>
+                        onUpdateSession(session.id, {
+                          scheduledDate: e.target.value || null,
+                        })
+                      }
+                    />
+                  )}
                 </div>
                 {done && session.notes?.trim() ? (
                   <p className="text-xs leading-relaxed text-slate-600">

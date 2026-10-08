@@ -889,6 +889,7 @@ export const ar = {
     completed: "تم إتمام الجلسة",
     completeSession: "إتمام جلسة — {name}",
     noteOptional: "ملاحظة (اختياري)",
+    performedAt: "تاريخ ووقت الجلسة",
     notePlaceholder: "ماذا تم في هذه الجلسة؟",
     confirmComplete: "تأكيد الإتمام",
     prevWeek: "الأسبوع السابق",

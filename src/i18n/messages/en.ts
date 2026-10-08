@@ -903,6 +903,7 @@ export const en: MessageCatalog = {
     completed: "Session completed",
     completeSession: "Complete session — {name}",
     noteOptional: "Note (optional)",
+    performedAt: "Session date and time",
     notePlaceholder: "What was done in this session?",
     confirmComplete: "Confirm completion",
     prevWeek: "Previous week",

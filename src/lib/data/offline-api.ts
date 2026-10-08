@@ -19,6 +19,7 @@ import {
   syncLocalAppointmentFromDto,
 } from "@/lib/sync/offline-store";
 import { processSyncQueue } from "@/lib/sync/sync-engine";
+import { readMedicinePage } from "@/lib/data/medicine-page";
 import { getRxDb } from "@/lib/db/rx-db";
 import { serializeBirthdateInput, normalizePatientPhoneForSave } from "@/lib/patient-utils";
 import {
@@ -173,17 +174,13 @@ export async function fetchMedicinesPaginated(
   page = 1,
   pageSize = DEFAULT_PAGE_SIZE
 ): Promise<{ medicines: MedicineDto[]; pagination: PaginationMeta }> {
-  try {
-    const local = await getLocalMedicines(q);
-    if (local.length > 0 || !navigator.onLine) {
-      const { items, pagination } = paginateSlice(local, page, pageSize);
-      return { medicines: items, pagination };
-    }
-  } catch {
-    // IndexedDB unavailable
-  }
-
-  return rxApi.medicines.list({ q, page, pageSize });
+  return readMedicinePage({
+    online: navigator.onLine,
+    page,
+    pageSize,
+    remote: () => rxApi.medicines.list({ q, page, pageSize }),
+    local: () => getLocalMedicines(q),
+  });
 }
 
 export async function fetchFieldsOfflineFirst(): Promise<PatientFieldDto[]> {

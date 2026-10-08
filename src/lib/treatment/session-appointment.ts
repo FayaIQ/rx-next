@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { fromDbId } from "@/lib/bigint";
 import { treatmentTypeLabel } from "@/lib/treatment/constants";
-import { parseDateKey } from "@/lib/treatment/plan-utils";
+import { sessionVisitDate } from "@/lib/treatment/session-datetime";
 
 function sessionAppointmentDatetime(scheduledDate: Date): Date {
   const key = scheduledDate.toISOString().slice(0, 10);
@@ -78,7 +78,7 @@ export async function recordSessionVisit(sessionId: bigint) {
       data: {
         notes: session.notes,
         summary: `${treatmentTypeLabel(session.plan.treatmentType)} — جلسة ${session.sessionNumber}`,
-        visitDate: session.performedAt ?? new Date(),
+        visitDate: sessionVisitDate(session.performedAt ?? new Date()),
       },
     });
     return;
@@ -88,7 +88,7 @@ export async function recordSessionVisit(sessionId: bigint) {
     data: {
       doctorId: session.doctorId,
       patientId: session.patientId,
-      visitDate: session.performedAt ?? new Date(),
+      visitDate: sessionVisitDate(session.performedAt ?? new Date()),
       summary: `${treatmentTypeLabel(session.plan.treatmentType)} — جلسة ${session.sessionNumber}`,
       notes: session.notes,
       appointmentId: session.appointmentId,

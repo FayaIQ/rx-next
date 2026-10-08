@@ -37,13 +37,16 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
     mutationFn: ({
       sessionId,
       notes,
+      performedAt,
     }: {
       sessionId: number;
       notes: string | null;
+      performedAt: string;
     }) =>
       rxApi.treatment.updateSession(sessionId, {
         status: "completed",
         notes,
+        performedAt,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -133,11 +136,12 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
         }
         isPending={completeMutation.isPending}
         onClose={() => setCompletingSession(null)}
-        onConfirm={(notes) => {
+        onConfirm={(notes, performedAt) => {
           if (!completingSession) return;
           completeMutation.mutate({
             sessionId: completingSession.id,
             notes: notes || null,
+            performedAt,
           });
         }}
       />

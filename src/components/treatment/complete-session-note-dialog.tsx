@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { sessionDateTimeInput } from "@/lib/treatment/session-datetime";
 import { useLocale } from "@/i18n/locale-provider";
 
 type Props = {
@@ -13,7 +15,7 @@ type Props = {
   subtitle?: string;
   isPending?: boolean;
   onClose: () => void;
-  onConfirm: (notes: string) => void;
+  onConfirm: (notes: string, performedAt: string) => void;
 };
 
 export function CompleteSessionNoteDialog({
@@ -26,9 +28,13 @@ export function CompleteSessionNoteDialog({
 }: Props) {
   const { t } = useLocale();
   const [notes, setNotes] = useState("");
+  const [performedAt, setPerformedAt] = useState("");
 
   useEffect(() => {
-    if (open) setNotes("");
+    if (open) {
+      setNotes("");
+      setPerformedAt(sessionDateTimeInput());
+    }
   }, [open]);
 
   if (!open) return null;
@@ -44,6 +50,17 @@ export function CompleteSessionNoteDialog({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
+            <Label htmlFor="session-performed-at">{t("treatment.performedAt")}</Label>
+            <Input
+              id="session-performed-at"
+              type="datetime-local"
+              value={performedAt}
+              onChange={(e) => setPerformedAt(e.target.value)}
+              disabled={isPending}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
             <Label>{t("treatment.noteOptional")}</Label>
             <Textarea
               rows={3}
@@ -51,6 +68,7 @@ export function CompleteSessionNoteDialog({
               onChange={(e) => setNotes(e.target.value)}
               placeholder={t("treatment.notePlaceholder")}
               autoFocus
+              disabled={isPending}
             />
           </div>
           <div className="flex justify-end gap-2">
@@ -65,8 +83,11 @@ export function CompleteSessionNoteDialog({
             <Button
               type="button"
               className="bg-teal-700 hover:bg-teal-800"
-              onClick={() => onConfirm(notes.trim())}
-              disabled={isPending}
+              onClick={() => {
+                const date = new Date(performedAt);
+                if (!Number.isNaN(date.getTime())) onConfirm(notes.trim(), date.toISOString());
+              }}
+              disabled={isPending || !performedAt || Number.isNaN(new Date(performedAt).getTime())}
             >
               {isPending ? t("common.saving") : t("treatment.confirmComplete")}
             </Button>
