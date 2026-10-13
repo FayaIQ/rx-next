@@ -956,6 +956,8 @@ export const ar = {
     readyTemplate: "قالب جاهز",
     treatmentType: "نوع العلاج",
     sessionCount: "عدد الجلسات",
+    sessionTime: "وقت الجلسة",
+    sessionTimeHint: "الافتراضي هو الوقت الحالي. يُطبّق على جلسات الخطة ويمكن تعديل وقت كل جلسة لاحقاً.",
     create: "إنشاء",
     noPlanHint: "لا توجد خطة لهذا السن. أنشئ خطة مثل علاج جذر (3 جلسات).",
     planCreated: "تم إنشاء خطة العلاج",

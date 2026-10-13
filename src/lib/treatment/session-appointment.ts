@@ -1,18 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { fromDbId } from "@/lib/bigint";
 import { treatmentTypeLabel } from "@/lib/treatment/constants";
-import { sessionVisitDate } from "@/lib/treatment/session-datetime";
-
-function sessionAppointmentDatetime(scheduledDate: Date): Date {
-  const key = scheduledDate.toISOString().slice(0, 10);
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d, 10, 0, 0));
-}
+import { sessionAppointmentDatetime, sessionTimeInput, sessionVisitDate } from "@/lib/treatment/session-datetime";
 
 export async function syncSessionAppointment(sessionId: bigint) {
   const session = await prisma.treatmentSession.findUnique({
     where: { id: sessionId },
-    include: { plan: true, patient: { select: { name: true } } },
+    include: { plan: true, appointment: true, patient: { select: { name: true } } },
   });
   if (!session) return null;
 
@@ -29,7 +23,12 @@ export async function syncSessionAppointment(sessionId: bigint) {
   const label = treatmentTypeLabel(session.plan.treatmentType);
   const notes = `${label} — سن ${session.plan.toothFdi} · جلسة ${session.sessionNumber}${session.plan.totalSessions ? `/${session.plan.totalSessions}` : ""}`;
 
-  const appointmentDatetime = sessionAppointmentDatetime(session.scheduledDate);
+  // Preserve existing appointments when upgrading sessions without a saved time.
+  const scheduledTime = session.scheduledTime ?? sessionTimeInput(session.appointment?.appointmentDatetime ?? new Date());
+  const appointmentDatetime = sessionAppointmentDatetime(session.scheduledDate, scheduledTime);
+  if (!session.scheduledTime) {
+    await prisma.treatmentSession.update({ where: { id: session.id }, data: { scheduledTime } });
+  }
 
   if (session.appointmentId) {
     await prisma.appointment.update({

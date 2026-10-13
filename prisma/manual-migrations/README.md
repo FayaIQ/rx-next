@@ -13,3 +13,4 @@ Fresh installs should use `npx prisma db push` (or `prisma migrate deploy` once 
 After applying SQL, always run `npx prisma generate`.
 
 7. `add-dental-findings-and-finance-currency.sql` — multiple tooth findings and currency snapshots for transactions/prescriptions. Apply before starting the updated app, then regenerate Prisma. Monetary reports group or filter by currency; no exchange-rate conversion is performed.
+8. `add-session-scheduled-time.sql` — editable treatment-session times. Requires the treatment tables and appointment links. Apply before starting the updated app, then regenerate Prisma. Existing linked appointments keep their Baghdad clock times; new sessions default to the current time.

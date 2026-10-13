@@ -8,6 +8,7 @@ export function serializeTreatmentSession(session: {
   sessionNumber: number;
   status: string;
   scheduledDate: Date | null;
+  scheduledTime?: string | null;
   performedAt: Date | null;
   notes: string | null;
   appointmentId?: bigint | null;
@@ -26,6 +27,7 @@ export function serializeTreatmentSession(session: {
       ? session.scheduledDate.toISOString().slice(0, 10)
       : null,
     performedAt: session.performedAt?.toISOString() ?? null,
+    scheduledTime: session.scheduledTime ?? null,
     notes: session.notes,
     createdAt: session.createdAt?.toISOString() ?? null,
     updatedAt: session.updatedAt?.toISOString() ?? null,
@@ -52,6 +54,7 @@ export function serializeTreatmentPlan(plan: {
     sessionNumber: number;
     status: string;
     scheduledDate: Date | null;
+    scheduledTime?: string | null;
     performedAt: Date | null;
     notes: string | null;
     createdAt: Date | null;

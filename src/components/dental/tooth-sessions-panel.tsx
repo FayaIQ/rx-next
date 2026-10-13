@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { CompleteSessionNoteDialog } from "@/components/treatment/complete-session-note-dialog";
 import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
 import { tTreatmentTemplate, tTreatmentType } from "@/lib/i18n-labels";
+import { sessionTimeInput } from "@/lib/treatment/session-datetime";
 
 type Props = {
   patientId: number;
@@ -40,6 +41,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
   const [treatmentType, setTreatmentType] =
     useState<TreatmentTypeId>("root_canal");
   const [totalSessions, setTotalSessions] = useState(3);
+  const [sessionTime, setSessionTime] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(
     TREATMENT_TEMPLATES[0].id
   );
@@ -53,6 +55,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
 
   const { data, isLoading } = useQuery({
     queryKey,
+    networkMode: "always",
     queryFn: () => fetchTreatmentPlansOfflineFirst(patientId, { toothFdi }),
   });
 
@@ -66,6 +69,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
   };
 
   const createPlanMutation = useMutation({
+    networkMode: "always",
     mutationFn: () => {
       const template = TREATMENT_TEMPLATES.find((tpl) => tpl.id === selectedTemplate);
       const count =
@@ -81,7 +85,10 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
         toothFdi,
         treatmentType,
         totalSessions: count,
-        sessions,
+        sessions: sessions.map((session) => ({
+          ...session,
+          scheduledTime: sessionTime || sessionTimeInput(),
+        })),
       });
     },
     onSuccess: () => {
@@ -93,6 +100,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
   });
 
   const updateSessionMutation = useMutation({
+    networkMode: "always",
     mutationFn: ({
       sessionId,
       body,
@@ -109,7 +117,10 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
 
   const addSessionMutation = useMutation({
     mutationFn: (planId: number) =>
-      rxApi.treatment.addSession(planId, { scheduledDate: todayDateKey() }),
+      rxApi.treatment.addSession(planId, {
+        scheduledDate: todayDateKey(),
+        scheduledTime: sessionTimeInput(),
+      }),
     onSuccess: () => invalidate(),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -142,6 +153,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
             className="h-8 text-xs text-teal-700 hover:text-teal-800"
             onClick={() => {
               setTotalSessions(defaultSessionsForType(treatmentType));
+              setSessionTime(sessionTimeInput());
               setShowNewPlan(true);
             }}
           >
@@ -216,12 +228,29 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
               />
             </div>
           </div>
+          <div className="space-y-1">
+            <Label htmlFor={`plan-time-${toothFdi}`} className="text-xs">{t("dental.sessionTime")}</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id={`plan-time-${toothFdi}`}
+                type="time"
+                dir="ltr"
+                className="h-9 w-36"
+                value={sessionTime}
+                onChange={(e) => setSessionTime(e.target.value)}
+              />
+              <Button type="button" size="sm" variant="ghost" onClick={() => setSessionTime(sessionTimeInput())}>
+                {t("waitingRoom.now")}
+              </Button>
+            </div>
+            <p className="text-xs text-rx-muted">{t("dental.sessionTimeHint")}</p>
+          </div>
           <div className="flex gap-2">
             <Button
               type="button"
               size="sm"
               onClick={() => createPlanMutation.mutate()}
-              disabled={isBusy}
+              disabled={isBusy || !sessionTime}
             >
               {t("dental.create")}
             </Button>
@@ -395,18 +424,34 @@ function PlanBlock({
                       })}
                     </time>
                   ) : (
-                    <input
-                      type="date"
-                      aria-label={t("patientFile.date")}
-                      disabled={isBusy}
-                      className="h-7 rounded border border-slate-200 bg-white px-2 text-xs text-slate-600"
-                      value={session.scheduledDate ?? ""}
-                      onChange={(e) =>
-                        onUpdateSession(session.id, {
-                          scheduledDate: e.target.value || null,
-                        })
-                      }
-                    />
+                    <>
+                      <input
+                        type="date"
+                        aria-label={t("patientFile.date")}
+                        disabled={isBusy}
+                        className="h-7 rounded border border-slate-200 bg-white px-2 text-xs text-slate-600"
+                        value={session.scheduledDate ?? ""}
+                        onChange={(e) =>
+                          onUpdateSession(session.id, {
+                            scheduledDate: e.target.value || null,
+                            ...(e.target.value && !session.scheduledTime
+                              ? { scheduledTime: sessionTimeInput() }
+                              : {}),
+                          })
+                        }
+                      />
+                      <input
+                        type="time"
+                        dir="ltr"
+                        aria-label={t("dental.sessionTime")}
+                        disabled={isBusy || !session.scheduledDate}
+                        className="h-7 rounded border border-slate-200 bg-white px-2 text-xs text-slate-600"
+                        value={session.scheduledTime ?? ""}
+                        onChange={(e) => {
+                          if (e.target.value) onUpdateSession(session.id, { scheduledTime: e.target.value });
+                        }}
+                      />
+                    </>
                   )}
                 </div>
                 {done && session.notes?.trim() ? (

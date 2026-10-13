@@ -27,9 +27,12 @@ const dateKeySchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ غير صالح");
 
+const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "وقت غير صالح");
+
 export const treatmentSessionInputSchema = z.object({
   sessionNumber: z.number().int().min(1).max(20),
   scheduledDate: dateKeySchema.optional().nullable(),
+  scheduledTime: timeSchema.optional(),
   notes: z.string().max(2000).optional().nullable(),
 });
 
@@ -52,6 +55,7 @@ export const treatmentPlanUpdateSchema = z.object({
 export const treatmentSessionUpdateSchema = z.object({
   status: sessionStatusSchema.optional(),
   scheduledDate: dateKeySchema.optional().nullable(),
+  scheduledTime: timeSchema.optional(),
   performedAt: z.string().datetime().optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
 });
@@ -59,5 +63,6 @@ export const treatmentSessionUpdateSchema = z.object({
 export const treatmentSessionCreateSchema = z.object({
   sessionNumber: z.number().int().min(1).max(20).optional(),
   scheduledDate: dateKeySchema.optional().nullable(),
+  scheduledTime: timeSchema.optional(),
   notes: z.string().max(2000).optional().nullable(),
 });

@@ -132,6 +132,7 @@ model TreatmentSession {
   sessionNumber Int           @map("session_number")
   status        String        @default("planned") @db.VarChar(32)
   scheduledDate DateTime?     @map("scheduled_date") @db.Date
+  scheduledTime String?       @map("scheduled_time") @db.VarChar(5)
   performedAt   DateTime?     @map("performed_at") @db.Timestamp(0)
   notes         String?
   createdAt     DateTime?     @default(now()) @map("created_at") @db.Timestamp(0)

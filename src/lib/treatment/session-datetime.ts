@@ -4,6 +4,18 @@ export function sessionDateTimeInput(date = new Date()): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+/** Scheduled session times use the clinic's Baghdad clock on client and server. */
+export function sessionTimeInput(date = new Date()): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Baghdad", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).format(date);
+}
+
+export function sessionAppointmentDatetime(scheduledDate: Date, scheduledTime: string): Date {
+  const key = scheduledDate.toISOString().slice(0, 10);
+  return new Date(`${key}T${scheduledTime}:00+03:00`);
+}
+
 /** Visit dates are calendar days at the clinic, including sessions after midnight. */
 export function sessionVisitDate(performedAt: Date): Date {
   const parts = new Intl.DateTimeFormat("en-GB", {

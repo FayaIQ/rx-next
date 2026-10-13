@@ -9,6 +9,7 @@ import {
   treatmentSessionCreateSchema,
 } from "@/lib/validations/treatment";
 import { syncSessionAppointment } from "@/lib/treatment/session-appointment";
+import { sessionTimeInput } from "@/lib/treatment/session-datetime";
 import { z } from "zod";
 
 type Params = { params: Promise<{ id: string }> };
@@ -105,6 +106,7 @@ export async function POST(request: Request, { params }: Params) {
         scheduledDate: data.scheduledDate
           ? parseDateKey(data.scheduledDate)
           : null,
+        scheduledTime: data.scheduledTime ?? sessionTimeInput(),
         notes: data.notes?.trim() || null,
       },
     });

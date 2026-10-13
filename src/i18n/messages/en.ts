@@ -972,6 +972,8 @@ export const en: MessageCatalog = {
     readyTemplate: "Ready template",
     treatmentType: "Treatment type",
     sessionCount: "Number of sessions",
+    sessionTime: "Session time",
+    sessionTimeHint: "Defaults to the current time. Applies to the plan's sessions; each session's time can be changed later.",
     create: "Create",
     noPlanHint: "No plan for this tooth. Create one like root canal (3 sessions).",
     planCreated: "Treatment plan created",

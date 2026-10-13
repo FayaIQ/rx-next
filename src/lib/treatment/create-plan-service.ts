@@ -4,6 +4,7 @@ import { defaultSessionsForType, todayDateKey } from "@/lib/treatment/constants"
 import { serializeTreatmentPlan } from "@/lib/treatment/serializer";
 import { syncPlanSessionAppointments } from "@/lib/treatment/session-appointment";
 import { parseDateKey } from "@/lib/treatment/plan-utils";
+import { sessionTimeInput } from "@/lib/treatment/session-datetime";
 import type { z } from "zod";
 import type { treatmentPlanCreateSchema } from "@/lib/validations/treatment";
 
@@ -21,7 +22,8 @@ export async function createTreatmentPlanForPatient(
     data.sessions?.length ??
     defaultSessionsForType(data.treatmentType);
 
-  const sessionInputs =
+  const defaultTime = sessionTimeInput();
+  const sessionInputs: NonNullable<PlanCreateInput["sessions"]> =
     data.sessions ??
     Array.from({ length: totalSessions }, (_, i) => ({
       sessionNumber: i + 1,
@@ -57,6 +59,7 @@ export async function createTreatmentPlanForPatient(
           scheduledDate: session.scheduledDate
             ? parseDateKey(session.scheduledDate)
             : null,
+          scheduledTime: session.scheduledTime ?? defaultTime,
           notes: session.notes?.trim() || null,
         },
       });

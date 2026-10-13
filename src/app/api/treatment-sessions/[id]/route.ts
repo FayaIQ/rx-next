@@ -55,13 +55,14 @@ export async function PATCH(request: Request, { params }: Params) {
             }
           : {}),
         ...(performedAt !== undefined ? { performedAt } : {}),
+        ...(data.scheduledTime !== undefined ? { scheduledTime: data.scheduledTime } : {}),
         ...(data.notes !== undefined ? { notes: data.notes?.trim() || null } : {}),
       },
     });
 
     await refreshPlanStatus(session.planId);
 
-    if (data.scheduledDate !== undefined) {
+    if (data.scheduledDate !== undefined || data.scheduledTime !== undefined) {
       await syncSessionAppointment(session.id);
     }
 
