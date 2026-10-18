@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       ? await prisma.clinicAcquisition.findUnique({ where: { doctorId: toDbId(session.user.doctorId ?? session.user.id) }, select: { practiceType: true, accountMode: true } }) : null;
     const data = { visitKey: input.visitKey ?? null, source: input.acquisition?.source ?? "direct", campaign: input.acquisition?.campaign ?? null,
       userRole: context.user_role, practiceType: clinic?.practiceType ?? input.practiceType ?? null,
-      environment: process.env.RX_ANALYTICS_TEST_MODE === "true" ? "test" : "production", route, metric: input.metric, value: input.value, device: input.device, browser: browserFamily(request.headers.get("user-agent") ?? ""), area: context.area, accountMode: clinic?.accountMode === "test" ? "test" : context.account_mode, errorCode: input.errorCode ?? null, release: (process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ?? "local").slice(0, 48) };
+      environment: process.env.RX_ANALYTICS_TEST_MODE === "true" ? "test" : "production", route, metric: input.metric, value: input.value, device: input.device, browser: browserFamily(request.headers.get("user-agent") ?? ""), area: context.area, accountMode: clinic?.accountMode === "test" ? "test" : context.account_mode, errorCode: input.errorCode ?? null, release: (process.env.RX_RELEASE_ID ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA ?? "local").slice(0, 48) };
     await prisma.productMeasurement.upsert({ where: { id: input.id }, create: { id: input.id, ...data }, update: { value: input.value } });
     return empty();
   } catch { return new Response(null, { status: 400 }); }

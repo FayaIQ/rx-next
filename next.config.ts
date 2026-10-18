@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
+import { buildReleaseId } from "./scripts/release-id";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -13,6 +14,7 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  env: { RX_RELEASE_ID: buildReleaseId() },
   serverExternalPackages: ["@prisma/client", "bcryptjs"],
   transpilePackages: ["three", "@react-three/fiber", "@react-three/drei"],
   images: {

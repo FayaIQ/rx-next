@@ -1,7 +1,7 @@
 {
   "report": "RX-Clarity-Analysis-Plan.html",
   "reviewDate": "2026-10-18",
-  "implementation": "Prepared release for origin/main; hosted deployment and production database upgrade remain unverified.",
+  "implementation": "Production additive schema applied; deployed activation dashboard and permanently disabled signup OTP verified on rx.faya.dev.",
   "implemented": [
     "Official-domain analytics and isolation of admin, demo, test, portal and clinic traffic",
     "Anonymous qualified-visit funnel linked to server-confirmed signup; first-touch attribution",
@@ -13,7 +13,8 @@
     "Idempotent prescription and treatment-plan creation, concurrent session appointment/visit safety",
     "Immediate offline saves, coalesced repeated saves, edits after synchronization, reconnect without page reload",
     "Prescription print/export server helper boundary and preservation of typed medicine names",
-    "Removed signup OTP UI and enforcement permanently; legacy signup OTP endpoints cannot send or verify codes, even with an old enabling flag. Recovery and deletion verification are unchanged."
+    "Removed signup OTP UI and enforcement permanently; legacy signup OTP endpoints cannot send or verify codes, even with an old enabling flag. Recovery and deletion verification are unchanged.",
+    "Deterministic source release identity and public no-store readiness endpoint that verifies required schema without reading clinical rows."
   ],
   "verified": {
     "automated": "Release scope: 62 unit checks, full lint and production build passed. Database integration passed on the HEAD schema upgraded using the additive SQL, which also passed repeated application.",
@@ -29,11 +30,12 @@
     "demo": "Actual local credentialless iframe: zero frames before request, ready handshake after composer loads, demo session inside the frame, no signed-in account in the outer page.",
     "offline": "Repeated saves coalesced into one queued create. Reconnect retained the document and typed medicine name. A subsequent edit updated the same prescription ID. Cold reload showed the generic fallback and recovered online.",
     "print": "Printable export returned 200; generated PDF was one A5 page and visually checked.",
-    "signupWithoutOtp": "Mocked mobile browser: one account creation, initial sign-in failure and successful retry, zero OTP requests or OTP proof fields. Doctor and secretary APIs still enforce configured captcha; stale OTP flags cannot enable signup codes."
+    "signupWithoutOtp": "Mocked mobile browser: one account creation, initial sign-in failure and successful retry, zero OTP requests or OTP proof fields. Doctor and secretary APIs still enforce configured captcha; stale OTP flags cannot enable signup codes.",
+    "productionSchema": "Schema-only backup saved privately; additive migration applied in a transaction. Account count remained 97. New measurement tables and payment columns verified.",
+    "productionDashboard": "Authenticated production activation dashboard loaded and reported safe role/environment-separated measurements."
   },
   "offlineBoundary": "An already-open clinic workspace saves locally and syncs when connectivity returns. A cold start/reload requires online account verification and shows a generic offline fallback. Authenticated HTML and live clinical API responses are not service-worker cached.",
   "remainingEvidence": [
-    "Apply additive database migration and deploy reviewed changes",
     "Physical Chrome Android, Facebook/Instagram in-app, Safari iPhone and tablet tests; desktop emulation is not physical-device proof",
     "Review 20-30 real Clarity recordings after authorized login; current browser is signed out",
     "5-8 real clinics and consented human follow-up",

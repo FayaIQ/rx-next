@@ -14,6 +14,7 @@ let welcomeCalls = 0;
 let deferred: (() => Promise<void>) | undefined;
 let userType = "doctor";
 let captchaRequired = false;
+let readinessUnavailable = false;
 const session = () => ({ user: { id: 17, type: userType, sessionId: "real-session", doctorId: 17 } });
 
 mock.module("../../auth.ts", { namedExports: { auth: async () => session() } });
@@ -29,6 +30,7 @@ mock.module("../auth-credentials.ts", { namedExports: {
   registerDoctor: async () => ({ id: 17n, name: "Test doctor", phoneNumber: "+9647001234567" }),
 } });
 mock.module("../prisma.ts", { namedExports: { prisma: {
+  $queryRaw: async () => { if (readinessUnavailable) throw new Error("private database details"); return []; },
   clinicAcquisition: { findUnique: async () => ({ practiceType: "general", accountMode: "real" }) },
   productMeasurement: { upsert: async (args: { create: Record<string, unknown> }) => { measured = args.create; return measured; } },
   user: { findUnique: async () => ({ isConfirmed: true, doctorId: 17n }) },
@@ -163,4 +165,21 @@ test("password signup still enforces configured captcha for doctor and secretary
     assert.equal((await POST(request("review-human"))).status, 201);
     assert.equal((await secretarySignup(request("review-human"))).status, 200);
   } finally { captchaRequired = false; }
+});
+
+
+test("production readiness is uncached and never exposes private database details", async () => {
+  const { GET } = await import("../../app/api/health/route");
+  const response = await GET();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal((await response.json()).status, "ok");
+  readinessUnavailable = true;
+  try {
+    const failed = await GET();
+    assert.equal(failed.status, 503);
+    const data = await failed.json();
+    assert.equal(data.status, "not_ready");
+    assert.equal(JSON.stringify(data).includes("private database details"), false);
+  } finally { readinessUnavailable = false; }
 });

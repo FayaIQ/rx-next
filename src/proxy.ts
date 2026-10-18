@@ -33,6 +33,7 @@ const PUBLIC_PATHS = [
   "/terms",
   "/privacy",
   "/api/auth",
+  "/api/health",
   "/api/analytics/telemetry",
   "/portal",
   "/api/portal",
