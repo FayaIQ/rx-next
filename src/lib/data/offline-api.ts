@@ -396,6 +396,16 @@ export async function deletePatientOffline(id: number) {
 }
 
 export async function createPrescriptionOffline(body: Record<string, unknown>) {
+  const requestId = typeof body.clientRequestId === "string" ? body.clientRequestId : undefined;
+  const previousSave = requestId
+    ? await getRxDb().sync_queue.where("localId").equals(requestId).filter((item) => item.entity === "prescription").last()
+    : undefined;
+  if (previousSave?.serverId) {
+    return updatePrescriptionOffline(previousSave.serverId, body);
+  }
+  if (previousSave?.status === "syncing") {
+    throw new Error("الوصفة قيد المزامنة. أعد الحفظ بعد اكتمالها.");
+  }
   const items =
     (body.items as Array<{
       name: string;
@@ -407,7 +417,7 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
     }>) ?? [];
 
   if (!navigator.onLine) {
-    const localId = uuidv4();
+    const localId = typeof body.clientRequestId === "string" ? body.clientRequestId : uuidv4();
     const now = new Date().toISOString();
     const patientServerId = Number(body.patientId);
     const patientLocalId =
@@ -445,15 +455,12 @@ export async function createPrescriptionOffline(body: Record<string, unknown>) {
       synced: false,
       updatedAt: now,
     });
-    await enqueueSyncItem({
-      entity: "prescription",
-      action: "create",
-      payload: {
-        ...body,
-        patientLocalId: patientLocalId || undefined,
-      },
-      localId,
-    });
+    const payload = { ...body, patientLocalId: patientLocalId || undefined };
+    if (previousSave && previousSave.status !== "synced") {
+      await getRxDb().sync_queue.update(previousSave.id, { payload, status: "pending", retryCount: 0, error: undefined });
+    } else {
+      await enqueueSyncItem({ entity: "prescription", action: "create", payload, localId });
+    }
     void processSyncQueue();
     void upsertLocalMedicinePresets(items);
     void upsertLocalMedicinesFromPrescription(items);

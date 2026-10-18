@@ -33,6 +33,7 @@ const PUBLIC_PATHS = [
   "/terms",
   "/privacy",
   "/api/auth",
+  "/api/analytics/telemetry",
   "/portal",
   "/api/portal",
 ];
@@ -73,6 +74,7 @@ export default auth((req) => {
   if (
     pathname === "/manifest.json" ||
     pathname === "/sw.js" ||
+    pathname === "/offline.html" ||
     pathname.startsWith("/icons/") ||
     pathname.startsWith("/fonts/") ||
     pathname.startsWith("/uploads/") ||

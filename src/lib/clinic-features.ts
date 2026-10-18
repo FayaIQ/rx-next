@@ -130,7 +130,7 @@ export const CLINIC_FEATURE_DEFINITIONS: ClinicFeatureDefinition[] = [
     description: "جلسات العلاج والتقويم الأسبوعي",
     routes: ["/treatment"],
     apiPatterns: [
-      /^\/api\/treatment-(plans|sessions)(\/|$)/,
+      /^\/api\/treatment-(plans|sessions|templates)(\/|$)/,
       /^\/api\/patients\/\d+\/treatment-plans/,
     ],
     navHref: "/dates",
@@ -195,7 +195,18 @@ function isMissingFeatureTableError(error: unknown): boolean {
   );
 }
 
-export async function ensureClinicFeaturesReady() {
+let featureSchemaReady: Promise<void> | undefined;
+
+export function ensureClinicFeaturesReady() {
+  // Schema setup is shared across requests; failed attempts may be retried.
+  featureSchemaReady ??= prepareClinicFeatureSchema().catch((error) => {
+    featureSchemaReady = undefined;
+    throw error;
+  });
+  return featureSchemaReady;
+}
+
+async function prepareClinicFeatureSchema() {
   // Migrate legacy global table (key-only PK) → per-doctor schema in one shot.
   await prisma.$executeRawUnsafe(`
     DO $$

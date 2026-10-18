@@ -465,7 +465,8 @@ async function processSyncItem(
     const plan = await createTreatmentPlanForPatient(
       doctorId,
       patientDbId,
-      data
+      data,
+      { clientRequestId: item.localId },
     );
 
     return { serverId: plan.id, data: plan };

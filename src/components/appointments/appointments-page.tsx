@@ -423,7 +423,7 @@ export function AppointmentsPageClient({
             </div>
 
             {isLoading ? (
-              <Skeleton className="h-72 w-full rounded-xl" />
+              <Skeleton className="h-[38rem] w-full rounded-xl sm:h-[46rem]" />
             ) : (
               <AppointmentCalendar
                 month={visibleMonth}

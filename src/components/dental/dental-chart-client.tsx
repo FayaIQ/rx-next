@@ -162,7 +162,7 @@ export function DentalChartClient({ patientId }: Props) {
   if (isLoading && !data) {
     return (
       <PageContent>
-        <div className="h-64 animate-pulse rounded-2xl bg-rx-bg-subtle" />
+        <div className="h-[min(62vh,560px)] animate-pulse rounded-2xl bg-rx-bg-subtle" />
       </PageContent>
     );
   }

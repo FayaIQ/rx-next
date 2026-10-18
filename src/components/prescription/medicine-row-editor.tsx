@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
 } from "@/lib/medicine-preset-utils";
 import {
   filterMedicineGroups,
-  findGroupForQuery,
   type MedicineGroup,
 } from "@/lib/medicine-utils";
 import { cn } from "@/lib/utils";
@@ -134,6 +133,8 @@ export function MedicineRowEditor({
   onAddRow,
 }: Props) {
   const { t } = useLocale();
+  const latestRow = useRef(row);
+  useEffect(() => { latestRow.current = row; }, [row]);
   const [focusedField, setFocusedField] = useState<MedicineFillField | null>(
     null
   );
@@ -176,21 +177,16 @@ export function MedicineRowEditor({
   }
 
   function commitName() {
+    // Suggestions require an explicit selection. Blurring must preserve the typed drug name.
     onClose();
-    const trimmed = row.name.trim();
-    if (!trimmed) return;
-    const match = findGroupForQuery(groups, trimmed);
-    if (match && match.name !== row.name) {
-      onChange({ ...row, name: match.name });
-    }
   }
 
   function autoFillSingleOption(field: MedicineFillField) {
-    if (row[field].trim()) return;
-    const options = fieldOptions.get(field) ?? [];
-    if (options.length === 1) {
-      onChange({ ...row, [field]: options[0]!.value });
-    }
+    // The blur timer may run after another field was edited; never write its old row snapshot.
+    const current = latestRow.current;
+    if (current[field].trim()) return;
+    const options = getMedicineFieldOptions(field, current, groups, presets);
+    if (options.length === 1) onChange({ ...current, [field]: options[0]!.value });
   }
 
   function handleLastFieldAdvance() {

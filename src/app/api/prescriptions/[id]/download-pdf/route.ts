@@ -8,7 +8,7 @@ import {
   templatePrintHeaderHtml,
   templatePrintStyles,
 } from "@/lib/recipe-templates";
-import { itemsBoxSize } from "@/components/recipe/prescription-items-box";
+import { itemsBoxSize } from "@/lib/recipe-items-box";
 import { paperDimensions, paperPageSizeCss } from "@/lib/recipe-paper";
 import { resolveImageUrl } from "@/lib/image-url";
 import { formatAge, formatPrescriptionDate, genderLabel } from "@/lib/patient-utils";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, type ReactNode, Suspense, useMemo, useState } from "react";
+import { Component, type ReactNode, Suspense, useEffect, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import { FDI_UPPER_RIGHT, FDI_UPPER_LEFT, FDI_LOWER_RIGHT, FDI_LOWER_LEFT, FDI_ALL, toothStatusColor } from "@/lib/dental/constants";
@@ -43,7 +43,7 @@ export function FdiDentalViewer({ teeth, selectedFdi, onSelect, treatmentPlanMar
           {hovered !== null && <div role="status" className="pointer-events-none absolute inset-x-0 top-3 z-30 flex justify-center">
             <span className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-lg">{title(hovered)}</span>
           </div>}
-          <Canvas camera={{ position: [0, 0.9, 4.5], fov: 35 }} dpr={[1, 1.5]}>
+          <Canvas frameloop="demand" camera={{ position: [0, 0.9, 4.5], fov: 35 }} dpr={[1, 1.5]}>
             <ambientLight intensity={1.1} />
             <directionalLight position={[2, 5, 5]} intensity={2} />
             <Suspense fallback={null}>
@@ -95,6 +95,7 @@ function DundeeTeeth({ color, toothMap, selectedFdi, hovered, setHovered, onSele
     if (meshes.length !== 32 || new Set(meshes.map((m) => m.fdi)).size !== 32 || FDI_ALL.some((fdi) => !meshes.some((m) => m.fdi === fdi))) throw new Error("Incomplete Dundee FDI mapping");
     return meshes;
   }, [scene]);
+  useEffect(() => () => { model.forEach(({ geometry }) => geometry.dispose()); }, [model]);
   return <group>{model.map(({ fdi, geometry, material }) => <group key={fdi}>
     <mesh geometry={geometry} onClick={(event) => { event.stopPropagation(); onSelect(fdi); }}
       onPointerOver={(event) => { event.stopPropagation(); setHovered(fdi); }} onPointerOut={() => setHovered(null)}>

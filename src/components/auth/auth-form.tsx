@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { signIn, signOut, getSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -14,7 +14,6 @@ import {
   ArrowRight,
   Stethoscope,
   Smile,
-  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +34,8 @@ import {
 } from "@/lib/phone-countries";
 import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
 import { trackTrialSignup } from "@/lib/google-ads";
+import { trackAnalyticsEvent, type AnalyticsEvent } from "@/lib/analytics";
+import { readAcquisition, productVisitKey } from "@/lib/product-analytics/shared";
 import { readApiResponse } from "@/lib/api/read-response";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
@@ -91,6 +92,16 @@ export function AuthForm({
   const searchParams = useSearchParams();
   const { t, locale } = useLocale();
   const [loading, setLoading] = useState(false);
+  const submitLock = useRef(false);
+  const signupStarted = useRef(false);
+  const createdCredentials = useRef<{ phone: string; password: string } | null>(null);
+
+  function trackSignupStarted() {
+    if (mode !== "signup" || signupStarted.current) return;
+    signupStarted.current = true;
+    trackSignupEvent("signup_started");
+  }
+  const [accountCreated, setAccountCreated] = useState(false);
   const [name, setName] = useState("");
   const [country, setCountry] = useState<PhoneCountry>(DEFAULT_PHONE_COUNTRY);
   const [phone, setPhone] = useState("");
@@ -102,31 +113,22 @@ export function AuthForm({
     role === "doctor" &&
     isDevTestDoctorPhone(fullPhone);
   const [practiceType, setPracticeType] =
-    useState<DoctorPracticeType>("general");
-  const [step, setStep] = useState<"form" | "otp">("form");
-  const [otpCode, setOtpCode] = useState("");
-  const [resendIn, setResendIn] = useState(0);
+    useState<DoctorPracticeType>(searchParams.get("practice") === "dental" ? "dental" : "general");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   // Remounts the widget — Turnstile tokens are single-use.
   const [captchaNonce, setCaptchaNonce] = useState(0);
-  // Server-issued proof that lets resends skip the captcha.
-  const [captchaProof, setCaptchaProof] = useState<string | null>(null);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+
+  function trackSignupEvent(event: AnalyticsEvent) {
+    if (isDevTestDoctor) return;
+    trackAnalyticsEvent(event, { role, ...(role === "doctor" ? { practiceType } : {}) });
+  }
 
   function resetCaptcha() {
     if (!TURNSTILE_SITE_KEY) return;
     setCaptchaToken(null);
     setCaptchaNonce((n) => n + 1);
   }
-
-  useEffect(() => {
-    if (resendIn <= 0) return;
-    const timer = setInterval(
-      () => setResendIn((s) => (s > 0 ? s - 1 : 0)),
-      1000
-    );
-    return () => clearInterval(timer);
-  }, [resendIn]);
 
   const defaultCallbackUrl =
     role === "admin"
@@ -167,7 +169,7 @@ export function AuthForm({
     return fromQuery === "/dashboard" ? "/home" : fromQuery;
   }
 
-  async function registerAccount(otpToken?: string): Promise<boolean> {
+  async function registerAccount(): Promise<boolean> {
     const endpoint =
       role === "secretary"
         ? "/api/auth/secretary/register"
@@ -180,9 +182,7 @@ export function AuthForm({
         name,
         phone: fullPhone,
         password,
-        ...(role === "doctor" ? { practiceType } : {}),
-        ...(otpToken ? { otpToken } : {}),
-        // Only consumed in the password-only fallback (OTP disabled).
+        ...(role === "doctor" ? { practiceType, acquisition: { ...readAcquisition(), visitKey: productVisitKey() } } : {}),
         ...(captchaToken ? { turnstileToken: captchaToken } : {}),
       }),
     });
@@ -191,12 +191,16 @@ export function AuthForm({
       t("auth.serverUnavailable")
     );
     if (!res.ok) {
+      trackSignupEvent("signup_failed");
       toast.error(data.error ?? t("auth.registerFailed"));
       return false;
     }
-    if (role === "doctor") {
+    if (role === "doctor" && !isDevTestDoctor) {
       trackTrialSignup();
     }
+    createdCredentials.current = { phone: fullPhone, password };
+    setAccountCreated(true);
+    trackSignupEvent("account_created");
     toast.success(t("auth.accountCreated"));
     return true;
   }
@@ -205,58 +209,30 @@ export function AuthForm({
     await signOut({ redirect: false });
 
     const result = await signIn("credentials", {
-      phone: fullPhone,
-      password,
+      phone: createdCredentials.current?.phone ?? fullPhone,
+      password: createdCredentials.current?.password ?? password,
       role,
       redirect: false,
     });
 
-    if (result?.error) {
+    if (!result?.ok || result.error) {
+      if (mode === "signup") trackSignupEvent("signin_failed");
       toast.error(t("auth.invalidCredentials"));
       return;
     }
 
+    if (mode === "signup" && createdCredentials.current) trackSignupEvent("first_signin_success");
     window.location.href = await resolveCallbackUrl();
-  }
-
-  /** Returns "sent" when the OTP step should be shown, "disabled" when the
-   *  server has no OTP key, "failed" on error. */
-  async function requestOtp(): Promise<"sent" | "disabled" | "failed"> {
-    if (isDevTestDoctor) return "disabled";
-
-    const res = await fetch("/api/auth/otp/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phone: fullPhone,
-        mode: "signup",
-        ...(captchaToken ? { turnstileToken: captchaToken } : {}),
-        ...(captchaProof ? { captchaProof } : {}),
-      }),
-    });
-    const data = await readApiResponse<{
-      error?: string;
-      enabled?: boolean;
-      captchaProof?: string;
-    }>(res, t("auth.serverUnavailable"));
-    if (!res.ok) {
-      toast.error(data.error ?? t("auth.otpSendFailed"));
-      resetCaptcha();
-      return "failed";
-    }
-    if (data.enabled === false) return "disabled";
-    if (data.captchaProof) setCaptchaProof(data.captchaProof as string);
-    setResendIn(60);
-    return "sent";
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
+    if (submitLock.current) return;
+    submitLock.current = true;
     setLoading(true);
 
     try {
-      if (mode === "signin") {
+      if (mode === "signin" || createdCredentials.current) {
         await finishSignIn();
         return;
       }
@@ -271,71 +247,21 @@ export function AuthForm({
         return;
       }
 
-      const otpStatus = await requestOtp();
-      if (otpStatus === "failed") return;
-
-      if (otpStatus === "sent") {
-        setOtpCode("");
-        setStep("otp");
+      if (!(await registerAccount())) {
+        resetCaptcha();
         return;
       }
-
-      // OTP not configured — registration falls back to password + captcha.
-      if (!(await registerAccount())) return;
       await finishSignIn();
     } catch (err) {
+      if (mode === "signup") {
+        trackSignupEvent(createdCredentials.current ? "signin_failed" : "signup_failed");
+        if (!createdCredentials.current) resetCaptcha();
+      }
       toast.error(
         err instanceof Error ? err.message : t("common.error")
       );
     } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleOtpSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (loading) return;
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/auth/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: fullPhone, code: otpCode }),
-      });
-      const data = await readApiResponse<{
-        error?: string;
-        otpToken?: string;
-      }>(res, t("auth.serverUnavailable"));
-      if (!res.ok || !data.otpToken) {
-        toast.error(data.error ?? t("auth.otpInvalid"));
-        return;
-      }
-
-      const otpToken = data.otpToken as string;
-      if (!(await registerAccount(otpToken))) return;
-      await finishSignIn();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : t("common.error")
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleResend() {
-    if (loading || resendIn > 0) return;
-    setLoading(true);
-    try {
-      const status = await requestOtp();
-      if (status === "sent") {
-        setOtpCode("");
-        toast.success(t("auth.otpResent"));
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("common.error"));
-    } finally {
+      submitLock.current = false;
       setLoading(false);
     }
   }
@@ -343,7 +269,6 @@ export function AuthForm({
   const iconSide = locale === "ar" ? "right-3.5" : "left-3.5";
   const inputPad = locale === "ar" ? "pr-10" : "pl-10";
   const AltArrow = locale === "ar" ? ArrowLeft : ArrowRight;
-  const BackArrow = locale === "ar" ? ArrowRight : ArrowLeft;
 
   if (showPasswordReset) {
     return (
@@ -361,84 +286,16 @@ export function AuthForm({
     );
   }
 
-  if (step === "otp") {
+  if (accountCreated) {
     return (
-      <div className="w-full">
-        <div className="mb-8">
-          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rx-primary/10 text-rx-primary">
-            <ShieldCheck size={24} />
-          </span>
-          <h1 className="text-2xl font-bold text-rx-text">
-            {t("auth.otpTitle")}
-          </h1>
-          <p className="mt-2 text-sm text-rx-muted" dir="auto">
-            {t("auth.otpSentTo", { phone: fullPhone })}
-          </p>
-        </div>
-
-        <form onSubmit={handleOtpSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="otp-code">{t("auth.otpCodeLabel")}</Label>
-            <Input
-              id="otp-code"
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              dir="ltr"
-              className="text-center text-lg font-semibold tracking-[0.5em]"
-              value={otpCode}
-              onChange={(e) =>
-                setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-              }
-              placeholder="••••••"
-              required
-              minLength={4}
-              autoFocus
-            />
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full"
-            size="lg"
-            disabled={loading || otpCode.length < 4}
-          >
-            {loading ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                {t("auth.otpVerifying")}
-              </>
-            ) : (
-              t("auth.otpVerify")
-            )}
+      <div className="w-full space-y-5">
+        <h1 className="text-2xl font-bold text-rx-text">{t("auth.accountCreated")}</h1>
+        <p className="text-sm text-rx-muted">{locale === "ar" ? "تم إنشاء حسابك. سجّل الدخول للمتابعة." : "Your account is ready. Sign in to continue."}</p>
+        <form onSubmit={handleSubmit}>
+          <Button type="submit" className="w-full" size="lg" disabled={loading}>
+            {loading ? <><Loader2 size={18} className="animate-spin" />{t("auth.signingIn")}</> : t("auth.signIn")}
           </Button>
         </form>
-
-        <div className="mt-6 flex items-center justify-between text-sm">
-          <button
-            type="button"
-            onClick={() => {
-              setStep("form");
-              setOtpCode("");
-              setCaptchaProof(null);
-              resetCaptcha();
-            }}
-            className="inline-flex items-center gap-1 font-medium text-rx-muted hover:text-rx-text"
-          >
-            <BackArrow size={14} />
-            {t("auth.otpChangePhone")}
-          </button>
-          <button
-            type="button"
-            onClick={handleResend}
-            disabled={loading || resendIn > 0}
-            className="font-medium text-rx-primary hover:underline disabled:cursor-not-allowed disabled:text-rx-muted disabled:no-underline"
-          >
-            {resendIn > 0
-              ? t("auth.otpResendIn", { seconds: resendIn })
-              : t("auth.otpResend")}
-          </button>
-        </div>
       </div>
     );
   }
@@ -452,7 +309,7 @@ export function AuthForm({
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} onFocusCapture={trackSignupStarted} className="space-y-5">
         {mode === "signup" && (
           <div className="space-y-2">
             <Label htmlFor="name">{t("auth.fullName")}</Label>

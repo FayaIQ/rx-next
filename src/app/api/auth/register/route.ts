@@ -1,8 +1,9 @@
+import { after } from "next/server";
+import { acquisitionSchema } from "@/lib/product-analytics/shared";
 import { z } from "zod";
-import { registerDoctor, authenticateUser } from "@/lib/auth-credentials";
+import { registerDoctor } from "@/lib/auth-credentials";
 import { fromDbId } from "@/lib/bigint";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
-import { isSignupOtpEnabled, verifyOtpToken } from "@/lib/otp";
 import { isTurnstileEnabled, verifyTurnstileToken } from "@/lib/turnstile";
 import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
 import { sendCflowWelcomeMessage } from "@/lib/cflow-messages";
@@ -14,7 +15,7 @@ const schema = z.object({
   practiceType: z.enum(["general", "dental"], {
     message: "اختر نوع العيادة",
   }),
-  otpToken: z.string().optional(),
+  acquisition: acquisitionSchema.optional(),
   turnstileToken: z.string().optional(),
 });
 
@@ -24,36 +25,30 @@ export async function POST(request: Request) {
     const data = schema.parse(body);
     const isDevTestDoctor = isDevTestDoctorPhone(data.phone);
 
-    if (isSignupOtpEnabled() && !isDevTestDoctor) {
-      if (!(await verifyOtpToken(data.phone, data.otpToken))) {
-        return apiError("يجب التحقق من رقم الهاتف أولاً", 401);
-      }
-    } else if (
+    if (
       isTurnstileEnabled() &&
       !isDevTestDoctor &&
       !(await verifyTurnstileToken(data.turnstileToken))
     ) {
-      // Password-only flow — the captcha token wasn't consumed by /otp/send.
       return apiError("أكمل التحقق من أنك لست روبوتاً", 401);
     }
 
     const user = await registerDoctor(data);
 
-    const authUser = await authenticateUser(data.phone, data.password);
-    if (!authUser) {
-      return apiServerError("فشل إنشاء الحساب");
-    }
-
-    const cflowMessage = await sendCflowWelcomeMessage({
-      doctorId: fromDbId(user.id),
-      name: user.name,
-      phone: user.phoneNumber,
+    // Account creation is the success boundary. Welcome-message delivery must
+    // not turn a saved account into a failed registration or block sign-in.
+    after(async () => {
+      try {
+        const result = await sendCflowWelcomeMessage({
+          doctorId: fromDbId(user.id),
+          name: user.name,
+          phone: user.phoneNumber,
+        });
+        if (!result.ok && !result.skipped) console.warn("CFlow welcome message was not delivered", { status: result.status });
+      } catch {
+        console.warn("CFlow welcome message delivery failed");
+      }
     });
-    if (!cflowMessage.ok && !cflowMessage.skipped) {
-      console.warn("CFlow welcome message was not delivered", {
-        status: cflowMessage.status,
-      });
-    }
 
     return apiOk(
       {

@@ -43,6 +43,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (role === "admin" && user.type !== "admin") return null;
         if (!role && user.type === "secretary") return null;
 
+        if (user.type === "doctor") {
+          const { markClinicMilestone } = await import("@/lib/product-analytics/server");
+          await markClinicMilestone(user.id, "firstSigninAt");
+        }
         return user;
       },
     }),

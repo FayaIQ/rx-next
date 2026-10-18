@@ -1,3 +1,4 @@
+import { recordClinicActivity } from "@/lib/product-analytics/server";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
 import type { PrescriptionInput } from "@/lib/validations/rx";
@@ -33,20 +34,16 @@ export async function createPrescription(
   const doctorDbId = toDbId(doctorId);
 
   // Idempotency: replayed offline-sync requests must not create duplicates.
-  if (options?.clientRequestId) {
+  const requestId = options?.clientRequestId ?? data.clientRequestId;
+  if (requestId) {
     const replayed = await prisma.prescription.findFirst({
-      where: { clientRequestId: options.clientRequestId, doctorId: doctorDbId },
+      where: { clientRequestId: requestId, doctorId: doctorDbId },
       include: { items: true, fieldValues: true, patient: true },
     });
-    if (replayed) return replayed;
+    if (replayed) { if (readPrescriptionDocumentMeta(replayed.additionalInfo).documentKind === "prescription" && replayed.items.length) await recordClinicActivity(doctorId, "prescription", replayed.id, replayed.createdAt ?? new Date()); return replayed; }
   }
 
-  const [patient, prescriptionNumber] = await Promise.all([
-    prisma.patient.findFirst({
-      where: { id: toDbId(data.patientId), doctorId: doctorDbId },
-    }),
-    getNextPrescriptionNumber(doctorId),
-  ]);
+  const patient = await prisma.patient.findFirst({ where: { id: toDbId(data.patientId), doctorId: doctorDbId } });
   if (!patient) throw new Error("المريض غير موجود");
 
   const prescriptionDate = new Date(data.prescriptionDate);
@@ -59,6 +56,10 @@ export async function createPrescription(
   );
 
   const prescription = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${doctorDbId})`;
+    if (requestId) { const existing = await tx.prescription.findFirst({ where: { doctorId: doctorDbId, clientRequestId: requestId }, include: { items: true, fieldValues: true, patient: true } }); if (existing) return existing; }
+    const last = await tx.prescription.findFirst({ where: { doctorId: doctorDbId }, orderBy: { prescriptionNumber: "desc" }, select: { prescriptionNumber: true } });
+    const prescriptionNumber = (last?.prescriptionNumber ?? 0) + 1;
     const financeSettings = await tx.clinicFinanceSettings.upsert({
       where: { doctorId: doctorDbId },
       update: {},
@@ -83,7 +84,8 @@ export async function createPrescription(
         consultationFee,
         consultationCurrency: financeSettings.currency,
         consultationFeeWaived,
-        clientRequestId: options?.clientRequestId ?? null,
+        clientRequestId: requestId ?? null,
+        createdAt: new Date(),
         additionalInfo: (data.additionalInfo ?? undefined) as
           | Prisma.InputJsonValue
           | undefined,
@@ -138,6 +140,7 @@ export async function createPrescription(
     return created;
   });
 
+  if (documentMeta.documentKind === "prescription" && data.items.length) await recordClinicActivity(doctorId, "prescription", prescription.id, prescription.createdAt ?? new Date());
   return prescription;
 }
 

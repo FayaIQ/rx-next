@@ -1,8 +1,11 @@
 import {
   CLINIC_FEATURE_KEYS,
-  setClinicFeatureEnabled,
+  ensureClinicFeaturesReady,
+  invalidateClinicFeatureCache,
   type ClinicFeatureKey,
 } from "@/lib/clinic-features";
+import { prisma } from "@/lib/prisma";
+import { toDbId } from "@/lib/bigint";
 import {
   getPracticeTypeMeta,
   type DoctorPracticeType,
@@ -23,7 +26,12 @@ export async function applyPracticeTypeFeatures(
   const meta = getPracticeTypeMeta(practiceType);
   const disabled = new Set<ClinicFeatureKey>(meta.disabledFeatures);
 
-  for (const key of CLINIC_FEATURE_KEYS) {
-    await setClinicFeatureEnabled(doctorId, key, !disabled.has(key));
-  }
+  await ensureClinicFeaturesReady();
+  const id = toDbId(doctorId);
+  await prisma.$transaction(async tx => {
+    await tx.clinicFeatureToggle.createMany({ data: CLINIC_FEATURE_KEYS.map(key => ({ doctorId: id, key, enabled: !disabled.has(key) })), skipDuplicates: true });
+    await tx.clinicFeatureToggle.updateMany({ where: { doctorId: id, key: { in: CLINIC_FEATURE_KEYS.filter(key => disabled.has(key)) } }, data: { enabled: false } });
+    await tx.clinicFeatureToggle.updateMany({ where: { doctorId: id, key: { in: CLINIC_FEATURE_KEYS.filter(key => !disabled.has(key)) } }, data: { enabled: true } });
+  });
+  invalidateClinicFeatureCache(doctorId);
 }

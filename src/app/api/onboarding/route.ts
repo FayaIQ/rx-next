@@ -1,3 +1,4 @@
+import { markClinicMilestone } from "@/lib/product-analytics/server";
 import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiError, apiOk } from "@/lib/api/response";
@@ -70,5 +71,6 @@ export async function PUT(request: Request) {
     }),
   ]);
 
+  await markClinicMilestone(ctx.doctorId, "onboardingAt");
   return apiOk({ onboarding: serializeOnboarding(updated) });
 }

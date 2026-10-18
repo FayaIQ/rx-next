@@ -18,11 +18,14 @@ export function ActivateSubscriptionDialog({
   user: AdminUserDto;
   onClose: () => void;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
   const [packageId, setPackageId] = useState<number | "">("");
   const [customDays, setCustomDays] = useState("");
   const [notes, setNotes] = useState("");
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [paidAmount, setPaidAmount] = useState("");
+  const [paidCurrency, setPaidCurrency] = useState<"IQD" | "USD">("IQD");
 
   const { data: packagesData } = useQuery({
     queryKey: ["admin-packages"],
@@ -33,8 +36,11 @@ export function ActivateSubscriptionDialog({
 
   const activateMutation = useMutation({
     mutationFn: () => {
+      const payment = paymentConfirmed ? { paymentConfirmed: true, paidAmount: Number(paidAmount), paidCurrency } : {};
+      if (paymentConfirmed && !(Number(paidAmount) > 0)) throw new Error(locale === "ar" ? "حدد المبلغ المستلم" : "Enter the received amount");
       if (packageId) {
         return adminApi.activateSubscription(user.id, {
+          ...payment,
           packageId: Number(packageId),
           notes: notes || null,
         });
@@ -42,6 +48,7 @@ export function ActivateSubscriptionDialog({
       const days = Number(customDays);
       if (!days || days < 1) throw new Error(t("admin.invalidDays"));
       return adminApi.activateSubscription(user.id, {
+        ...payment,
         duration: days,
         durationUnit: "days",
         notes: notes || null,
@@ -59,7 +66,7 @@ export function ActivateSubscriptionDialog({
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
-      <Card className="w-full max-w-md">
+      <Card className="max-h-[90dvh] w-full max-w-md overflow-y-auto">
         <CardHeader>
           <CardTitle>{t("admin.activateTitle", { name: user.name })}</CardTitle>
         </CardHeader>
@@ -107,6 +114,13 @@ export function ActivateSubscriptionDialog({
             />
           </div>
 
+          <div className="space-y-3 rounded-xl border border-rx-border p-3">
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={paymentConfirmed} onChange={e => setPaymentConfirmed(e.target.checked)} />{locale === "ar" ? "تم تأكيد استلام الدفع" : "Payment receipt confirmed"}</label>
+            {paymentConfirmed && <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label htmlFor="paid-amount">{locale === "ar" ? "المبلغ المستلم" : "Amount received"}</Label><Input id="paid-amount" type="number" min="0.01" step="0.01" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} /></div>
+              <div className="space-y-1"><Label htmlFor="paid-currency">{locale === "ar" ? "العملة" : "Currency"}</Label><select id="paid-currency" className="h-10 w-full rounded-md border px-3" value={paidCurrency} onChange={e => setPaidCurrency(e.target.value as "IQD" | "USD")}><option>IQD</option><option>USD</option></select></div>
+            </div>}
+          </div>
           <div className="flex gap-2">
             <Button
               onClick={() => activateMutation.mutate()}

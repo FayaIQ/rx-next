@@ -51,6 +51,7 @@ export const prescriptionItemSchema = z.object({
 });
 
 export const prescriptionSchema = z.object({
+  clientRequestId: z.string().min(1).max(64).optional(),
   patientId: z.number(),
   prescriptionDate: z.string(),
   diagnosis: z.string().nullable().optional(),

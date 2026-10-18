@@ -1,3 +1,5 @@
+import { getClinicActivation } from "@/lib/product-analytics/server";
+import { ClinicActivationGuide } from "@/components/onboarding/clinic-activation-guide";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireSubscription } from "@/lib/auth-server";
@@ -41,13 +43,14 @@ export default async function DoctorLayout({
     redirect(await getDoctorFallbackPath(doctorId));
   }
 
-  const features = await listClinicFeatures(doctorId);
+  const [features, activation] = await Promise.all([listClinicFeatures(doctorId), getClinicActivation(doctorId)]);
 
   return (
     <ClinicFeaturesProvider features={features}>
       <FeatureRouteGuard>
         <div className="min-h-screen">
           <div className="min-h-screen rx-app-bg pb-[var(--rx-nav-pill-offset)]">
+            <ClinicActivationGuide initial={activation} />
             {children}
           </div>
           <DoctorNavPill />

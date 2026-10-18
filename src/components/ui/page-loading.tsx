@@ -150,7 +150,7 @@ export function CalendarPageLoading() {
               <Skeleton key={i} className="h-7 w-24 rounded-full" />
             ))}
           </div>
-          <Skeleton className="h-72 w-full rounded-xl" />
+          <Skeleton className="h-[38rem] w-full rounded-xl sm:h-[46rem]" />
         </div>
         <div className="overflow-hidden rounded-2xl border border-rx-border bg-rx-surface">
           <div className="flex items-center justify-between border-b border-rx-border px-4 py-3">

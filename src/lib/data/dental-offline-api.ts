@@ -196,6 +196,7 @@ export async function createTreatmentPlanOffline(
   patientId: number,
   body: Record<string, unknown>
 ) {
+  body = { ...body, clientRequestId: body.clientRequestId ?? crypto.randomUUID() };
   if (navigator.onLine) {
     const res = await rxApi.treatment.createPlan(patientId, body);
     await cacheTreatmentPlansLocally(patientId, [
@@ -207,7 +208,7 @@ export async function createTreatmentPlanOffline(
     return res;
   }
 
-  const localId = `plan-${patientId}-${Date.now()}`;
+  const localId = String(body.clientRequestId);
   const tempId = -Date.now();
   const now = new Date().toISOString();
   const optimisticPlan: TreatmentPlanDto = {

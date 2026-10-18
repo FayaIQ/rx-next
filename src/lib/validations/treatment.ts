@@ -37,6 +37,7 @@ export const treatmentSessionInputSchema = z.object({
 });
 
 export const treatmentPlanCreateSchema = z.object({
+  clientRequestId: z.string().min(1).max(64).optional(),
   toothFdi: fdiSchema,
   treatmentType: treatmentTypeSchema,
   title: z.string().max(255).optional().nullable(),

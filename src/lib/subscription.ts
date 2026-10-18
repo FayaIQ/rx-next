@@ -185,6 +185,9 @@ export function serializeSubscription(sub: {
   endsAt: Date;
   notes: string | null;
   createdAt?: Date | null;
+  paymentConfirmedAt?: Date | null;
+  paidAmount?: unknown;
+  paidCurrency?: string | null;
   package?: { name: string; price: unknown } | null;
 }) {
   return {
@@ -197,6 +200,9 @@ export function serializeSubscription(sub: {
     endsAt: sub.endsAt.toISOString(),
     notes: sub.notes,
     createdAt: sub.createdAt?.toISOString() ?? null,
+    paymentConfirmedAt: sub.paymentConfirmedAt?.toISOString() ?? null,
+    paidAmount: sub.paidAmount == null ? null : Number(sub.paidAmount),
+    paidCurrency: sub.paidCurrency ?? null,
     packageName: sub.package?.name ?? null,
     packagePrice: sub.package ? Number(sub.package.price) : null,
     isActive: sub.status === "active" && sub.endsAt > new Date(),

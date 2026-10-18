@@ -10,7 +10,6 @@ import {
   Check,
   ImagePlus,
   LoaderCircle,
-  MapPin,
   Phone,
   Stethoscope,
 } from "lucide-react";
@@ -22,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/i18n/locale-provider";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import { resolveImageUrl } from "@/lib/image-url";
 import { PrescriptionSystemCredit } from "@/components/prescription/prescription-system-credit";
 
@@ -153,12 +153,17 @@ export function DoctorOnboardingForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<OnboardingData>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const submitLock = useRef(false);
   const [saving, setSaving] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [localLogoUrl, setLocalLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setLoadFailed(false);
     void fetch("/api/onboarding")
       .then((response) =>
         jsonOrThrow<{ onboarding: OnboardingData }>(response)
@@ -166,14 +171,16 @@ export function DoctorOnboardingForm() {
       .then(({ onboarding }) => {
         if (active) setForm(onboarding);
       })
-      .catch((error: Error) => toast.error(error.message || copy.loadError))
+      .catch((error: Error) => {
+        if (active) { setLoadFailed(true); toast.error(error.message || copy.loadError); }
+      })
       .finally(() => {
         if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [copy.loadError]);
+  }, [copy.loadError, loadAttempt]);
 
   useEffect(() => {
     if (!logoFile) {
@@ -206,7 +213,8 @@ export function DoctorOnboardingForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving) return;
+    if (submitLock.current || loading || loadFailed) return;
+    submitLock.current = true;
     setSaving(true);
 
     try {
@@ -230,12 +238,14 @@ export function DoctorOnboardingForm() {
         })
       );
 
+      trackAnalyticsEvent("onboarding_completed");
       toast.success(copy.success);
       router.replace("/home");
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : copy.saveError);
     } finally {
+      submitLock.current = false;
       setSaving(false);
     }
   }
@@ -247,6 +257,13 @@ export function DoctorOnboardingForm() {
       </div>
     );
   }
+
+  if (loadFailed) return (
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-rx-bg p-6">
+      <p role="alert">{copy.loadError}</p>
+      <Button onClick={() => setLoadAttempt((value) => value + 1)}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</Button>
+    </main>
+  );
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(45,212,191,0.18),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(14,116,144,0.12),transparent_38%),var(--rx-bg)]">
@@ -279,22 +296,11 @@ export function DoctorOnboardingForm() {
 
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]">
           <form onSubmit={handleSubmit} className="space-y-5">
-            <section className="rounded-3xl border border-rx-border/80 bg-white p-5 shadow-sm sm:p-7">
-              <div className="mb-6 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-50 text-rx-primary">
-                  <Stethoscope size={20} />
-                </span>
-                <h2 className="text-lg font-bold">{copy.clinicSection}</h2>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="clinicName">{copy.clinicName}</Label>
-                  <div className="relative">
-                    <Building2 className="absolute start-3.5 top-3.5 text-rx-muted" size={17} />
-                    <Input id="clinicName" className="ps-10" value={form.clinicName ?? ""} onChange={(e) => patch("clinicName", e.target.value)} placeholder={copy.clinicNamePlaceholder} />
-                  </div>
-                </div>
+            <fieldset disabled={saving} className="space-y-5">
+              <section className="rounded-3xl border border-rx-border/80 bg-white p-5 shadow-sm sm:p-7">
+                <h2 className="mb-6 text-lg font-bold">{copy.clinicSection}</h2>
+                <p className="mb-5 text-sm text-rx-muted">{copy.required}</p>
+                <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="doctorName">{copy.doctorName} *</Label>
                   <Input id="doctorName" required minLength={2} value={form.doctorName} onChange={(e) => patch("doctorName", e.target.value)} placeholder={copy.doctorNamePlaceholder} />
@@ -304,6 +310,29 @@ export function DoctorOnboardingForm() {
                   <Input id="specialty" required minLength={2} value={form.doctorSpecialty} onChange={(e) => patch("doctorSpecialty", e.target.value)} placeholder={copy.specialtyPlaceholder} />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="phone">{copy.phone} *</Label>
+                  <div className="relative">
+                    <Phone className="absolute start-3.5 top-3.5 text-rx-muted" size={17} />
+                    <Input id="phone" required minLength={8} dir="ltr" className="ps-10 text-start" value={form.phoneNumber ?? ""} onChange={(e) => patch("phoneNumber", e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="address">{copy.address} *</Label>
+                  <Input id="address" required minLength={3} value={form.address ?? ""} onChange={(e) => patch("address", e.target.value)} placeholder={copy.addressPlaceholder} />
+                </div>
+                </div>
+              </section>
+              <details className="rounded-3xl border border-rx-border/80 bg-white p-5 shadow-sm sm:p-7">
+                <summary className="cursor-pointer text-base font-bold">{locale === "ar" ? "تفاصيل إضافية وشعار العيادة (اختياري)" : "More details and clinic logo (optional)"}</summary>
+                <div className="mt-6 grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="clinicName">{copy.clinicName}</Label>
+                  <div className="relative">
+                    <Building2 className="absolute start-3.5 top-3.5 text-rx-muted" size={17} />
+                    <Input id="clinicName" className="ps-10" value={form.clinicName ?? ""} onChange={(e) => patch("clinicName", e.target.value)} placeholder={copy.clinicNamePlaceholder} />
+                  </div>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="professionalTitle">{copy.professionalTitle}</Label>
                   <Input id="professionalTitle" value={form.professionalTitle ?? ""} onChange={(e) => patch("professionalTitle", e.target.value)} placeholder={copy.professionalTitlePlaceholder} />
                 </div>
@@ -311,36 +340,13 @@ export function DoctorOnboardingForm() {
                   <Label htmlFor="licenseNumber">{copy.licenseNumber}</Label>
                   <Input id="licenseNumber" dir="ltr" value={form.licenseNumber ?? ""} onChange={(e) => patch("licenseNumber", e.target.value)} placeholder={copy.licenseNumberPlaceholder} />
                 </div>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-rx-border/80 bg-white p-5 shadow-sm sm:p-7">
-              <div className="mb-6 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
-                  <MapPin size={20} />
-                </span>
-                <h2 className="text-lg font-bold">{copy.prescriptionSection}</h2>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="services">{copy.services}</Label>
                   <Textarea id="services" rows={4} value={form.services ?? ""} onChange={(e) => patch("services", e.target.value)} placeholder={copy.servicesPlaceholder} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">{copy.phone} *</Label>
-                  <div className="relative">
-                    <Phone className="absolute start-3.5 top-3.5 text-rx-muted" size={17} />
-                    <Input id="phone" required minLength={8} dir="ltr" className="ps-10 text-start" value={form.phoneNumber ?? ""} onChange={(e) => patch("phoneNumber", e.target.value)} />
-                  </div>
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="email">{copy.email}</Label>
                   <Input id="email" type="email" dir="ltr" className="text-start" value={form.email ?? ""} onChange={(e) => patch("email", e.target.value)} placeholder="doctor@clinic.com" />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="address">{copy.address} *</Label>
-                  <Input id="address" required minLength={3} value={form.address ?? ""} onChange={(e) => patch("address", e.target.value)} placeholder={copy.addressPlaceholder} />
                 </div>
                 <div className="space-y-3 sm:col-span-2">
                   <Label>{copy.logo}</Label>
@@ -360,8 +366,9 @@ export function DoctorOnboardingForm() {
                     </span>
                   </button>
                 </div>
-              </div>
-            </section>
+                </div>
+              </details>
+            </fieldset>
 
             <Button type="submit" size="lg" disabled={saving} className="w-full sm:w-auto">
               {saving ? <LoaderCircle size={18} className="animate-spin" /> : <ContinueArrow size={18} />}

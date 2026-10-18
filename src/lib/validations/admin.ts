@@ -26,10 +26,15 @@ export const packageSchema = z.object({
 });
 
 export const activateSubscriptionSchema = z.object({
+  paymentConfirmed: z.boolean().optional().default(false),
+  paidAmount: z.number().positive().max(9999999999).optional(),
+  paidCurrency: z.enum(["IQD", "USD"]).optional(),
   packageId: z.number().optional(),
   duration: z.number().int().min(1).optional(),
   durationUnit: z.enum(["days", "months"]).optional(),
   notes: z.string().nullable().optional(),
+}).superRefine((data, ctx) => {
+  if (data.paymentConfirmed && (!data.paidAmount || !data.paidCurrency)) ctx.addIssue({ code: "custom", message: "حدد المبلغ المستلم وعملته لتأكيد الدفع" });
 });
 
 export const adminChangePasswordSchema = z.object({

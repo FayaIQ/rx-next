@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { DemoFrameStatus } from "@/components/landing/demo-frame-status";
 import { AppHeader } from "@/components/layout/app-header";
 import { useLocale } from "@/i18n/locale-provider";
 import { PageContent } from "@/components/ui/page-shell";
@@ -169,6 +170,7 @@ export function PrescriptionComposer() {
   const editId = searchParams.get("id");
   const preselectPatientId = searchParams.get("patientId");
   const queryClient = useQueryClient();
+  const createRequestId = useRef<string | null>(null);
   const { t, locale } = useLocale();
   const nextRowKeyRef = useRef(1);
   const diagnosisRef = useRef<HTMLTextAreaElement>(null);
@@ -620,7 +622,9 @@ export function PrescriptionComposer() {
         throw new Error(t("composer.savingPatient"));
       }
 
+      createRequestId.current ??= crypto.randomUUID();
       const payload = {
+        clientRequestId: createRequestId.current,
         patientId,
         patientLocalId,
         prescriptionDate: new Date(prescriptionDate).toISOString(),
@@ -816,6 +820,7 @@ export function PrescriptionComposer() {
   function resetComposer(
     nextDocumentKind: PrescriptionDocumentKind = "prescription"
   ) {
+    createRequestId.current = null;
     if (doctorId) clearPrescriptionDraft(doctorId);
     draftPersistencePausedRef.current = true;
     latestDraftRef.current = null;
@@ -894,6 +899,8 @@ export function PrescriptionComposer() {
     xrayImage,
     analysisImage,
   ]);
+
+  const deferredLivePreviewData = useDeferredValue(livePreviewData);
 
   const attachmentsSection = (
     <section className="space-y-3">
@@ -1010,6 +1017,7 @@ export function PrescriptionComposer() {
         draftPersistencePausedRef.current = false;
       }}
     >
+      <DemoFrameStatus ready={Boolean(patientsData && medicinesData && presetsData && fieldsData && recipeSettingsData && prescriptionNumber != null && draftReadyDoctorId === doctorId)} />
       <AppHeader
         title={t(documentKind === "message" ? "home.messageTitle" : "home.title")}
         subtitle={
@@ -1483,14 +1491,14 @@ export function PrescriptionComposer() {
             </ComposerPanel>
           </div>
 
-          {livePreviewData ? (
+          {deferredLivePreviewData ? (
             <aside
               data-prescription-preview
               className="min-h-0 min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:flex lg:flex-col lg:sticky lg:self-start lg:top-[calc(var(--rx-header-height)+1rem)] lg:max-h-[calc(100vh-var(--rx-header-height)-var(--rx-nav-pill-offset)-1rem)]"
             >
               <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
                 <PrescriptionLivePreview
-                  data={livePreviewData}
+                  data={deferredLivePreviewData}
                   className="w-full"
                   label={t("composer.livePreview")}
                 />
@@ -1599,7 +1607,7 @@ export function PrescriptionComposer() {
           ) : (
             <p
               data-prescription-preview
-              className="text-sm text-rx-muted lg:col-start-1 lg:row-start-1"
+              className="min-h-[28rem] animate-pulse rounded-xl bg-slate-100 p-4 text-sm text-rx-muted lg:col-start-1 lg:row-start-1"
             >
               {t("composer.loadingPreview")}
             </p>

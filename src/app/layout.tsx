@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 import "@/styles/recipe-fonts.css";
@@ -143,21 +142,6 @@ export default function RootLayout({
           }}
         />
         <Providers>{children}</Providers>
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-46PTJCE9ED"
-          strategy="afterInteractive"
-        />
-        <Script id="rx-google-tag" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            window.gtag = gtag;
-
-            gtag('js', new Date());
-            gtag('config', 'G-46PTJCE9ED');
-            gtag('config', 'AW-17698783004');
-          `}
-        </Script>
       </body>
     </html>
   );

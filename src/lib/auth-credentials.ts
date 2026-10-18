@@ -1,3 +1,4 @@
+import { acquisitionSchema, type Acquisition } from "@/lib/product-analytics/shared";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "./prisma";
@@ -96,6 +97,7 @@ export async function registerDoctor(data: {
   phone: string;
   password: string;
   practiceType?: string;
+  acquisition?: Acquisition;
 }) {
   const { isDoctorPracticeType, getPracticeTypeMeta, applyPracticeTypeFeatures } =
     await import("@/lib/doctor-practice");
@@ -186,6 +188,7 @@ export async function registerDoctor(data: {
       type: "doctor",
       isConfirmed: true,
       createdAt: new Date(),
+      clinicAcquisition: { create: { ...acquisitionSchema.parse(data.acquisition ?? {}), practiceType, accountMode: isDevTestDoctorPhone(phoneNumber) ? "test" : "real" } },
       recipeSettings: {
         create: {
           ...ACADEMIC_RECIPE_TEMPLATE_DEFAULTS,

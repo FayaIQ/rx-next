@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { PrescriptionDocument } from "@/components/prescription/prescription-document";
 import type { PrescriptionDocumentData } from "@/components/prescription/prescription-document";
 import { paperDimensions, paperDimensionsMm } from "@/lib/recipe-paper";
@@ -15,7 +15,7 @@ type Props = {
 
 const PX_PER_MM = 3.7795275591;
 
-export function PrescriptionLivePreview({
+export const PrescriptionLivePreview = memo(function PrescriptionLivePreview({
   data,
   className,
   label,
@@ -74,9 +74,9 @@ export function PrescriptionLivePreview({
         </span>
       </div>
 
-      <div ref={containerRef} className="w-full min-w-0 overflow-hidden">
+      <div ref={containerRef} className="relative mx-auto w-full min-w-0 overflow-hidden" style={{ maxWidth: paperWidthPx, aspectRatio: `${paperWidthPx} / ${paperHeightPx}` }}>
         <div
-          className="relative mx-auto"
+          className="absolute inset-0"
           style={{
             width: scaledWidth,
             height: scaledHeight,
@@ -99,4 +99,4 @@ export function PrescriptionLivePreview({
       </div>
     </div>
   );
-}
+});

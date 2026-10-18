@@ -12,13 +12,15 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint src --quiet",
-    "test": "tsx --test src/lib/__tests__/unit.test.ts src/lib/__tests__/session-scheduling.test.ts",
+    "test": "tsx --test src/lib/__tests__/unit.test.ts src/lib/__tests__/session-scheduling.test.ts && pnpm test:clarity-review && pnpm test:product-analytics",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "doctor:apply-blue-sidebar": "tsx scripts/apply-mohammed-baqir-sidebar-template.ts",
     "postinstall": "prisma generate && node scripts/sync-recipe-fonts.mjs",
-    "fonts:sync": "node scripts/sync-recipe-fonts.mjs"
+    "fonts:sync": "node scripts/sync-recipe-fonts.mjs",
+    "test:clarity-review": "node --experimental-test-module-mocks --import tsx --test src/lib/__tests__/clarity-review.test.mts",
+    "test:product-analytics": "tsx --test src/lib/__tests__/product-analytics.integration.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",

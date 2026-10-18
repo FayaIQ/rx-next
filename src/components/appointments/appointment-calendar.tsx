@@ -34,7 +34,8 @@ function buildMonthGrid(month: Date): (string | null)[] {
   for (let day = 1; day <= daysInMonth; day++) {
     cells.push(toDateKey(new Date(year, monthIndex, day)));
   }
-  while (cells.length % 7 !== 0) cells.push(null);
+  // Reserve six weeks so switching months cannot move the appointments list.
+  while (cells.length < 42) cells.push(null);
   return cells;
 }
 
@@ -206,7 +207,7 @@ export function AppointmentCalendar({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="min-h-[38rem] space-y-3 sm:min-h-[46rem]">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <Button

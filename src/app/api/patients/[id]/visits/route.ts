@@ -1,3 +1,4 @@
+import { recordClinicActivity } from "@/lib/product-analytics/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
@@ -58,6 +59,7 @@ export async function POST(request: Request, { params }: Params) {
       })
     );
 
+    await recordClinicActivity(ctx.doctorId, "visit", visit.id, visit.createdAt ?? new Date());
     return apiOk({ visit: serializePatientVisit(visit) });
   } catch (error) {
     if (error instanceof VisitRequestConflictError) {

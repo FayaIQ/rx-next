@@ -40,6 +40,8 @@ model User {
   createdTasks          ClinicTask[]           @relation("TaskCreator")
   taskComments          ClinicTaskComment[]
   taskActivities        ClinicTaskActivity[]
+  clinicAcquisition ClinicAcquisition?
+  clinicActivities ClinicActivity[]
 
   @@index([activeSessionId], map: "users_active_session_id_index")
   @@map("users")
@@ -71,6 +73,7 @@ model Patient {
   dentalToothImages   DentalToothImage[]
   clinicTasks         ClinicTask[]
 
+  @@index([doctorId, createdAt], map: "patients_doctor_created_index")
   @@map("patients")
 }
 
@@ -104,6 +107,7 @@ model DentalToothRecord {
 }
 
 model TreatmentPlan {
+  clientRequestId String? @unique(map: "treatment_plans_client_request_id_key") @map("client_request_id") @db.VarChar(64)
   id            BigInt             @id @default(autoincrement())
   doctorId      BigInt             @map("doctor_id")
   patientId     BigInt             @map("patient_id")
@@ -120,6 +124,7 @@ model TreatmentPlan {
 
   @@index([doctorId, patientId], map: "treatment_plans_doctor_patient_index")
   @@index([patientId, toothFdi], map: "treatment_plans_patient_tooth_index")
+  @@index([doctorId, createdAt], map: "treatment_plans_doctor_created_index")
   @@map("treatment_plans")
 }
 
@@ -224,6 +229,7 @@ model FinanceTransaction {
 
   @@index([doctorId, transactionDate], map: "finance_transactions_doctor_date_index")
   @@index([doctorId, type], map: "finance_transactions_doctor_type_index")
+  @@index([doctorId, currency, transactionDate], map: "finance_transactions_doctor_currency_date_index")
   @@map("finance_transactions")
 }
 
@@ -250,6 +256,8 @@ model Prescription {
   patientVisits         PatientVisit[]
   financeTransaction    FinanceTransaction?
 
+  @@index([doctorId, prescriptionDate], map: "prescriptions_doctor_date_index")
+  @@index([doctorId, prescriptionNumber], map: "prescriptions_doctor_number_index")
   @@map("prescriptions")
 }
 
@@ -323,6 +331,8 @@ model Appointment {
   treatmentSession    TreatmentSession?
   patientVisits       PatientVisit[]
 
+  @@index([doctorId, bookingDate], map: "appointments_doctor_booking_index")
+  @@index([doctorId, appointmentDatetime], map: "appointments_doctor_datetime_index")
   @@map("appointments")
 }
 
@@ -466,6 +476,9 @@ model Subscription {
   status      String    @default("active") @db.VarChar(255)
   startsAt    DateTime  @map("starts_at") @db.Timestamp(0)
   endsAt      DateTime  @map("ends_at") @db.Timestamp(0)
+  paymentConfirmedAt DateTime? @map("payment_confirmed_at") @db.Timestamptz(3)
+  paidAmount Decimal? @map("paid_amount") @db.Decimal(12, 2)
+  paidCurrency String? @map("paid_currency") @db.VarChar(8)
   activatedBy BigInt?   @map("activated_by")
   notes       String?
   createdAt   DateTime? @map("created_at") @db.Timestamp(0)
@@ -644,4 +657,73 @@ model sessions {
 
   @@index([last_activity], map: "sessions_last_activity_index")
   @@index([user_id], map: "sessions_user_id_index")
+}
+
+
+model ClinicAcquisition {
+  visitKey String? @map("visit_key") @db.VarChar(36)
+  doctorId BigInt @id @map("doctor_id")
+  doctor User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  practiceType String @map("practice_type") @db.VarChar(16)
+  accountMode String @default("real") @map("account_mode") @db.VarChar(16)
+  source String @default("direct") @db.VarChar(32)
+  medium String @default("direct") @db.VarChar(32)
+  campaign String? @db.VarChar(80)
+  registeredAt DateTime @default(now()) @map("registered_at") @db.Timestamptz(3)
+  firstSigninAt DateTime? @map("first_signin_at") @db.Timestamptz(3)
+  onboardingAt DateTime? @map("onboarding_at") @db.Timestamptz(3)
+  firstValueAt DateTime? @map("first_value_at") @db.Timestamptz(3)
+  firstValueReportedAt DateTime? @map("first_value_reported_at") @db.Timestamptz(3)
+  @@index([accountMode, registeredAt], map: "clinic_acquisition_mode_registered_index")
+  @@index([source, campaign, registeredAt], map: "clinic_acquisition_campaign_index")
+  @@map("clinic_acquisitions")
+}
+
+model ClinicActivity {
+  id BigInt @id @default(autoincrement())
+  doctorId BigInt @map("doctor_id")
+  doctor User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  actionKey String @map("action_key") @db.VarChar(100)
+  kind String @db.VarChar(32)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  @@unique([doctorId, actionKey], map: "clinic_activity_action_unique")
+  @@index([doctorId, occurredAt], map: "clinic_activity_doctor_time_index")
+  @@map("clinic_activities")
+}
+
+model ProductMeasurement {
+  visitKey String? @map("visit_key") @db.VarChar(36)
+  source String @default("direct") @db.VarChar(32)
+  campaign String? @db.VarChar(80)
+  userRole String @default("visitor") @map("user_role") @db.VarChar(16)
+  practiceType String? @map("practice_type") @db.VarChar(16)
+  environment String @default("production") @db.VarChar(16)
+  id String @id @db.VarChar(100)
+  route String @db.VarChar(100)
+  metric String @db.VarChar(32)
+  value Float
+  device String @db.VarChar(16)
+  browser String @db.VarChar(24)
+  area String @db.VarChar(24)
+  accountMode String @map("account_mode") @db.VarChar(16)
+  errorCode String? @map("error_code") @db.VarChar(32)
+  release String @db.VarChar(48)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@index([createdAt, route, device, metric], map: "product_measurements_route_time_index")
+  @@index([visitKey, createdAt], map: "product_measurements_visit_time_index")
+  @@map("product_measurements")
+}
+
+model AcquisitionSpend {
+  id BigInt @id @default(autoincrement())
+  source String @db.VarChar(32)
+  campaign String @default("") @db.VarChar(80)
+  fromDate DateTime @map("from_date") @db.Date
+  toDate DateTime @map("to_date") @db.Date
+  amount Decimal @db.Decimal(12, 2)
+  currency String @db.VarChar(8)
+  createdBy BigInt @map("created_by")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  @@unique([source, campaign, fromDate, toDate, currency], map: "acquisition_spend_period_unique")
+  @@map("acquisition_spend")
 }

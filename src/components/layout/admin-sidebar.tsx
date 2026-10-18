@@ -8,12 +8,13 @@ import {
   UserCog,
   Package,
   ToggleLeft,
+  BarChart3,
 } from "lucide-react";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { useLocale } from "@/i18n/locale-provider";
 
 export function AdminSidebar() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
 
   const navItems = [
     {
@@ -22,6 +23,7 @@ export function AdminSidebar() {
       icon: LayoutDashboard,
       exact: true,
     },
+    { href: "/dashboard/acquisition", label: locale === "ar" ? "التفعيل والأداء" : "Activation & performance", icon: BarChart3 },
     { href: "/dashboard/users", label: t("nav.users"), icon: Users },
     {
       href: "/dashboard/subscriptions",

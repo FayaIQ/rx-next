@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Play, RotateCcw } from "lucide-react";
 import { useLocale } from "@/i18n/locale-provider";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 type DeviceKey = "phone" | "tablet" | "desktop";
 
@@ -72,16 +74,14 @@ function supportsCredentialless() {
 }
 
 /** Give up on a live frame that does not finish loading. */
-const LOAD_TIMEOUT_MS = 12_000;
+const LOAD_TIMEOUT_MS = 30_000;
 
-export function LandingRxDemo({
-  onUnavailable,
-}: {
-  onUnavailable: () => void;
-}) {
+export function LandingRxDemo() {
   const { t, dir, locale } = useLocale();
   const screenRef = useRef<HTMLDivElement>(null);
-  const unavailableReported = useRef(false);
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   const [device, setDevice] = useState<DeviceKey>("desktop");
   const [scale, setScale] = useState(0);
@@ -91,10 +91,12 @@ export function LandingRxDemo({
   const [loaded, setLoaded] = useState(false);
 
   const reportUnavailable = useCallback(() => {
-    if (unavailableReported.current) return;
-    unavailableReported.current = true;
-    onUnavailable();
-  }, [onUnavailable]);
+    setLive(false);
+    setSrcReady(false);
+    setLoaded(false);
+    setFailed(true);
+    trackAnalyticsEvent("demo_failed");
+  }, []);
 
   // Pick the frame that matches the visitor's screen.
   useEffect(() => {
@@ -106,10 +108,8 @@ export function LandingRxDemo({
 
   // Only attempt the live frame where the cookie can actually be isolated.
   useEffect(() => {
-    const canUseLiveFrame = supportsCredentialless();
-    setLive(canUseLiveFrame);
-    if (!canUseLiveFrame) reportUnavailable();
-  }, [reportUnavailable]);
+    setSupported(supportsCredentialless());
+  }, []);
 
   // Scale the logical viewport down into the frame's screen cut-out.
   useEffect(() => {
@@ -135,15 +135,37 @@ export function LandingRxDemo({
     setSrcReady(true);
   }, [iframeEl]);
 
+  useEffect(() => {
+    if (!iframeEl || !srcReady) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== iframeEl.contentWindow) return;
+      if (event.data?.type === "rx-demo-ready") {
+        setLoaded(true);
+        trackAnalyticsEvent("demo_ready");
+      } else if (event.data?.type === "rx-demo-failed") reportUnavailable();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [iframeEl, srcReady, reportUnavailable]);
+
+  function startDemo() {
+    if (!supported) return;
+    setFailed(false);
+    setLoaded(false);
+    setSrcReady(false);
+    setAttempt((value) => value + 1);
+    setLive(true);
+    trackAnalyticsEvent("demo_requested");
+  }
+
   // Never let a stalled frame sit on a spinner forever.
   useEffect(() => {
-    if (!srcReady || loaded) return;
+    if (!live || !srcReady || loaded) return;
     const timer = setTimeout(() => {
-      setLive(false);
       reportUnavailable();
     }, LOAD_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [srcReady, loaded, reportUnavailable]);
+  }, [live, srcReady, loaded, reportUnavailable]);
 
   const spec = DEVICES[device];
   const viewportHeight = Math.round(spec.viewportWidth / screenAspect(spec));
@@ -168,6 +190,30 @@ export function LandingRxDemo({
             height: `${spec.screen.height}%`,
           }}
         >
+          {!live && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#f5f8fa] p-4 text-center text-slate-700">
+              <div className="max-w-sm space-y-4">
+                <p className="text-sm font-semibold" role="status">
+                  {supported === false
+                    ? locale === "en" ? "Book a free walkthrough to explore RX on your device." : "احجز شرحاً مجانياً حتى تتعرّف على RX على جهازك."
+                    : failed
+                      ? locale === "en" ? "The demo could not start. Please try again." : "تعذّر تشغيل المعاينة. تگدر تعيد المحاولة."
+                      : locale === "en" ? "Explore RX with a sample clinic." : "جرّب RX ببيانات عيادة تجريبية."}
+                </p>
+                {supported !== false && (
+                  <button type="button" onClick={startDemo} disabled={supported === null}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#0B5F5A] px-5 py-3 text-sm font-bold text-white disabled:opacity-50">
+                    {failed ? <RotateCcw size={18} /> : <Play size={18} />}
+                    {failed ? locale === "en" ? "Try again" : "إعادة المحاولة" : locale === "en" ? "Start demo" : "تشغيل التجربة"}
+                  </button>
+                )}
+                <div className="flex flex-wrap justify-center gap-3 text-xs font-semibold">
+                  <Link href="/auth/signup" className="text-[#0B5F5A] underline">{locale === "en" ? "Start free trial" : "ابدأ التجربة المجانية"}</Link>
+                  <a href="https://wa.me/9647847076026" target="_blank" rel="noopener noreferrer" className="text-[#0B5F5A] underline">{locale === "en" ? "Free walkthrough" : "شرح مجاني"}</a>
+                </div>
+              </div>
+            </div>
+          )}
           {showSpinner && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#f5f8fa] text-slate-700">
               <div className="px-4 text-center">
@@ -186,12 +232,10 @@ export function LandingRxDemo({
 
           {live && scale > 0 && (
             <iframe
+              key={attempt}
               ref={setIframeEl}
               src={srcReady ? "/demo-preview" : undefined}
               title={t("landing.demoLockedTitle")}
-              onLoad={() => {
-                if (srcReady) setLoaded(true);
-              }}
               onError={reportUnavailable}
               className="absolute left-0 top-0 block border-0 bg-white"
               style={{

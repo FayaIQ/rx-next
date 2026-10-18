@@ -9,14 +9,6 @@ export function isOtpEnabled(): boolean {
   return Boolean(process.env.CFLOW_OTP_KEY);
 }
 
-/**
- * Signup OTP can be paused independently without affecting password resets or
- * account deletion. Set SIGNUP_OTP_ENABLED=true to restore the signup check.
- */
-export function isSignupOtpEnabled(): boolean {
-  return isOtpEnabled() && process.env.SIGNUP_OTP_ENABLED === "true";
-}
-
 function apiKey(): string {
   const key = process.env.CFLOW_OTP_KEY;
   if (!key) throw new Error("CFLOW_OTP_KEY غير مضبوط");
@@ -296,15 +288,4 @@ export async function verifyProofToken(
 
   const expected = await signProof(scope, phoneKey, expiresAt);
   return constantTimeEqual(expected, signature);
-}
-
-export function createOtpToken(phone: string): Promise<string> {
-  return createProofToken("otp", phone);
-}
-
-export function verifyOtpToken(
-  phone: string,
-  token: string | null | undefined
-): Promise<boolean> {
-  return verifyProofToken("otp", phone, token);
 }

@@ -3,6 +3,7 @@
 import { formatMoney } from "@/lib/finance/constants";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, Users, FileText, Smile, Wallet, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { AppHeader } from "@/components/layout/app-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContent } from "@/components/ui/page-shell";
@@ -19,7 +20,7 @@ function StatCard({
   icon: typeof Users;
 }) {
   return (
-    <Card>
+    <Card className="min-h-[82px]">
       <CardContent className="flex items-center gap-3 p-4">
         <div className="rounded-lg bg-teal-50 p-2 text-teal-700">
           <Icon size={18} />
@@ -39,7 +40,7 @@ export function ReportsPageClient() {
   const month = new Date().toISOString().slice(0, 7);
   const numberLocale = locale === "en" ? "en-GB" : "ar-IQ";
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["reports", month],
     queryFn: async () => {
       const res = await fetch(`/api/reports/overview?month=${month}`);
@@ -58,8 +59,8 @@ export function ReportsPageClient() {
         })}
       />
       <PageContent className="space-y-4">
-        {isLoading || !data ? (
-          <div className="h-40 animate-pulse rounded-xl bg-slate-100" />
+        {error ? <div className="min-h-80 space-y-4"><p role="alert">{t("common.error")}</p><Button onClick={() => void refetch()}>{t("patientFile.retry")}</Button></div> : isLoading || !data ? (
+          <div className="min-h-80 space-y-4"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: treatmentEnabled ? 6 : 5 }, (_, i) => <div key={i} className="h-[82px] animate-pulse rounded-2xl border bg-slate-100" />)}</div>{treatmentEnabled && <div className="h-48 animate-pulse rounded-2xl bg-slate-100" />}</div>
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -97,7 +98,7 @@ export function ReportsPageClient() {
               />
             </div>
 
-            {treatmentEnabled ? <Card>
+            {treatmentEnabled ? <Card className="min-h-48">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
                   {t("reports.treatmentByType")}

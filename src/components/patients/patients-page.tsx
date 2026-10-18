@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Users, FileText, Smile } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { AppHeader } from "@/components/layout/app-header";
@@ -46,14 +46,23 @@ export function PatientsPageClient({
   const pageTitle = title ?? t("patients.title");
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [editing, setEditing] = useState<PatientDto | null>(null);
   const [showForm, setShowForm] = useState(false);
   const { page, pageSize, onPageChange, onPageSizeChange } =
-    usePaginationState(q);
+    usePaginationState();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["patients", q, page, pageSize],
-    queryFn: () => fetchPatientsPaginated(q || undefined, page, pageSize),
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(q);
+      onPageChange(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [q, onPageChange]);
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["patients", searchQuery, page, pageSize],
+    queryFn: () => fetchPatientsPaginated(searchQuery || undefined, page, pageSize),
     placeholderData: keepPreviousData,
     retry: (failureCount) => online && failureCount < 1,
   });
@@ -135,7 +144,12 @@ export function PatientsPageClient({
 
         <Card>
           <CardContent className="p-0">
-            {isLoading ? (
+            {error && !data ? (
+              <div className="min-h-64 space-y-4 p-6">
+                <p role="alert">{t("common.error")}</p>
+                <Button onClick={() => void refetch()}>{t("patientFile.retry")}</Button>
+              </div>
+            ) : isLoading ? (
               <div className="space-y-3 p-6">
                 {[1, 2, 3, 4].map((i) => (
                   <Skeleton key={i} className="h-12 w-full" />

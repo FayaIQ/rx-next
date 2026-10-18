@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -165,6 +165,7 @@ function HeroProduct({ t }: { t: (k: string) => string }) {
         alt={t("landing.visualRx")}
         width={1672}
         height={941}
+        sizes="(min-width: 1024px) 700px, 100vw"
         className="h-auto w-full"
         priority
       />
@@ -229,8 +230,7 @@ const OFFER_PROOFS = [
 
 export function LandingPage() {
   const { t, dir, locale } = useLocale();
-  const [showLiveDemo, setShowLiveDemo] = useState(true);
-  const hideLiveDemo = useCallback(() => setShowLiveDemo(false), []);
+  const [practice, setPractice] = useState<"general" | "dental" | null>(null);
   const whatsappMessage =
     locale === "ar"
       ? "مرحباً، أريد شرحاً مجانياً عن نظام RX Clinic لإدارة العيادات"
@@ -248,8 +248,11 @@ export function LandingPage() {
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-28 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10 lg:pb-20 lg:pt-32">
           <div className="rx-landing-hero-copy">
             <Badge>{t("landing.badge")}</Badge>
+            <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label={locale === "ar" ? "نوع العيادة" : "Clinic type"}>
+              {(["general", "dental"] as const).map(type => <button key={type} type="button" aria-pressed={practice === type} onClick={() => setPractice(type)} className={cn("rounded-full border px-4 py-2 text-sm font-semibold", practice === type ? "border-[#0B5F5A] bg-[#0B5F5A] text-white" : "border-slate-200 text-slate-600")}>{locale === "ar" ? type === "dental" ? "عيادة أسنان" : "عيادة عامة وتخصصية" : type === "dental" ? "Dental clinic" : "General / specialist clinic"}</button>)}
+            </div>
             <h1 className="mt-5 text-4xl font-bold leading-[1.15] tracking-tight text-[#0B2C3D] sm:text-5xl">
-              {t("landing.headline")}
+              {practice === "dental" ? locale === "ar" ? "نظّم مخطط الأسنان وخطط العلاج وجلسات مرضاك بمكان واحد" : "Manage dental charts, treatment plans and patient sessions in one place" : practice === "general" ? locale === "ar" ? "نظّم مرضاك ووصفاتك ومواعيد عيادتك بمكان واحد" : "Manage patients, prescriptions and appointments in one place" : t("landing.headline")}
             </h1>
             <p className="mt-5 max-w-lg text-base leading-relaxed text-slate-600 sm:text-lg">
               {t("landing.subhead")}
@@ -262,7 +265,7 @@ export function LandingPage() {
             </div>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
-                href="/auth/signup"
+                href={practice ? `/auth/signup?practice=${practice}` : "/auth/signup"}
                 className="inline-flex items-center justify-center rounded-full bg-[#0B5F5A] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#094E4A]"
               >
                 {t("landing.ctaTrial")}
@@ -587,8 +590,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* The entire live-demo section disappears if the frame is unavailable. */}
-      {showLiveDemo ? (
+      {/* Keep a stable demo section, including on browsers without cookie isolation. */}
         <section
           id="live-demo"
           className="scroll-mt-24 border-t border-slate-200/80 bg-white px-5 py-20 sm:px-8"
@@ -600,10 +602,9 @@ export function LandingPage() {
               body={t("landing.demoBody")}
               center
             />
-            <LandingRxDemo onUnavailable={hideLiveDemo} />
+            <LandingRxDemo />
           </div>
         </section>
-      ) : null}
 
       {/* Roles */}
       <section className="border-y border-slate-200/80 bg-[#F6F8F7] px-5 py-20 sm:px-8">

@@ -1,10 +1,13 @@
+import { recordClinicActivity } from "@/lib/product-analytics/server";
 import { prisma } from "@/lib/prisma";
 import { fromDbId } from "@/lib/bigint";
 import { treatmentTypeLabel } from "@/lib/treatment/constants";
 import { sessionAppointmentDatetime, sessionTimeInput, sessionVisitDate } from "@/lib/treatment/session-datetime";
 
 export async function syncSessionAppointment(sessionId: bigint) {
-  const session = await prisma.treatmentSession.findUnique({
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM treatment_sessions WHERE id = ${sessionId} FOR UPDATE`;
+  const session = await tx.treatmentSession.findUnique({
     where: { id: sessionId },
     include: { plan: true, appointment: true, patient: { select: { name: true } } },
   });
@@ -12,7 +15,7 @@ export async function syncSessionAppointment(sessionId: bigint) {
 
   if (!session.scheduledDate || session.status === "cancelled") {
     if (session.appointmentId) {
-      await prisma.appointment.update({
+      await tx.appointment.update({
         where: { id: session.appointmentId },
         data: { status: false },
       });
@@ -27,11 +30,11 @@ export async function syncSessionAppointment(sessionId: bigint) {
   const scheduledTime = session.scheduledTime ?? sessionTimeInput(session.appointment?.appointmentDatetime ?? new Date());
   const appointmentDatetime = sessionAppointmentDatetime(session.scheduledDate, scheduledTime);
   if (!session.scheduledTime) {
-    await prisma.treatmentSession.update({ where: { id: session.id }, data: { scheduledTime } });
+    await tx.treatmentSession.update({ where: { id: session.id }, data: { scheduledTime } });
   }
 
   if (session.appointmentId) {
-    await prisma.appointment.update({
+    await tx.appointment.update({
       where: { id: session.appointmentId },
       data: {
         appointmentDatetime,
@@ -43,7 +46,7 @@ export async function syncSessionAppointment(sessionId: bigint) {
     return session;
   }
 
-  const appointment = await prisma.appointment.create({
+  const appointment = await tx.appointment.create({
     data: {
       doctorId: session.doctorId,
       patientId: session.patientId,
@@ -55,9 +58,10 @@ export async function syncSessionAppointment(sessionId: bigint) {
     },
   });
 
-  return prisma.treatmentSession.update({
+  return tx.treatmentSession.update({
     where: { id: session.id },
     data: { appointmentId: appointment.id },
+  });
   });
 }
 
@@ -67,32 +71,16 @@ export async function recordSessionVisit(sessionId: bigint) {
     include: { plan: true },
   });
   if (!session || session.status !== "completed") return;
+  await recordClinicActivity(Number(session.doctorId), "treatment_session", session.id);
 
-  const existing = await prisma.patientVisit.findFirst({
-    where: { treatmentSessionId: session.id },
-  });
-  if (existing) {
-    await prisma.patientVisit.update({
-      where: { id: existing.id },
-      data: {
-        notes: session.notes,
-        summary: `${treatmentTypeLabel(session.plan.treatmentType)} — جلسة ${session.sessionNumber}`,
-        visitDate: sessionVisitDate(session.performedAt ?? new Date()),
-      },
-    });
-    return;
-  }
-
-  await prisma.patientVisit.create({
-    data: {
-      doctorId: session.doctorId,
-      patientId: session.patientId,
-      visitDate: sessionVisitDate(session.performedAt ?? new Date()),
-      summary: `${treatmentTypeLabel(session.plan.treatmentType)} — جلسة ${session.sessionNumber}`,
-      notes: session.notes,
-      appointmentId: session.appointmentId,
-      treatmentSessionId: session.id,
-    },
+  const details = {
+    notes: session.notes,
+    summary: `${treatmentTypeLabel(session.plan.treatmentType)} — جلسة ${session.sessionNumber}`,
+    visitDate: sessionVisitDate(session.performedAt ?? new Date()),
+  };
+  await prisma.patientVisit.upsert({
+    where: { treatmentSessionId: session.id }, update: details,
+    create: { ...details, doctorId: session.doctorId, patientId: session.patientId, appointmentId: session.appointmentId, treatmentSessionId: session.id },
   });
 }
 

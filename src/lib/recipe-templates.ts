@@ -2,7 +2,7 @@ import type { RecipeSettingsDto } from "@/lib/api/rx-client";
 import {
   DEFAULT_ITEMS_BOX_HEIGHT,
   DEFAULT_ITEMS_BOX_WIDTH,
-} from "@/components/recipe/prescription-items-box";
+} from "@/lib/recipe-items-box";
 import {
   ACADEMIC_RECIPE_TEMPLATE_DEFAULTS,
   ACADEMIC_RECIPE_TEMPLATE_ID,

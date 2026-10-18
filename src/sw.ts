@@ -65,6 +65,7 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
+  fallbacks: { entries: [{ url: "/offline.html", matcher: ({ request }) => request.mode === "navigate" }] },
   runtimeCaching: [
     navigationRule,
     ...liveApiRules,

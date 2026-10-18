@@ -6,15 +6,7 @@ import { MedicineLineList } from "@/components/prescription/medicine-line";
 import { useLocale } from "@/i18n/locale-provider";
 import { PUBLIC_DEMO_PRESCRIPTION_BACKGROUND } from "@/lib/demo/constants";
 
-export const DEFAULT_ITEMS_BOX_WIDTH = 84;
-export const DEFAULT_ITEMS_BOX_HEIGHT = 45;
-
-export function itemsBoxSize(settings: RecipeSettingsDto) {
-  return {
-    width: Math.min(92, Math.max(25, settings.designItemsWidth ?? DEFAULT_ITEMS_BOX_WIDTH)),
-    height: Math.min(80, Math.max(15, settings.designItemsHeight ?? DEFAULT_ITEMS_BOX_HEIGHT)),
-  };
-}
+import { itemsBoxSize } from "@/lib/recipe-items-box";
 
 export function PrescriptionItemsContent({
   data,

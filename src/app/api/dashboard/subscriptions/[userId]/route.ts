@@ -51,6 +51,11 @@ export async function POST(request: Request, { params }: Params) {
     const body = await request.json();
     const data = activateSubscriptionSchema.parse(body);
 
+    if (data.paymentConfirmed && data.packageId) {
+      const pkg = await prisma.package.findUnique({ where: { id: toDbId(data.packageId) } });
+      if (!pkg || pkg.isTrial || pkg.planType === "trial") return apiError("لا يمكن احتساب التجربة المجانية كاشتراك مدفوع");
+    }
+
     let subId: bigint;
     if (data.packageId) {
       const created = await activatePackageForUser(
@@ -73,6 +78,10 @@ export async function POST(request: Request, { params }: Params) {
       return apiError("حدد باقة أو مدة مخصصة");
     }
 
+    if (data.paymentConfirmed) await prisma.subscription.update({
+      where: { id: subId },
+      data: { paymentConfirmedAt: new Date(), paidAmount: data.paidAmount, paidCurrency: data.paidCurrency },
+    });
     const sub = await prisma.subscription.findUnique({
       where: { id: subId },
       include: { package: true },

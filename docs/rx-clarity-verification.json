@@ -1,0 +1,44 @@
+{
+  "report": "RX-Clarity-Analysis-Plan.html",
+  "reviewDate": "2026-10-18",
+  "implementation": "Prepared release for origin/main; hosted deployment and production database upgrade remain unverified.",
+  "implemented": [
+    "Official-domain analytics and isolation of admin, demo, test, portal and clinic traffic",
+    "Anonymous qualified-visit funnel linked to server-confirmed signup; first-touch attribution",
+    "Server milestones, 48-hour activation, completed D7/D14 windows, confirmed payments and verified-spend costs",
+    "On-demand isolated demo with actual ready handshake, retry and unsupported-browser fallback",
+    "Four-field progressive onboarding, prefills, specialty guidance and focused marketing CTA",
+    "Debounced patient lookup, grouped finance summary, query indexes, parallel reports, deferred prescription preview and demand-driven dental rendering",
+    "Reserved prescription/queue/report/calendar layouts",
+    "Idempotent prescription and treatment-plan creation, concurrent session appointment/visit safety",
+    "Immediate offline saves, coalesced repeated saves, edits after synchronization, reconnect without page reload",
+    "Prescription print/export server helper boundary and preservation of typed medicine names",
+    "Removed signup OTP UI and enforcement permanently; legacy signup OTP endpoints cannot send or verify codes, even with an old enabling flag. Recovery and deletion verification are unchanged."
+  ],
+  "verified": {
+    "automated": "Release scope: 62 unit checks, full lint and production build passed. Database integration passed on the HEAD schema upgraded using the additive SQL, which also passed repeated application.",
+    "productionBuild": "Production build of the exact release scope passed after signup OTP cleanup.",
+    "browser": "Real local signup and onboarding for general and dental; clinical saves, first value, admin paid/spend reporting, sanitized telemetry, offline queue, reconnect and same-record edit; print/export returned 200",
+    "financeComparison": {
+      "fixtureRows": 10000,
+      "oldMedianMs": 23.28,
+      "newMedianMs": 4.16,
+      "identicalResults": true,
+      "scope": "isolated local database; not field Web Vitals"
+    },
+    "demo": "Actual local credentialless iframe: zero frames before request, ready handshake after composer loads, demo session inside the frame, no signed-in account in the outer page.",
+    "offline": "Repeated saves coalesced into one queued create. Reconnect retained the document and typed medicine name. A subsequent edit updated the same prescription ID. Cold reload showed the generic fallback and recovered online.",
+    "print": "Printable export returned 200; generated PDF was one A5 page and visually checked.",
+    "signupWithoutOtp": "Mocked mobile browser: one account creation, initial sign-in failure and successful retry, zero OTP requests or OTP proof fields. Doctor and secretary APIs still enforce configured captcha; stale OTP flags cannot enable signup codes."
+  },
+  "offlineBoundary": "An already-open clinic workspace saves locally and syncs when connectivity returns. A cold start/reload requires online account verification and shows a generic offline fallback. Authenticated HTML and live clinical API responses are not service-worker cached.",
+  "remainingEvidence": [
+    "Apply additive database migration and deploy reviewed changes",
+    "Physical Chrome Android, Facebook/Instagram in-app, Safari iPhone and tablet tests; desktop emulation is not physical-device proof",
+    "Review 20-30 real Clarity recordings after authorized login; current browser is signed out",
+    "5-8 real clinics and consented human follow-up",
+    "Field P75 per same device/route/release and clean baseline; do not infer success from historical mixed CSV metrics",
+    "D7/D14 and 48-hour cohorts need elapsed time; campaign costs require actual verified spend"
+  ],
+  "preserved": "Pre-existing medical summary and session-template changes are preserved locally and excluded from this release."
+}

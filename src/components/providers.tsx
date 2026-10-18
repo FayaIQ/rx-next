@@ -8,6 +8,8 @@ import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { DevServiceWorkerCleanup } from "@/components/pwa/dev-sw-cleanup";
 import { LocaleProvider, useLocale } from "@/i18n/locale-provider";
 import { SyncProvider } from "@/components/sync/sync-provider";
+import { GoogleTags } from "@/components/analytics/google-tags";
+import { ProductMeasurement } from "@/components/analytics/product-measurement";
 import { MicrosoftClarity } from "@/components/analytics/microsoft-clarity";
 
 function AppToaster() {
@@ -35,8 +37,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
+            // Offline-aware functions must run to read IndexedDB or cached responses.
+            networkMode: "always",
             staleTime: 60 * 1000,
             refetchOnWindowFocus: false,
+          },
+          mutations: {
+            // Queue persistence belongs to the offline API, not a paused query mutation.
+            networkMode: "always",
           },
         },
       })
@@ -45,6 +53,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <MicrosoftClarity />
+      <GoogleTags />
+      <ProductMeasurement />
       <LocaleProvider>
         <QueryClientProvider client={queryClient}>
           <DevServiceWorkerCleanup />

@@ -237,7 +237,7 @@ export function WaitingRoomBoard({
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="min-h-[28rem]">
         <CardContent className="py-8 text-center text-sm text-rx-muted">
           {t("waitingRoom.loading")}
         </CardContent>
@@ -250,7 +250,7 @@ export function WaitingRoomBoard({
   return (
     <Card
       className={cn(
-        "shadow-sm",
+        "min-h-[28rem] shadow-sm",
         isDoctor
           ? "border-violet-200 ring-1 ring-violet-100"
           : "border-rx-primary/15"

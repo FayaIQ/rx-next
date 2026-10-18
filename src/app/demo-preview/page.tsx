@@ -16,11 +16,13 @@ export default function DemoPreviewBootstrapPage() {
       try {
         const result = await signIn("demo", { redirect: false });
         if (!result?.ok || result.error) {
+          window.parent.postMessage({ type: "rx-demo-failed" }, window.location.origin);
           setFailed(true);
           return;
         }
         window.location.replace(`/home?demo-preview=${Date.now()}`);
       } catch {
+        window.parent.postMessage({ type: "rx-demo-failed" }, window.location.origin);
         setFailed(true);
       }
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -16,7 +16,13 @@ import { Button } from "@/components/ui/button";
 import { PageContent } from "@/components/ui/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PrescriptionDocumentData } from "@/components/prescription/prescription-document";
-import { RecipePreviewEditor } from "@/components/recipe/recipe-preview-editor";
+import dynamic from "next/dynamic";
+import { RecipeDesignerPageLoading } from "@/components/ui/page-loading";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const RecipePreviewEditor = dynamic(() => import("@/components/recipe/recipe-preview-editor").then((m) => m.RecipePreviewEditor), {
+  loading: () => <Skeleton className="min-h-[32rem] w-full rounded-xl" />,
+});
 import type { PositionKey } from "@/components/recipe/draggable-block";
 import {
   AppearanceSection,
@@ -73,7 +79,7 @@ export function RecipeSettingsForm() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<RecipeSettingsDto>(() => DEFAULT_FORM);
   const [activeTab, setActiveTab] = useState<SettingsTab>("template");
-  const hydratedRef = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
 
   const defaultPreview = useMemo<PrescriptionDocumentData>(
     () => ({
@@ -99,7 +105,7 @@ export function RecipeSettingsForm() {
     [t]
   );
 
-  const { data } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     queryKey: queryKeys.recipeSettings.all,
     queryFn: () => rxApi.recipeSettings.get(),
     staleTime: 5 * 60_000,
@@ -118,15 +124,17 @@ export function RecipeSettingsForm() {
   >({});
 
   useEffect(() => {
-    if (data?.settings && !hydratedRef.current) {
+    if (data?.settings && !hydrated) {
       setForm(normalizeRecipeSettingsDto(data.settings));
-      hydratedRef.current = true;
+      setHydrated(true);
     }
-  }, [data]);
+  }, [data, hydrated]);
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      rxApi.recipeSettings.update(normalizeRecipeSettingsDto(form)),
+    mutationFn: () => {
+      if (!hydrated) throw new Error(t("common.loading"));
+      return rxApi.recipeSettings.update(normalizeRecipeSettingsDto(form));
+    },
     onSuccess: (res) => {
       const next = normalizeRecipeSettingsDto(res.settings);
       setForm(next);
@@ -220,6 +228,17 @@ export function RecipeSettingsForm() {
       };
     }),
   };
+
+  if (error && !data?.settings) {
+    return <>
+      <AppHeader title={t("recipe.title")} subtitle={t("recipe.subtitle")} />
+      <PageContent wide className="min-h-[32rem] space-y-4">
+        <p role="alert">{t("common.error")}</p>
+        <Button onClick={() => void refetch()}>{t("patientFile.retry")}</Button>
+      </PageContent>
+    </>;
+  }
+  if (isPending || !hydrated) return <RecipeDesignerPageLoading />;
 
   return (
     <>

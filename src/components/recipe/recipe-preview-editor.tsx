@@ -7,9 +7,9 @@ import {
 } from "@/components/prescription/prescription-document";
 import { DraggableBlock, type PositionKey } from "./draggable-block";
 import {
-  itemsBoxSize,
   PrescriptionItemsContent,
 } from "@/components/recipe/prescription-items-box";
+import { itemsBoxSize } from "@/lib/recipe-items-box";
 import { fieldFontSize } from "@/lib/patient-field-layout";
 import { formatAge, formatPrescriptionDate, genderLabel } from "@/lib/patient-utils";
 import { fontFamilyCss } from "@/lib/recipe-settings";
