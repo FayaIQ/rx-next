@@ -14,9 +14,10 @@ export async function GET() {
         m.route, m.metric, m.value, m.device, m.browser, m.area, m.account_mode, m.error_code,
         m.release, m.created_at, m.visit_key, m.source, m.campaign, m.user_role, m.practice_type, m.environment,
         p.source, p.campaign, p.from_date, p.to_date, p.amount, p.currency, p.created_by,
-        s.payment_confirmed_at, s.paid_amount, s.paid_currency, t.client_request_id
+        s.payment_confirmed_at, s.paid_amount, s.paid_currency, t.client_request_id,
+        pa.chronic_conditions, dst.doctor_id, dst.name, dst.treatment_type, dst.notes
       FROM clinic_acquisitions a, clinic_activities c, product_measurements m, acquisition_spend p,
-        subscriptions s, treatment_plans t WHERE false
+        subscriptions s, treatment_plans t, patients pa, dental_session_templates dst WHERE false
     `;
     return Response.json({ status: "ok", release }, { headers });
   } catch {

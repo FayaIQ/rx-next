@@ -1,13 +1,12 @@
 "use client";
 
+import { PatientMedicalSummary } from "@/components/patients/patient-medical-summary";
 import { formatMoney } from "@/lib/finance/constants";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AlertTriangle,
   Calendar,
   FileText,
-  Pill,
   Smile,
   Wallet,
 } from "lucide-react";
@@ -56,25 +55,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
           </Button>
         </div>
 
-        {data.patient.allergies?.trim() ? (
-          <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-            <span>
-              <strong>{t("waitingRoom.allergies")}</strong>{" "}
-              {data.patient.allergies}
-            </span>
-          </p>
-        ) : null}
-
-        {data.patient.currentMedications?.trim() ? (
-          <p className="flex items-start gap-2 text-xs text-slate-700">
-            <Pill size={14} className="mt-0.5 shrink-0 text-slate-500" />
-            <span>
-              <strong>{t("waitingRoom.currentMeds")}</strong>{" "}
-              {data.patient.currentMedications}
-            </span>
-          </p>
-        ) : null}
+        <PatientMedicalSummary patient={data.patient} />
 
         <div className="grid gap-2 text-xs sm:grid-cols-2">
           {data.lastPrescription ? (

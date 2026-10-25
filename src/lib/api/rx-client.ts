@@ -23,6 +23,9 @@ export type TodayTreatmentSessionDto = {
   totalSessions: number | null;
 };
 
+export type SessionNoteTemplateDto = { id: number; name: string; treatmentType: string | null; notes: string };
+export type SessionNoteTemplateInput = { name: string; treatmentType: string | null; notes: string };
+
 export type PatientDto = {
   id: number;
   /** Present only for a patient created locally while offline. */
@@ -33,6 +36,7 @@ export type PatientDto = {
   diagnosis: string | null;
   phone: string | null;
   allergies?: string | null;
+    chronicConditions?: string | null;
   currentMedications?: string | null;
   portalInstructions?: string | null;
   doctorId: number;
@@ -401,6 +405,11 @@ export const rxApi = {
           body: JSON.stringify(body),
         })
       ),
+  },
+  treatmentTemplates: {
+    list: () => handleResponse<{ templates: SessionNoteTemplateDto[] }>(fetch("/api/treatment-templates")),
+    save: (body: SessionNoteTemplateInput, id?: number) => handleResponse<{ template: SessionNoteTemplateDto }>(fetch(`/api/treatment-templates${id ? `/${id}` : ""}`, { method: id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })),
+    delete: (id: number) => handleResponse<{ success: boolean }>(fetch(`/api/treatment-templates/${id}`, { method: "DELETE" })),
   },
   treatment: {
     listPlans: (patientId: number, params?: { toothFdi?: number }) => {

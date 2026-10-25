@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { DemoFrameStatus } from "@/components/landing/demo-frame-status";
 import { AppHeader } from "@/components/layout/app-header";
+import { PatientMedicalSummary } from "@/components/patients/patient-medical-summary";
 import { useLocale } from "@/i18n/locale-provider";
 import { PageContent } from "@/components/ui/page-shell";
 import {
@@ -1162,17 +1163,7 @@ export function PrescriptionComposer() {
 
                 {selectedPatient && !showNewPatient && (
                   <div className="space-y-3 rounded-lg border border-rx-border/60 bg-rx-bg-subtle/30 p-3">
-                    {selectedPatient.allergies?.trim() ? (
-                      <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
-                        <strong>{t("composer.allergyAlert")}</strong> {selectedPatient.allergies}
-                      </div>
-                    ) : null}
-                    {selectedPatient.currentMedications?.trim() ? (
-                      <p className="text-sm text-slate-700">
-                        <strong>{t("composer.currentMeds")}</strong>{" "}
-                        {selectedPatient.currentMedications}
-                      </p>
-                    ) : null}
+                    <PatientMedicalSummary patient={selectedPatient} />
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="rx-patient-chip">
                         <strong>{selectedPatient.name}</strong>

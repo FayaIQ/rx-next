@@ -1,5 +1,7 @@
 "use client";
 
+import { SessionNoteTemplates } from "@/components/treatment/session-note-templates";
+import { PatientMedicalSummaryLoader } from "@/components/patients/patient-medical-summary";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +15,9 @@ type Props = {
   open: boolean;
   title: string;
   subtitle?: string;
+  patientId?: number;
+  treatmentType?: string;
+  initialNotes?: string | null;
   isPending?: boolean;
   onClose: () => void;
   onConfirm: (notes: string, performedAt: string) => void;
@@ -22,6 +27,9 @@ export function CompleteSessionNoteDialog({
   open,
   title,
   subtitle,
+  patientId,
+  treatmentType,
+  initialNotes,
   isPending,
   onClose,
   onConfirm,
@@ -32,16 +40,16 @@ export function CompleteSessionNoteDialog({
 
   useEffect(() => {
     if (open) {
-      setNotes("");
+      setNotes(initialNotes ?? "");
       setPerformedAt(sessionDateTimeInput());
     }
-  }, [open]);
+  }, [open, initialNotes]);
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
-      <Card className="w-full max-w-md shadow-xl">
+      <Card className="w-full max-w-xl max-h-[90dvh] overflow-y-auto shadow-xl">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">{title}</CardTitle>
           {subtitle ? (
@@ -49,6 +57,7 @@ export function CompleteSessionNoteDialog({
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
+          {patientId ? <PatientMedicalSummaryLoader patientId={patientId} /> : null}
           <div className="space-y-1.5">
             <Label htmlFor="session-performed-at">{t("treatment.performedAt")}</Label>
             <Input
@@ -60,9 +69,12 @@ export function CompleteSessionNoteDialog({
               required
             />
           </div>
+          <SessionNoteTemplates notes={notes} onChange={setNotes} treatmentType={treatmentType} disabled={isPending} />
           <div className="space-y-1.5">
-            <Label>{t("treatment.noteOptional")}</Label>
+            <Label htmlFor="session-completion-notes">{t("treatment.noteOptional")}</Label>
             <Textarea
+              id="session-completion-notes"
+              maxLength={2000}
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

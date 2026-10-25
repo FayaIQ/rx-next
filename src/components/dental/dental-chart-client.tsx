@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PatientMedicalSummaryLoader } from "@/components/patients/patient-medical-summary";
 import { PageContent } from "@/components/ui/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { ToothSessionsPanel } from "@/components/dental/tooth-sessions-panel";
@@ -176,6 +177,7 @@ export function DentalChartClient({ patientId }: Props) {
         subtitle={t("dental.teethRecorded", { count: recordedCount })}
       />
       <PageContent className="space-y-4">
+        <PatientMedicalSummaryLoader patientId={patientId} />
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/dental">

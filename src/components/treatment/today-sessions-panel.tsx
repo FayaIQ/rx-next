@@ -124,6 +124,9 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
 
       <CompleteSessionNoteDialog
         open={completingSession !== null}
+        patientId={completingSession?.patientId}
+        initialNotes={completingSession?.notes}
+        treatmentType={completingSession?.treatmentType}
         title={
           completingSession
             ? t("treatment.completeSession", { name: completingSession.patientName })

@@ -87,6 +87,7 @@ export function serializePatientLight(
     diagnosis: string | null;
     phone: string | null;
     allergies?: string | null;
+    chronicConditions?: string | null;
     currentMedications?: string | null;
     portalInstructions?: string | null;
     doctorId: bigint | number;
@@ -106,6 +107,7 @@ export function serializePatientLight(
     birthdate: patient.birthdate?.toISOString() ?? null,
     diagnosis: patient.diagnosis,
     phone: patient.phone,
+    chronicConditions: patient.chronicConditions ?? null,
     allergies: (patient as { allergies?: string | null }).allergies ?? null,
     currentMedications:
       (patient as { currentMedications?: string | null }).currentMedications ??
@@ -132,6 +134,7 @@ export async function serializePatient(
     diagnosis: string | null;
     phone: string | null;
     allergies?: string | null;
+    chronicConditions?: string | null;
     currentMedications?: string | null;
     portalInstructions?: string | null;
     doctorId: bigint | number;
@@ -155,6 +158,7 @@ export async function serializePatient(
     birthdate: patient.birthdate?.toISOString() ?? null,
     diagnosis: patient.diagnosis,
     phone: patient.phone,
+    chronicConditions: patient.chronicConditions ?? null,
     allergies: (patient as { allergies?: string | null }).allergies ?? null,
     currentMedications:
       (patient as { currentMedications?: string | null }).currentMedications ??

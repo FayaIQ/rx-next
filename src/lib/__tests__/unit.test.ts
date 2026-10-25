@@ -758,3 +758,28 @@ it("counts sessions from both procedures on the same tooth", () => {
   assert.equal(markers[0].totalSessions, 5);
   assert.equal(markers[0].completedSessions, 1);
 });
+
+import { appendSessionTemplate, sessionNoteTemplateSchema } from "../treatment/session-note-template";
+import { patientSchema } from "../validations/rx";
+
+describe("session note templates and medical summary", () => {
+  it("adds a template without erasing notes or duplicating an immediately repeated application", () => {
+    const applied = appendSessionTemplate(" ملاحظة تخص المريض ", " خطوات الجلسة ");
+    assert.equal(applied, "ملاحظة تخص المريض\n\nخطوات الجلسة");
+    assert.equal(appendSessionTemplate(applied, "خطوات الجلسة"), applied);
+    assert.equal(appendSessionTemplate("", "خطوات الجلسة"), "خطوات الجلسة");
+    assert.throws(() => appendSessionTemplate("x".repeat(1999), "abc"), /SESSION_NOTE_TOO_LONG/);
+  });
+  it("rejects empty or oversized templates and unknown treatment types", () => {
+    assert.equal(sessionNoteTemplateSchema.safeParse({ name: " ", notes: "test" }).success, false);
+    assert.equal(sessionNoteTemplateSchema.safeParse({ name: "test", notes: "x".repeat(2001) }).success, false);
+    assert.equal(sessionNoteTemplateSchema.safeParse({ name: "test", notes: "test", treatmentType: "unknown" }).success, false);
+    assert.equal(sessionNoteTemplateSchema.parse({ name: " test ", notes: " steps ", treatmentType: null }).notes, "steps");
+  });
+  it("supports blank medical fields and preserves omission for older clients", () => {
+    const base = { name: "Patient", gender: "male" };
+    assert.equal(patientSchema.parse(base).chronicConditions, undefined);
+    assert.equal(patientSchema.parse({ ...base, chronicConditions: null }).chronicConditions, null);
+    assert.equal(patientSchema.safeParse({ ...base, chronicConditions: "x".repeat(4001) }).success, false);
+  });
+});
