@@ -11,6 +11,8 @@ const ALLOWED_DESTINATIONS = new Set([
   "/privacy",
 ]);
 
+export const dynamic = "force-dynamic";
+
 export function GET(req: Request) {
   const url = new URL(req.url);
   const requestedDestination = url.searchParams.get("next") ?? "/auth/signin";
@@ -19,6 +21,7 @@ export function GET(req: Request) {
     : "/auth/signin";
   const response = NextResponse.redirect(new URL(destination, url.origin));
 
-  clearSessionCookies(response);
+  response.headers.set("Cache-Control", "no-store");
+  clearSessionCookies(response, req.headers.get("cookie"));
   return response;
 }

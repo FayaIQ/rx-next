@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { Menu, X, LogOut, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { BrandLogo } from "@/components/layout/brand-logo";
@@ -158,18 +158,13 @@ export function SidebarShell({ items, theme, brandSubtitle }: Props) {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() =>
-              void signOut({ redirect: false }).then(() => {
-                window.location.href = themeCfg.signOutUrl;
-              })
-            }
+          <a
+            href={`/auth/demo-exit?next=${encodeURIComponent(themeCfg.signOutUrl)}`}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 text-sm font-medium text-white/90 transition-colors hover:bg-white/15"
           >
             <LogOut size={16} />
             {t("common.logout")}
-          </button>
+          </a>
         </div>
       </aside>
     </>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import {
   Calendar,
@@ -132,14 +132,11 @@ export function DoctorNavPill() {
 
         <LanguageSwitcher variant="toggle" className="shrink-0 shadow-none" />
 
-        <button
-          type="button"
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Logout must clear server cookies through a full document navigation. */}
+        <a
+          href="/auth/demo-exit?next=%2Fauth%2Fsignin"
           title={session?.user?.name ?? t("common.logout")}
-          onClick={() =>
-            void signOut({ redirect: false }).then(() => {
-              window.location.href = "/auth/signin";
-            })
-          }
+          aria-label={t("common.logout")}
           className="group flex shrink-0 items-center gap-2 rounded-full py-1.5 pe-2 ps-1.5 text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-cyan-700 text-[0.65rem] font-bold text-white shadow-sm">
@@ -149,7 +146,7 @@ export function DoctorNavPill() {
             size={15}
             className="hidden opacity-70 transition-opacity group-hover:opacity-100 sm:block"
           />
-        </button>
+        </a>
       </div>
     </nav>
   );

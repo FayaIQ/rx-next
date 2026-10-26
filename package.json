@@ -12,7 +12,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint src --quiet",
-    "test": "tsx --test src/lib/__tests__/unit.test.ts src/lib/__tests__/session-scheduling.test.ts src/lib/__tests__/release-id.test.ts && pnpm test:clarity-review && pnpm test:product-analytics",
+    "test": "tsx --test src/lib/__tests__/unit.test.ts src/lib/__tests__/session-scheduling.test.ts src/lib/__tests__/release-id.test.ts && node --import tsx --test src/lib/__tests__/auth-logout.test.mts && pnpm test:clarity-review && pnpm test:product-analytics",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",

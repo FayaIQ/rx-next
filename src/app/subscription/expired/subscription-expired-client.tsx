@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,15 +39,13 @@ export function SubscriptionExpiredClient() {
             {t("subscriptionExpired.contactAdmin")}
           </p>
           <Button
+            asChild
             variant="outline"
             className="w-full"
-            onClick={() =>
-              void signOut({ redirect: false }).then(() => {
-                window.location.href = signInUrl;
-              })
-            }
           >
-            {t("subscriptionExpired.logoutReturn")}
+            <a href={`/auth/demo-exit?next=${encodeURIComponent(signInUrl)}`}>
+              {t("subscriptionExpired.logoutReturn")}
+            </a>
           </Button>
         </CardContent>
       </Card>

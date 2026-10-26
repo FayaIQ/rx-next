@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import type { NextFetchEvent, NextRequest } from "next/server";
 import { auth } from "@/auth-edge";
 import { clearSessionCookies } from "@/lib/auth-cookies";
 import { isSecretaryApiAllowed } from "@/lib/api/secretary-api-access";
@@ -69,7 +69,7 @@ function publicDemoExitUrl(req: NextRequest, nextPath: string) {
   return url;
 }
 
-export default auth((req) => {
+const authenticatedProxy = auth((req, _event: NextFetchEvent) => {
   const { pathname } = req.nextUrl;
 
   if (
@@ -90,14 +90,6 @@ export default auth((req) => {
     session?.user?.sessionId === PUBLIC_DEMO_SESSION_ID;
   const isTopLevelDocument =
     req.headers.get("sec-fetch-dest") === "document";
-
-  if (pathname.startsWith("/api/auth")) {
-    return nextWithPathname(req);
-  }
-
-  if (pathname === "/auth/demo-exit") {
-    return nextWithPathname(req);
-  }
 
   if (!session?.user) {
     if (isPublicPath(pathname) || pathname === "/") {
@@ -137,14 +129,9 @@ export default auth((req) => {
     );
   }
 
-  // Auth pages: if session is marked expired, clear JWT and stay on sign-in.
-  // Otherwise send already-logged-in users to their home.
+  // Already-logged-in users go to their home. Expired-session exits are
+  // handled before Auth.js below, so it cannot renew the cookie we clear.
   if (isAuthPath(pathname)) {
-    if (req.nextUrl.searchParams.get("error") === "session_expired") {
-      const res = nextWithPathname(req);
-      clearSessionCookies(res);
-      return res;
-    }
     return NextResponse.redirect(
       new URL(getDefaultRoute(type, isConfirmed), req.url)
     );
@@ -229,6 +216,40 @@ export default auth((req) => {
 
   return nextWithPathname(req);
 });
+
+export default async function proxy(req: NextRequest, event: NextFetchEvent) {
+  const { pathname } = req.nextUrl;
+
+  // Auth handlers own their cookies. Wrapping them in auth() adds another
+  // session response, including cookies that can undo a logout/reset.
+  if (
+    pathname === "/api/auth" ||
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/auth/demo-exit"
+  ) {
+    return nextWithPathname(req);
+  }
+
+  if (isAuthPath(pathname) && req.nextUrl.searchParams.get("error") === "session_expired") {
+    const response = nextWithPathname(req);
+    clearSessionCookies(response, req.headers.get("cookie"));
+    return response;
+  }
+
+  const response = await authenticatedProxy(req, event);
+  if (response) {
+    // A slow background request started before logout must not restore its
+    // old JWT afterwards. /api/auth/session remains responsible for renewal.
+    const cookies = response.headers.getSetCookie();
+    response.headers.delete("set-cookie");
+    for (const cookie of cookies) {
+      if (!/^(?:__Secure-)?authjs\.session-token(?:\.\d+)?=[^;]/.test(cookie)) {
+        response.headers.append("set-cookie", cookie);
+      }
+    }
+  }
+  return response;
+}
 
 export const config = {
   matcher: [
