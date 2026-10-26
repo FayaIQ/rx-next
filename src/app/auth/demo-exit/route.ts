@@ -19,7 +19,12 @@ export function GET(req: Request) {
   const destination = ALLOWED_DESTINATIONS.has(requestedDestination)
     ? requestedDestination
     : "/auth/signin";
-  const response = NextResponse.redirect(new URL(destination, url.origin));
+  // Reverse proxies may expose an internal localhost origin to Next.js.
+  // A relative redirect keeps the browser on its actual public origin.
+  const response = new NextResponse(null, {
+    status: 307,
+    headers: { Location: destination },
+  });
 
   response.headers.set("Cache-Control", "no-store");
   clearSessionCookies(response, req.headers.get("cookie"));

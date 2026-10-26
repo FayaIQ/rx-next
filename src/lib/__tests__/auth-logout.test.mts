@@ -102,7 +102,7 @@ test("server logout expires secure and chunked cookies without removing clinic s
       cookie: "__Secure-authjs.session-token.0=fixture; __Secure-authjs.session-token.1=fixture; next-auth.session-token.0=fixture; rx-locale=ar",
     },
   }));
-  assert.equal(response.headers.get("location"), "https://rx.example.test/auth/login/secretary");
+  assert.equal(response.headers.get("location"), "/auth/login/secretary");
   assert.equal(response.headers.get("cache-control"), "no-store");
   const cookies = response.headers.getSetCookie();
   for (const name of [
@@ -121,5 +121,12 @@ test("server logout expires secure and chunked cookies without removing clinic s
 
 test("server logout does not redirect to an external destination", () => {
   const response = exitSession(new Request("https://rx.example.test/auth/demo-exit?next=https%3A%2F%2Fother.example"));
-  assert.equal(response.headers.get("location"), "https://rx.example.test/auth/signin");
+  assert.equal(response.headers.get("location"), "/auth/signin");
+});
+
+test("server logout never redirects the browser to an internal deployment host", () => {
+  const response = exitSession(new Request("http://localhost:3000/auth/demo-exit?next=%2Fauth%2Fsignin", {
+    headers: { "x-forwarded-host": "rx.example.test", "x-forwarded-proto": "https" },
+  }));
+  assert.equal(response.headers.get("location"), "/auth/signin");
 });
