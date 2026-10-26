@@ -27,8 +27,6 @@ import {
   buildWhatsAppShareUrl,
 } from "@/lib/portal/whatsapp-share";
 import { cn } from "@/lib/utils";
-import { PatientMedicalSummary } from "@/components/patients/patient-medical-summary";
-import { SessionNoteTemplates } from "@/components/treatment/session-note-templates";
 import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
 import { tToothStatus, tTreatmentType } from "@/lib/i18n-labels";
 import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
@@ -62,7 +60,6 @@ type PatientFile = {
     phone?: string | null;
     diagnosis?: string | null;
     allergies?: string | null;
-    chronicConditions?: string | null;
     currentMedications?: string | null;
     portalInstructions?: string | null;
   };
@@ -283,7 +280,18 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
                 <span className="text-rx-muted">{t("patientFile.diagnosis")} </span>
                 {data.patient.diagnosis ?? "—"}
               </p>
-              <PatientMedicalSummary patient={data.patient} />
+              {data.patient.allergies?.trim() ? (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-amber-950">
+                  <span className="font-semibold">{t("patientFile.allergies")} </span>
+                  {data.patient.allergies}
+                </p>
+              ) : null}
+              {data.patient.currentMedications?.trim() ? (
+                <p>
+                  <span className="text-rx-muted">{t("patientFile.currentMeds")} </span>
+                  {data.patient.currentMedications}
+                </p>
+              ) : null}
               <p>
                 <span className="text-rx-muted">{t("patientFile.prescriptionsCount")} </span>
                 {data.prescriptions.length}
@@ -524,7 +532,6 @@ function PatientPortalSection({
           phone: data.patient.phone,
           diagnosis: data.patient.diagnosis,
           allergies: data.patient.allergies,
-          chronicConditions: data.patient.chronicConditions,
           currentMedications: data.patient.currentMedications,
           portalInstructions: instructions || null,
           fieldValues: [],
@@ -706,7 +713,6 @@ function VisitLogSection({
             />
           </div>
         </div>
-        <SessionNoteTemplates notes={notes} onChange={setNotes} disabled={isPending} />
         <Textarea
           rows={2}
           value={notes}

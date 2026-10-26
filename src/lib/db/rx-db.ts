@@ -36,9 +36,6 @@ export interface LocalPatient {
   name: string;
   gender: "male" | "female";
   birthdate?: string;
-  allergies?: string;
-  chronicConditions?: string;
-  currentMedications?: string;
   diagnosis?: string;
   phone?: string;
   doctorId: number;

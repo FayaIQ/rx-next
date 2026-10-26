@@ -1,38 +1,6 @@
 import type { MessageCatalog } from "./ar";
 
 export const en: MessageCatalog = {
-  medicalSummary: {
-    "title": "Medical summary",
-    "allergies": "Allergies",
-    "chronicConditions": "Chronic conditions",
-    "currentMedications": "Current medications",
-    "notRecorded": "Not recorded",
-    "loadFailed": "Could not load medical summary",
-    "retry": "Retry"
-},
-  sessionTemplates: {
-    "title": "Session note templates",
-    "choose": "Choose a template",
-    "apply": "Add template",
-    "manage": "Manage templates",
-    "new": "New template",
-    "name": "Template name",
-    "type": "Treatment type",
-    "allTypes": "All treatment types",
-    "notes": "Session notes and steps",
-    "save": "Save template",
-    "cancel": "Cancel",
-    "edit": "Edit",
-    "delete": "Delete",
-    "deleteConfirm": "Delete this template? Previous sessions stay unchanged.",
-    "saved": "Template saved",
-    "deleted": "Template deleted",
-    "loadFailed": "Could not load templates",
-    "noteTooLong": "Session notes cannot exceed 2000 characters",
-    "reviewHint": "Review and adapt the template to this patient’s session.",
-    "empty": "No templates yet. Create your first one in Manage templates.",
-    "close": "Close management"
-},
   common: {
     save: "Save",
     cancel: "Cancel",

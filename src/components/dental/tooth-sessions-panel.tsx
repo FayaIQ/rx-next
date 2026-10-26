@@ -49,8 +49,6 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
     id: number;
     title: string;
     subtitle: string;
-    notes: string | null;
-    treatmentType: string;
   } | null>(null);
 
   const queryKey = ["treatment-plans", patientId, toothFdi];
@@ -283,8 +281,6 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
               onCompleteSession={(session) =>
                 setCompletingSession({
                   id: session.id,
-                  notes: session.notes,
-                  treatmentType: plan.treatmentType,
                   title: t("dental.sessionTitle", {
                     number: session.sessionNumber,
                   }),
@@ -308,9 +304,6 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
         open={completingSession !== null}
         title={completingSession?.title ?? ""}
         subtitle={completingSession?.subtitle}
-        patientId={patientId}
-        initialNotes={completingSession?.notes}
-        treatmentType={completingSession?.treatmentType}
         isPending={updateSessionMutation.isPending}
         onClose={() => setCompletingSession(null)}
         onConfirm={(notes, performedAt) => {
@@ -340,7 +333,6 @@ function PlanBlock({
   onCompleteSession: (session: {
     id: number;
     sessionNumber: number;
-    notes: string | null;
   }) => void;
   onUpdateSession: (
     sessionId: number,
@@ -484,7 +476,6 @@ function PlanBlock({
                   onClick={() =>
                     onCompleteSession({
                       id: session.id,
-                      notes: session.notes,
                       sessionNumber: session.sessionNumber,
                     })
                   }

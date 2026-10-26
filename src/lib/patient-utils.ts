@@ -121,9 +121,6 @@ export function buildOptimisticPatient(body: {
   gender: "male" | "female";
   birthdate: string | null;
   diagnosis?: string | null;
-  allergies?: string | null;
-  chronicConditions?: string | null;
-  currentMedications?: string | null;
   phone?: string | null;
   fieldValues?: Array<{ patientFieldId: number; value: string }>;
 }) {
@@ -134,9 +131,6 @@ export function buildOptimisticPatient(body: {
     gender: body.gender,
     birthdate: body.birthdate,
     diagnosis: body.diagnosis ?? null,
-    allergies: body.allergies ?? null,
-    chronicConditions: body.chronicConditions ?? null,
-    currentMedications: body.currentMedications ?? null,
     phone: body.phone ?? null,
     doctorId: 0,
     age: formatAge(body.birthdate),

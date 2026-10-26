@@ -26,7 +26,6 @@ export const patientSchema = z.object({
   diagnosis: z.string().nullable().optional(),
   phone: patientPhoneSchema,
   allergies: z.string().max(4000).nullable().optional(),
-  chronicConditions: z.string().max(4000).nullable().optional(),
   currentMedications: z.string().max(4000).nullable().optional(),
   portalInstructions: z.string().max(4000).nullable().optional(),
   fieldValues: z.array(prescriptionFieldValueSchema).optional().default([]),

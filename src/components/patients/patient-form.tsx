@@ -8,14 +8,12 @@ import {
   useMemo,
   useRef,
   useState,
-  useId,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useLocale } from "@/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createPatientOffline, updatePatientOffline } from "@/lib/data/offline-api";
 import {
@@ -104,8 +102,6 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
   const [diagnosis, setDiagnosis] = useState(
     patient?.diagnosis ?? initialDraft?.diagnosis ?? ""
   );
-  const medicalId = useId();
-  const [chronicConditions, setChronicConditions] = useState(patient?.chronicConditions ?? initialDraft?.chronicConditions ?? "");
   const [allergies, setAllergies] = useState(
     patient?.allergies ?? initialDraft?.allergies ?? ""
   );
@@ -147,7 +143,6 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
     setPhone(patient?.phone ?? draft?.phone ?? "");
     setDiagnosis(patient?.diagnosis ?? draft?.diagnosis ?? "");
     setAllergies(patient?.allergies ?? draft?.allergies ?? "");
-    setChronicConditions(patient?.chronicConditions ?? draft?.chronicConditions ?? "");
     setCurrentMedications(
       patient?.currentMedications ?? draft?.currentMedications ?? ""
     );
@@ -170,7 +165,6 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
       phone,
       diagnosis,
       allergies,
-      chronicConditions,
       currentMedications,
       dynamicFieldValues,
     });
@@ -183,7 +177,6 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
     phone,
     diagnosis,
     allergies,
-    chronicConditions,
     currentMedications,
     dynamicFieldValues,
   ]);
@@ -205,11 +198,10 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
       phone: normalizePatientPhoneForSave(phone),
       diagnosis: diagnosis || null,
       allergies: allergies || null,
-      chronicConditions: chronicConditions || null,
       currentMedications: currentMedications || null,
       fieldValues: patientFieldValuesFromRecord(dynamicFieldValues),
     }),
-    [name, gender, birthdateInput, phone, diagnosis, allergies, chronicConditions, currentMedications, dynamicFieldValues]
+    [name, gender, birthdateInput, phone, diagnosis, allergies, currentMedications, dynamicFieldValues]
   );
 
   const notifyPhoneDuplicate = useCallback(
@@ -416,9 +408,6 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
     }
     void queryClient.invalidateQueries({ queryKey: ["patients"] });
     if (savedPatient.id > 0) {
-      for (const key of ["patient-medical-summary", "queue-summary", "patient-file"]) {
-        void queryClient.invalidateQueries({ queryKey: [key, savedPatient.id] });
-      }
       void queryClient.invalidateQueries({
         queryKey: ["patient", savedPatient.id],
       });
@@ -561,19 +550,6 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
           )}
         </div>
       )}
-      <details className="sm:col-span-2 rounded-lg border border-rx-border p-3" open={!compact || Boolean(patient)}>
-        <summary className="cursor-pointer text-sm font-semibold">{t("medicalSummary.title")}</summary>
-        <div className="mt-3 grid gap-3">
-          {[
-            { key: "allergies", value: allergies, set: setAllergies },
-            { key: "chronicConditions", value: chronicConditions, set: setChronicConditions },
-            { key: "currentMedications", value: currentMedications, set: setCurrentMedications },
-          ].map((field) => <div key={field.key} className="space-y-1">
-            <Label htmlFor={`${medicalId}-${field.key}`}>{t(`medicalSummary.${field.key}`)}</Label>
-            <Textarea id={`${medicalId}-${field.key}`} rows={2} maxLength={4000} value={field.value} onChange={(e) => field.set(e.target.value)} disabled={isSaving} />
-          </div>)}
-        </div>
-      </details>
       {personalFields.length > 0 && (
         <div className={compact ? "sm:col-span-2" : "sm:col-span-2"}>
           <PatientDynamicFields

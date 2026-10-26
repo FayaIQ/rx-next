@@ -10,7 +10,6 @@ export type NewPatientDraft = {
   phone: string;
   diagnosis: string;
   allergies: string;
-  chronicConditions?: string;
   currentMedications: string;
   dynamicFieldValues: Record<number, string>;
 };
@@ -130,7 +129,6 @@ export function prescriptionDraftHasContent(draft: PrescriptionComposerDraft) {
           patientDraft.phone,
           patientDraft.diagnosis,
           patientDraft.allergies,
-          patientDraft.chronicConditions ?? "",
           patientDraft.currentMedications,
         ].some((value) => value.trim()))
   );
