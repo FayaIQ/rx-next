@@ -1,5 +1,7 @@
 "use client";
 
+import { tTreatmentTarget } from "@/lib/i18n-labels";
+import { treatmentChartHref } from "@/lib/treatment/constants";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -165,11 +167,11 @@ export function WeeklyTreatmentCalendar() {
                               {s.treatmentType
                                 ? tTreatmentType(t, s.treatmentType)
                                 : s.treatmentLabel}{" "}
-                              · {t("treatment.toothDot", { fdi: s.toothFdi })}
+                              · {tTreatmentTarget(t, s.toothFdi)}
                             </p>
                           </div>
                           <Link
-                            href={`/dental/${s.patientId}?tooth=${s.toothFdi}`}
+                            href={treatmentChartHref(s.patientId, s.toothFdi)}
                             className="shrink-0 rounded p-0.5 text-slate-400 opacity-0 transition-opacity hover:text-teal-700 group-hover:opacity-100"
                             title={t("treatment.openChart")}
                           >

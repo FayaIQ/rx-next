@@ -16,7 +16,7 @@ export type TodayTreatmentSessionDto = {
   status: string;
   scheduledDate: string | null;
   notes: string | null;
-  toothFdi: number;
+  toothFdi: number | null;
   treatmentType: string;
   treatmentLabel: string;
   planTitle: string | null;
@@ -403,9 +403,9 @@ export const rxApi = {
       ),
   },
   treatment: {
-    listPlans: (patientId: number, params?: { toothFdi?: number }) => {
+    listPlans: (patientId: number, params?: { toothFdi?: number | null }) => {
       const sp = new URLSearchParams();
-      if (params?.toothFdi != null) sp.set("toothFdi", String(params.toothFdi));
+      if (params?.toothFdi !== undefined) sp.set("toothFdi", params.toothFdi === null ? "mouth" : String(params.toothFdi));
       const q = sp.toString();
       return handleResponse<{
         plans: TreatmentPlanDto[];
@@ -483,7 +483,7 @@ export const rxApi = {
             patientId: number;
             patientName: string;
             sessionNumber: number;
-            toothFdi: number;
+            toothFdi: number | null;
             treatmentType?: string;
             treatmentLabel: string;
             totalSessions: number | null;
@@ -508,7 +508,7 @@ export const rxApi = {
           title: string;
           message: string;
           patientId?: number;
-          toothFdi?: number;
+          toothFdi?: number | null;
           planId?: number;
           sessionId?: number;
           href: string;

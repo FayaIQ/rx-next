@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: Params) {
     where: {
       patientId: patientDbId,
       doctorId: toDbId(ctx.doctorId),
-      ...(toothFdi ? { toothFdi: Number(toothFdi) } : {}),
+      ...(toothFdi ? { toothFdi: toothFdi === "mouth" ? null : Number(toothFdi) } : {}),
     },
     include: {
       sessions: { orderBy: { sessionNumber: "asc" } },

@@ -111,7 +111,7 @@ model TreatmentPlan {
   id            BigInt             @id @default(autoincrement())
   doctorId      BigInt             @map("doctor_id")
   patientId     BigInt             @map("patient_id")
-  toothFdi      Int                @map("tooth_fdi")
+  toothFdi      Int?               @map("tooth_fdi")
   treatmentType String             @map("treatment_type") @db.VarChar(64)
   title         String?            @db.VarChar(255)
   totalSessions Int?               @map("total_sessions")

@@ -38,12 +38,19 @@ export const treatmentSessionInputSchema = z.object({
 
 export const treatmentPlanCreateSchema = z.object({
   clientRequestId: z.string().min(1).max(64).optional(),
-  toothFdi: fdiSchema,
+  toothFdi: fdiSchema.nullable().optional(),
   treatmentType: treatmentTypeSchema,
   title: z.string().max(255).optional().nullable(),
   totalSessions: z.number().int().min(1).max(20).optional().nullable(),
   notes: z.string().max(4000).optional().nullable(),
   sessions: z.array(treatmentSessionInputSchema).min(1).max(20).optional(),
+}).superRefine((data, ctx) => {
+  const wholeMouth = data.treatmentType === "full_mouth_cleaning";
+  if (wholeMouth ? data.toothFdi != null : data.toothFdi == null) {
+    ctx.addIssue({ code: "custom", path: ["toothFdi"], message: wholeMouth
+      ? "غسل اسنان يشمل الفم بالكامل ولا يرتبط بسن واحد"
+      : "اختر السن لخطة العلاج" });
+  }
 });
 
 export const treatmentPlanUpdateSchema = z.object({

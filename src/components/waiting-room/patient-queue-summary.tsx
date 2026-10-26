@@ -97,8 +97,8 @@ export function PatientQueueSummary({ patientId, className }: Props) {
                 {t("waitingRoom.nextSession")}
               </p>
               <p className="mt-1 text-slate-600">
-                {t("waitingRoom.toothSession", {
-                  tooth: data.nextSession.toothFdi,
+                {t(data.nextSession.toothFdi == null ? "waitingRoom.mouthSession" : "waitingRoom.toothSession", {
+                  tooth: data.nextSession.toothFdi ?? "",
                   label: data.nextSession.label,
                   session: data.nextSession.sessionNumber,
                 })}
@@ -139,7 +139,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
             {data.activeTreatments.map(
               (treatment: {
                 id: number;
-                toothFdi: number;
+                toothFdi: number | null;
                 label: string;
                 completed: number;
                 total: number;
@@ -148,8 +148,8 @@ export function PatientQueueSummary({ patientId, className }: Props) {
                   key={treatment.id}
                   className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-900"
                 >
-                  {t("waitingRoom.toothTreatment", {
-                    tooth: treatment.toothFdi,
+                  {t(treatment.toothFdi == null ? "waitingRoom.mouthTreatment" : "waitingRoom.toothTreatment", {
+                    tooth: treatment.toothFdi ?? "",
                     label: treatment.label,
                     completed: treatment.completed,
                     total: treatment.total,

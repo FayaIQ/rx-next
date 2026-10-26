@@ -27,7 +27,7 @@ export async function loadTreatmentToothMap(
 
   const map = new Map<string, number>();
   for (const session of sessions) {
-    if (session.appointmentId) {
+    if (session.appointmentId && session.plan.toothFdi != null) {
       map.set(session.appointmentId.toString(), session.plan.toothFdi);
     }
   }

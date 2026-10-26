@@ -1,7 +1,7 @@
 import { recordClinicActivity } from "@/lib/product-analytics/server";
 import { prisma } from "@/lib/prisma";
 import { fromDbId } from "@/lib/bigint";
-import { treatmentTypeLabel } from "@/lib/treatment/constants";
+import { treatmentTypeLabel, treatmentTargetLabel } from "@/lib/treatment/constants";
 import { sessionAppointmentDatetime, sessionTimeInput, sessionVisitDate } from "@/lib/treatment/session-datetime";
 
 export async function syncSessionAppointment(sessionId: bigint) {
@@ -24,7 +24,7 @@ export async function syncSessionAppointment(sessionId: bigint) {
   }
 
   const label = treatmentTypeLabel(session.plan.treatmentType);
-  const notes = `${label} — سن ${session.plan.toothFdi} · جلسة ${session.sessionNumber}${session.plan.totalSessions ? `/${session.plan.totalSessions}` : ""}`;
+  const notes = `${label} — ${treatmentTargetLabel(session.plan.toothFdi)} · جلسة ${session.sessionNumber}${session.plan.totalSessions ? `/${session.plan.totalSessions}` : ""}`;
 
   // Preserve existing appointments when upgrading sessions without a saved time.
   const scheduledTime = session.scheduledTime ?? sessionTimeInput(session.appointment?.appointmentDatetime ?? new Date());

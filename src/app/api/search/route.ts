@@ -1,3 +1,4 @@
+import { treatmentChartHref } from "@/lib/treatment/constants";
 import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiOk, apiError } from "@/lib/api/response";
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
       patientName: s.patient.name,
       toothFdi: s.plan.toothFdi,
       label: treatmentTypeLabel(s.plan.treatmentType),
-      href: `/dental/${fromDbId(s.patientId)}?tooth=${s.plan.toothFdi}`,
+      href: treatmentChartHref(fromDbId(s.patientId), s.plan.toothFdi),
     })),
   });
 }

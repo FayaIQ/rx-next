@@ -87,6 +87,7 @@ export function DentalChartClient({ patientId }: Props) {
   );
 
   useEffect(() => {
+    if (searchParams.get("scope") === "mouth") setSelectedFdi(null);
     const tooth = searchParams.get("tooth");
     if (tooth) {
       const fdi = Number(tooth);
@@ -219,6 +220,16 @@ export function DentalChartClient({ patientId }: Props) {
           </Card>
 
           <div className="space-y-4">
+            {treatmentEnabled ? (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">{t("treatment.typeFullMouthCleaning")}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ToothSessionsPanel key={`mouth-${patientId}`} patientId={patientId} toothFdi={null} />
+                </CardContent>
+              </Card>
+            ) : null}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
@@ -281,6 +292,7 @@ export function DentalChartClient({ patientId }: Props) {
                     </div>
                     {treatmentEnabled ? (
                       <ToothSessionsPanel
+                        key={selectedFdi}
                         patientId={patientId}
                         toothFdi={selectedFdi}
                       />

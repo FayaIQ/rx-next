@@ -26,24 +26,25 @@ import {
 import { cn } from "@/lib/utils";
 import { CompleteSessionNoteDialog } from "@/components/treatment/complete-session-note-dialog";
 import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
-import { tTreatmentTemplate, tTreatmentType } from "@/lib/i18n-labels";
+import { tTreatmentTemplate, tTreatmentType, tTreatmentTarget } from "@/lib/i18n-labels";
 import { sessionTimeInput } from "@/lib/treatment/session-datetime";
 
 type Props = {
   patientId: number;
-  toothFdi: number;
+  toothFdi: number | null;
 };
 
 export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
   const { t } = useLocale();
+  const wholeMouth = toothFdi === null;
   const queryClient = useQueryClient();
   const [showNewPlan, setShowNewPlan] = useState(false);
   const [treatmentType, setTreatmentType] =
-    useState<TreatmentTypeId>("root_canal");
-  const [totalSessions, setTotalSessions] = useState(3);
+    useState<TreatmentTypeId>(wholeMouth ? "full_mouth_cleaning" : "root_canal");
+  const [totalSessions, setTotalSessions] = useState(wholeMouth ? 1 : 3);
   const [sessionTime, setSessionTime] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(
-    TREATMENT_TEMPLATES[0].id
+    wholeMouth ? "" : TREATMENT_TEMPLATES[0].id
   );
   const [completingSession, setCompletingSession] = useState<{
     id: number;
@@ -143,7 +144,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
     <div className="space-y-3 border-t border-rx-border pt-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-800">
-          {t("dental.planTitle")}
+          {wholeMouth ? t("treatment.wholeMouth") : t("dental.planTitle")}
         </h3>
         {!showNewPlan ? (
           <Button
@@ -165,7 +166,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
 
       {showNewPlan ? (
         <div className="space-y-3 rounded-lg border border-teal-200 bg-teal-50/40 p-3">
-          <div className="space-y-1">
+          {!wholeMouth ? <div className="space-y-1">
             <Label className="text-xs">{t("dental.readyTemplate")}</Label>
             <select
               className="h-9 w-full rounded-md border border-rx-border bg-white px-3 text-sm"
@@ -187,7 +188,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
                 </option>
               ))}
             </select>
-          </div>
+          </div> : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">{t("dental.treatmentType")}</Label>
@@ -202,7 +203,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
                     setTotalSessions(defaultSessionsForType(next));
                   }}
                 >
-                  {TREATMENT_TYPES.map((type) => (
+                  {TREATMENT_TYPES.filter((type) => (type.id === "full_mouth_cleaning") === wholeMouth).map((type) => (
                     <option key={type.id} value={type.id}>
                       {tTreatmentType(t, type.id)}
                     </option>
@@ -269,7 +270,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
       {isLoading ? (
         <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
       ) : plans.length === 0 ? (
-        <p className="text-xs text-rx-muted">{t("dental.noPlanHint")}</p>
+        <p className="text-xs text-rx-muted">{wholeMouth ? t("dental.noMouthPlanHint") : t("dental.noPlanHint")}</p>
       ) : (
         <div className="space-y-3">
           {plans.map((plan) => (
@@ -284,10 +285,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
                   title: t("dental.sessionTitle", {
                     number: session.sessionNumber,
                   }),
-                  subtitle: t("dental.sessionSubtitle", {
-                    type: tTreatmentType(t, plan.treatmentType),
-                    fdi: plan.toothFdi,
-                  }),
+                  subtitle: `${tTreatmentType(t, plan.treatmentType)} — ${tTreatmentTarget(t, plan.toothFdi)}`,
                 })
               }
               onUpdateSession={(sessionId, body) =>

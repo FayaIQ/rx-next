@@ -38,7 +38,7 @@ export function serializeTreatmentPlan(plan: {
   id: bigint;
   doctorId: bigint;
   patientId: bigint;
-  toothFdi: number;
+  toothFdi: number | null;
   treatmentType: string;
   title: string | null;
   totalSessions: number | null;

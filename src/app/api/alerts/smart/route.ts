@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiOk } from "@/lib/api/response";
 import { toDbId } from "@/lib/bigint";
-import { treatmentTypeLabel } from "@/lib/treatment/constants";
+import { treatmentTypeLabel, treatmentTargetLabel, treatmentChartHref } from "@/lib/treatment/constants";
 import { isClinicFeatureEnabled } from "@/lib/clinic-features";
 
 function daysAgo(n: number): Date {
@@ -88,23 +88,23 @@ export async function GET() {
       type: "unscheduled_session" as const,
       severity: "warning" as const,
       title: "جلسة بدون موعد",
-      message: `${s.patient.name} — ${treatmentTypeLabel(s.plan.treatmentType)} · سن ${s.plan.toothFdi} · جلسة ${s.sessionNumber}`,
+      message: `${s.patient.name} — ${treatmentTypeLabel(s.plan.treatmentType)} · ${treatmentTargetLabel(s.plan.toothFdi)} · جلسة ${s.sessionNumber}`,
       patientId: Number(s.patient.id),
       toothFdi: s.plan.toothFdi,
       planId: Number(s.plan.id),
       sessionId: Number(s.id),
-      href: `/dental/${Number(s.patient.id)}?tooth=${s.plan.toothFdi}`,
+      href: treatmentChartHref(Number(s.patient.id), s.plan.toothFdi),
     })),
     ...stalledPlans.map((p) => ({
       id: `stalled-plan-${p.id}`,
       type: "incomplete_plan" as const,
       severity: "info" as const,
       title: "خطة علاج غير مكتملة",
-      message: `${p.patient.name} — ${p.title ?? treatmentTypeLabel(p.treatmentType)} · سن ${p.toothFdi}`,
+      message: `${p.patient.name} — ${p.title ?? treatmentTypeLabel(p.treatmentType)} · ${treatmentTargetLabel(p.toothFdi)}`,
       patientId: Number(p.patient.id),
       toothFdi: p.toothFdi,
       planId: Number(p.id),
-      href: `/dental/${Number(p.patient.id)}?tooth=${p.toothFdi}`,
+      href: treatmentChartHref(Number(p.patient.id), p.toothFdi),
     })),
   ];
 

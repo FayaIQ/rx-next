@@ -1,7 +1,7 @@
 import { recordClinicActivity } from "@/lib/product-analytics/server";
 import { prisma } from "@/lib/prisma";
 import { toDbId } from "@/lib/bigint";
-import { defaultSessionsForType, todayDateKey } from "@/lib/treatment/constants";
+import { defaultSessionsForType, todayDateKey, treatmentTargetLabel, treatmentTypeLabel } from "@/lib/treatment/constants";
 import { serializeTreatmentPlan } from "@/lib/treatment/serializer";
 import { syncPlanSessionAppointments } from "@/lib/treatment/session-appointment";
 import { parseDateKey } from "@/lib/treatment/plan-utils";
@@ -39,7 +39,9 @@ export async function createTreatmentPlanForPatient(
     }));
 
   const title =
-    data.title?.trim() || `علاج — سن ${data.toothFdi}`;
+    data.title?.trim() || (data.toothFdi == null
+      ? `${treatmentTypeLabel(data.treatmentType)} — ${treatmentTargetLabel(null)}`
+      : `علاج — سن ${data.toothFdi}`);
 
   const plan = await prisma.$transaction(async (tx) => {
     if (requestId) await tx.$executeRaw`SELECT pg_advisory_xact_lock(${doctorDbId})`;
@@ -49,7 +51,7 @@ export async function createTreatmentPlanForPatient(
         doctorId: doctorDbId,
         clientRequestId: requestId ?? null,
         patientId: patientDbId,
-        toothFdi: data.toothFdi,
+        toothFdi: data.toothFdi ?? null,
         treatmentType: data.treatmentType,
         title,
         totalSessions,

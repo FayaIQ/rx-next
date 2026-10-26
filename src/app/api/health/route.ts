@@ -18,6 +18,11 @@ export async function GET() {
       FROM clinic_acquisitions a, clinic_activities c, product_measurements m, acquisition_spend p,
         subscriptions s, treatment_plans t WHERE false
     `;
+    const columns = await prisma.$queryRaw<Array<{ is_nullable: string }>>`
+      SELECT is_nullable FROM information_schema.columns
+      WHERE table_schema = current_schema() AND table_name = 'treatment_plans' AND column_name = 'tooth_fdi'
+    `;
+    if (columns[0]?.is_nullable !== "YES") throw new Error("Whole-mouth treatment schema is not ready");
     return Response.json({ status: "ok", release }, { headers });
   } catch {
     return Response.json({ status: "not_ready", release }, { status: 503, headers });

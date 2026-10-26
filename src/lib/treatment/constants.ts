@@ -9,6 +9,7 @@ export const TREATMENT_TYPES = [
   { id: "fracture", label: "علاج كسر", defaultSessions: 2 },
   { id: "extraction", label: "خلع", defaultSessions: 1 },
   { id: "cleaning", label: "تنظيف", defaultSessions: 1 },
+  { id: "full_mouth_cleaning", label: "غسل اسنان", defaultSessions: 1 },
   { id: "other", label: "أخرى", defaultSessions: 1 },
 ] as const;
 
@@ -62,4 +63,13 @@ export function defaultSessionsForType(type: string): number {
 export function todayDateKey(d = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** A missing tooth identifies a treatment for the entire mouth. */
+export function treatmentTargetLabel(toothFdi: number | null): string {
+  return toothFdi == null ? "الفم بالكامل" : `سن ${toothFdi}`;
+}
+
+export function treatmentChartHref(patientId: number, toothFdi: number | null): string {
+  return `/dental/${patientId}?${toothFdi == null ? "scope=mouth" : `tooth=${toothFdi}`}`;
 }

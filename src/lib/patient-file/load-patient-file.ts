@@ -1,3 +1,4 @@
+import { treatmentTargetLabel, treatmentTypeLabel } from "@/lib/treatment/constants";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
 import { serializePatient } from "@/lib/patient-serializer";
@@ -99,7 +100,9 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
             s.performedAt?.toISOString().slice(0, 10) ??
             s.scheduledDate?.toISOString().slice(0, 10) ??
             "",
-          title: `جلسة علاج — سن ${plan.toothFdi}`,
+          title: plan.toothFdi == null
+            ? `${treatmentTypeLabel(plan.treatmentType)} — ${treatmentTargetLabel(null)}`
+            : `جلسة علاج — سن ${plan.toothFdi}`,
           notes: s.notes,
           id: fromDbId(s.id),
         }))

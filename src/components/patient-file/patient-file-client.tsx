@@ -1,5 +1,7 @@
 "use client";
 
+import { treatmentChartHref } from "@/lib/treatment/constants";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -82,7 +84,7 @@ type PatientFile = {
   } | null;
   treatmentPlans: Array<{
     id: number;
-    toothFdi: number;
+    toothFdi: number | null;
     treatmentType: string;
     status: string;
     totalSessions: number | null;
@@ -409,7 +411,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
               <Card key={plan.id}>
                 <CardContent className="p-4 text-sm">
                   <p className="font-semibold">
-                    {t("patientFile.planLine", {
+                    {plan.toothFdi == null ? `${tTreatmentType(t, plan.treatmentType)} — ${t("treatment.wholeMouth")} · ${plan.status}` : t("patientFile.planLine", {
                       fdi: plan.toothFdi,
                       type: tTreatmentType(t, plan.treatmentType),
                       status: plan.status,
@@ -427,7 +429,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
                     ))}
                   </ul>
                   <Button size="sm" variant="ghost" className="mt-2 h-auto p-0" asChild>
-                    <Link href={`/dental/${patientId}?tooth=${plan.toothFdi}`}>
+                    <Link href={treatmentChartHref(patientId, plan.toothFdi)}>
                       {t("patientFile.openInChart")}
                     </Link>
                   </Button>

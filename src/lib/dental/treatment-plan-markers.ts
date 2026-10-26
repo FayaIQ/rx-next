@@ -15,7 +15,7 @@ export function buildTreatmentPlanMarkers(
 ): TreatmentPlanMarker[] {
   const byTooth = new Map<number, TreatmentPlanMarker>();
   for (const plan of plans) {
-    if (plan.status === "cancelled") continue;
+    if (plan.status === "cancelled" || plan.toothFdi == null) continue;
     const completed = plan.sessions?.filter((session) => session.status === "completed").length ?? 0;
     const total = plan.totalSessions ?? plan.sessions?.length ?? 0;
     const existing = byTooth.get(plan.toothFdi);

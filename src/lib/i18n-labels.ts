@@ -21,6 +21,7 @@ const TREATMENT_TYPE_KEYS: Record<string, string> = {
   fracture: "treatment.typeFracture",
   extraction: "treatment.typeExtraction",
   cleaning: "treatment.typeCleaning",
+  full_mouth_cleaning: "treatment.typeFullMouthCleaning",
   other: "treatment.typeOther",
 };
 
@@ -75,4 +76,8 @@ export function tRecipeTemplate(
   const keys = RECIPE_TEMPLATE_KEYS[id];
   if (!keys) return null;
   return { name: t(keys.name), description: t(keys.desc) };
+}
+
+export function tTreatmentTarget(t: TranslateFn, toothFdi: number | null): string {
+  return toothFdi == null ? t("treatment.wholeMouth") : t("treatment.toothDot", { fdi: toothFdi });
 }

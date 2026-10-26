@@ -27,7 +27,7 @@ type SearchResults = {
   treatments: Array<{
     id: number;
     patientName: string;
-    toothFdi: number;
+    toothFdi: number | null;
     label: string;
     href: string;
   }>;
@@ -143,9 +143,9 @@ export function GlobalSearch() {
                   title={t("search.treatments")}
                   items={data!.treatments.map((tr) => ({
                     key: tr.id,
-                    label: t("search.treatmentTooth", {
+                    label: t(tr.toothFdi == null ? "search.treatmentMouth" : "search.treatmentTooth", {
                       name: tr.patientName,
-                      fdi: tr.toothFdi,
+                      fdi: tr.toothFdi ?? "",
                     }),
                     sub: tr.label,
                     href: tr.href,

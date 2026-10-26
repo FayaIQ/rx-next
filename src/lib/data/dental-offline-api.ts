@@ -140,12 +140,12 @@ export async function saveDentalChartOffline(
 
 export async function fetchTreatmentPlansOfflineFirst(
   patientId: number,
-  opts?: { toothFdi?: number }
+  opts?: { toothFdi?: number | null }
 ): Promise<{ plans: TreatmentPlanDto[] }> {
   if (navigator.onLine) {
     try {
       const res = await rxApi.treatment.listPlans(patientId, opts);
-      const cached = opts?.toothFdi != null ? await getRxDb().treatment_cache.get(patientId) : null;
+      const cached = opts?.toothFdi !== undefined ? await getRxDb().treatment_cache.get(patientId) : null;
       const otherTeeth = (cached?.plans as unknown as TreatmentPlanDto[] | undefined)?.filter((plan) => plan.toothFdi !== opts?.toothFdi) ?? [];
       await cacheTreatmentPlansLocally(patientId, [...otherTeeth, ...res.plans]);
       return res;
@@ -157,7 +157,7 @@ export async function fetchTreatmentPlansOfflineFirst(
   const cached = await getRxDb().treatment_cache.get(patientId);
   if (cached) {
     let plans = cached.plans as unknown as TreatmentPlanDto[];
-    if (opts?.toothFdi != null) {
+    if (opts?.toothFdi !== undefined) {
       plans = plans.filter((p) => p.toothFdi === opts.toothFdi);
     }
     return { plans };
@@ -215,7 +215,7 @@ export async function createTreatmentPlanOffline(
     id: tempId,
     doctorId: 0,
     patientId,
-    toothFdi: Number(body.toothFdi),
+    toothFdi: body.toothFdi == null ? null : Number(body.toothFdi),
     treatmentType: String(body.treatmentType),
     title: typeof body.title === "string" ? body.title : null,
     totalSessions:
@@ -229,7 +229,7 @@ export async function createTreatmentPlanOffline(
 
   const cached = await fetchTreatmentPlansOfflineFirst(patientId);
   await cacheTreatmentPlansLocally(patientId, [
-    ...cached.plans.filter((p) => p.id > 0),
+    ...cached.plans,
     optimisticPlan,
   ]);
 

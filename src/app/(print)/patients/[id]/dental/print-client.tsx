@@ -16,7 +16,7 @@ type ToothRow = {
 
 type PlanRow = {
   id: number;
-  toothFdi: number;
+  toothFdi: number | null;
   treatmentType: string;
   sessions: Array<{ sessionNumber: number; status: string }>;
 };
@@ -102,8 +102,8 @@ export function PatientDentalPrintClient({
           <ul className="mt-2 space-y-2 text-sm">
             {treatmentPlans.map((p) => (
               <li key={p.id}>
-                {t("print.planSessions", {
-                  fdi: p.toothFdi,
+                {t(p.toothFdi == null ? "print.mouthPlanSessions" : "print.planSessions", {
+                  fdi: p.toothFdi ?? "",
                   type: tTreatmentType(t, p.treatmentType),
                   done: p.sessions.filter((s) => s.status === "completed").length,
                   total: p.sessions.length,

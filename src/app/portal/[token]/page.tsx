@@ -109,13 +109,13 @@ export default function PatientPortalPage() {
                   id: number;
                   sessionNumber: number;
                   date: string | null;
-                  toothFdi: number;
+                  toothFdi: number | null;
                   label: string;
                 }) => (
                   <li key={s.id} className="rounded-lg border px-3 py-2">
-                    {t("portal.sessionLine", {
+                    {t(s.toothFdi == null ? "portal.mouthSessionLine" : "portal.sessionLine", {
                       label: s.label,
-                      fdi: s.toothFdi,
+                      fdi: s.toothFdi ?? "",
                       number: s.sessionNumber,
                     })}
                     {s.date ? ` · ${s.date}` : ""}

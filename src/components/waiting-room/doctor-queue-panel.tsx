@@ -46,7 +46,7 @@ type TodaySession = {
   id: number;
   patientId: number;
   patientName: string;
-  toothFdi: number;
+  toothFdi: number | null;
   treatmentLabel: string;
   sessionNumber: number;
 };

@@ -1,5 +1,7 @@
 "use client";
 
+import { tTreatmentTarget } from "@/lib/i18n-labels";
+import { treatmentChartHref } from "@/lib/treatment/constants";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
@@ -89,7 +91,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
                   {session.patientName}
                 </p>
                 <p className="truncate text-xs text-slate-500">
-                  {session.treatmentLabel} · {t("treatment.tooth")} {session.toothFdi} · {t("treatment.session")}{" "}
+                  {session.treatmentLabel} · {tTreatmentTarget(t, session.toothFdi)} · {t("treatment.session")}{" "}
                   {session.sessionNumber}
                   {session.totalSessions ? `/${session.totalSessions}` : ""}
                 </p>
@@ -103,7 +105,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
                 title={t("treatment.openChart")}
               >
                 <Link
-                  href={`/dental/${session.patientId}?tooth=${session.toothFdi}`}
+                  href={treatmentChartHref(session.patientId, session.toothFdi)}
                 >
                   <ExternalLink size={14} />
                 </Link>
@@ -131,7 +133,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
         }
         subtitle={
           completingSession
-            ? `${completingSession.treatmentLabel} · ${t("treatment.tooth")} ${completingSession.toothFdi} · ${t("treatment.session")} ${completingSession.sessionNumber}${completingSession.totalSessions ? `/${completingSession.totalSessions}` : ""}`
+            ? `${completingSession.treatmentLabel} · ${tTreatmentTarget(t, completingSession.toothFdi)} · ${t("treatment.session")} ${completingSession.sessionNumber}${completingSession.totalSessions ? `/${completingSession.totalSessions}` : ""}`
             : undefined
         }
         isPending={completeMutation.isPending}

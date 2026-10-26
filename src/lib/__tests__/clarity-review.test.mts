@@ -15,6 +15,7 @@ let deferred: (() => Promise<void>) | undefined;
 let userType = "doctor";
 let captchaRequired = false;
 let readinessUnavailable = false;
+let wholeMouthSchemaReady = true;
 const session = () => ({ user: { id: 17, type: userType, sessionId: "real-session", doctorId: 17 } });
 
 mock.module("../../auth.ts", { namedExports: { auth: async () => session() } });
@@ -30,7 +31,7 @@ mock.module("../auth-credentials.ts", { namedExports: {
   registerDoctor: async () => ({ id: 17n, name: "Test doctor", phoneNumber: "+9647001234567" }),
 } });
 mock.module("../prisma.ts", { namedExports: { prisma: {
-  $queryRaw: async () => { if (readinessUnavailable) throw new Error("private database details"); return []; },
+  $queryRaw: async () => { if (readinessUnavailable) throw new Error("private database details"); return wholeMouthSchemaReady ? [{ is_nullable: "YES" }] : [{ is_nullable: "NO" }]; },
   clinicAcquisition: { findUnique: async () => ({ practiceType: "general", accountMode: "real" }) },
   productMeasurement: { upsert: async (args: { create: Record<string, unknown> }) => { measured = args.create; return measured; } },
   user: { findUnique: async () => ({ isConfirmed: true, doctorId: 17n }) },
@@ -174,6 +175,9 @@ test("production readiness is uncached and never exposes private database detail
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal((await response.json()).status, "ok");
+  wholeMouthSchemaReady = false;
+  assert.equal((await GET()).status, 503);
+  wholeMouthSchemaReady = true;
   readinessUnavailable = true;
   try {
     const failed = await GET();
