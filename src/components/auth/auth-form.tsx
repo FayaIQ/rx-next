@@ -34,6 +34,7 @@ import {
 } from "@/lib/phone-countries";
 import { isDevTestDoctorPhone } from "@/lib/dev-test-doctor";
 import { trackTrialSignup } from "@/lib/google-ads";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 import { trackAnalyticsEvent, type AnalyticsEvent } from "@/lib/analytics";
 import { readAcquisition, productVisitKey } from "@/lib/product-analytics/shared";
 import { readApiResponse } from "@/lib/api/read-response";
@@ -197,6 +198,7 @@ export function AuthForm({
     }
     if (role === "doctor" && !isDevTestDoctor) {
       trackTrialSignup();
+      trackMetaEvent("CompleteRegistration");
     }
     createdCredentials.current = { phone: fullPhone, password };
     setAccountCreated(true);

@@ -11,6 +11,7 @@ import { SyncProvider } from "@/components/sync/sync-provider";
 import { GoogleTags } from "@/components/analytics/google-tags";
 import { ProductMeasurement } from "@/components/analytics/product-measurement";
 import { MicrosoftClarity } from "@/components/analytics/microsoft-clarity";
+import { MetaPixel } from "@/components/analytics/meta-pixel";
 
 function AppToaster() {
   const { dir } = useLocale();
@@ -54,6 +55,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <MicrosoftClarity />
       <GoogleTags />
+      <MetaPixel />
       <ProductMeasurement />
       <LocaleProvider>
         <QueryClientProvider client={queryClient}>
