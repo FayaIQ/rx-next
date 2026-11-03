@@ -1,3 +1,4 @@
+import { sessionBillingSchema } from "@/lib/validations/session-billing";
 import { z } from "zod";
 import { FDI_ALL } from "@/lib/dental/constants";
 import {
@@ -30,6 +31,7 @@ const dateKeySchema = z
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "وقت غير صالح");
 
 export const treatmentSessionInputSchema = z.object({
+  billing: sessionBillingSchema.optional(),
   sessionNumber: z.number().int().min(1).max(20),
   scheduledDate: dateKeySchema.optional().nullable(),
   scheduledTime: timeSchema.optional(),
@@ -61,6 +63,7 @@ export const treatmentPlanUpdateSchema = z.object({
 });
 
 export const treatmentSessionUpdateSchema = z.object({
+  billing: sessionBillingSchema.optional(),
   status: sessionStatusSchema.optional(),
   scheduledDate: dateKeySchema.optional().nullable(),
   scheduledTime: timeSchema.optional(),
@@ -69,6 +72,7 @@ export const treatmentSessionUpdateSchema = z.object({
 });
 
 export const treatmentSessionCreateSchema = z.object({
+  billing: sessionBillingSchema.optional(),
   sessionNumber: z.number().int().min(1).max(20).optional(),
   scheduledDate: dateKeySchema.optional().nullable(),
   scheduledTime: timeSchema.optional(),

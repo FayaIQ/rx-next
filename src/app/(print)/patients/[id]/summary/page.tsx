@@ -1,3 +1,5 @@
+import { loadPatientAccount } from "@/lib/finance/session-billing-service";
+import { toDbId } from "@/lib/bigint";
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { toUserId } from "@/lib/user-id";
@@ -32,6 +34,7 @@ export default async function PatientSummaryPrintPage({
       patientId={patientId}
       patientName={file.patient.name}
       phone={file.patient.phone ?? null}
+      account={await loadPatientAccount(toDbId(doctorId), toDbId(patientId))}
       timeline={file.timeline}
       autoPrint={auto !== "0"}
     />

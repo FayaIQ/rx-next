@@ -1,3 +1,4 @@
+import type { AccountTotal } from "@/lib/finance/session-balance";
 export type SyncEntity =
   | "patient"
   | "prescription"
@@ -31,6 +32,7 @@ export interface MetaRecord {
 }
 
 export interface LocalPatient {
+  sessionAccount?: AccountTotal[];
   id: string;
   serverId?: number;
   name: string;

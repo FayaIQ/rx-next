@@ -1,5 +1,7 @@
 "use client";
 
+import { PatientAccountPanel } from "@/components/finances/patient-account";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -177,6 +179,7 @@ export function DentalChartClient({ patientId }: Props) {
         subtitle={t("dental.teethRecorded", { count: recordedCount })}
       />
       <PageContent className="space-y-4">
+        <PatientAccountPanel patientId={patientId} compact />
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/dental">

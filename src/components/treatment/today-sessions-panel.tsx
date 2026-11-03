@@ -1,5 +1,7 @@
 "use client";
 
+import { DebtBadge, SessionBillingButton, useInvalidateBilling } from "@/components/finances/session-billing";
+
 import { tTreatmentTarget } from "@/lib/i18n-labels";
 import { treatmentChartHref } from "@/lib/treatment/constants";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +24,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
   const { t } = useLocale();
   const treatmentEnabled = useClinicFeatureEnabled("treatment");
   const queryClient = useQueryClient();
+  const invalidateBilling = useInvalidateBilling();
   const day = todayDateKey();
   const [completingSession, setCompletingSession] =
     useState<TodayTreatmentSessionDto | null>(null);
@@ -40,17 +43,21 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
       sessionId,
       notes,
       performedAt,
+      billing,
     }: {
       sessionId: number;
       notes: string | null;
       performedAt: string;
+      billing?: import("@/lib/validations/session-billing").SessionBillingInput;
     }) =>
       rxApi.treatment.updateSession(sessionId, {
         status: "completed",
         notes,
         performedAt,
+        ...(billing ? { billing } : {}),
       }),
     onSuccess: () => {
+      invalidateBilling();
       queryClient.invalidateQueries({
         queryKey: ["treatment-sessions-today"],
       });
@@ -80,7 +87,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
           {sessions.map((session) => (
             <li
               key={session.id}
-              className="flex items-center gap-2 px-3 py-2.5"
+              className="flex flex-wrap items-center gap-2 px-3 py-2.5"
             >
               <button
                 type="button"
@@ -90,12 +97,14 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
                 <p className="truncate text-sm font-semibold text-slate-900">
                   {session.patientName}
                 </p>
+                <DebtBadge totals={session.patientAccount} />
                 <p className="truncate text-xs text-slate-500">
                   {session.treatmentLabel} · {tTreatmentTarget(t, session.toothFdi)} · {t("treatment.session")}{" "}
                   {session.sessionNumber}
                   {session.totalSessions ? `/${session.totalSessions}` : ""}
                 </p>
               </button>
+              <SessionBillingButton sessionId={session.id} billing={session.billing} />
               <Button
                 type="button"
                 size="sm"
@@ -126,6 +135,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
 
       <CompleteSessionNoteDialog
         open={completingSession !== null}
+        sessionId={completingSession?.id}
         title={
           completingSession
             ? t("treatment.completeSession", { name: completingSession.patientName })
@@ -138,12 +148,13 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
         }
         isPending={completeMutation.isPending}
         onClose={() => setCompletingSession(null)}
-        onConfirm={(notes, performedAt) => {
+        onConfirm={(notes, performedAt, billing) => {
           if (!completingSession) return;
           completeMutation.mutate({
             sessionId: completingSession.id,
             notes: notes || null,
             performedAt,
+            billing,
           });
         }}
       />

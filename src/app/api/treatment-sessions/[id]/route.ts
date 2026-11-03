@@ -14,6 +14,7 @@ import {
 import { serializeTreatmentSession } from "@/lib/treatment/serializer";
 import { treatmentSessionUpdateSchema } from "@/lib/validations/treatment";
 import { z } from "zod";
+import { BillingError, deleteUnbilledSession, saveSessionBillingInTransaction } from "@/lib/finance/session-billing-service";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -43,7 +44,9 @@ export async function PATCH(request: Request, { params }: Params) {
             ? null
             : undefined;
 
-    const session = await prisma.treatmentSession.update({
+    const session = await prisma.$transaction(async tx => {
+      if (data.billing) await saveSessionBillingInTransaction(tx, toDbId(ctx.doctorId), toDbId(ctx.userId), sessionDbId, data.billing);
+      return tx.treatmentSession.update({
       where: { id: sessionDbId },
       data: {
         ...(data.status !== undefined ? { status: data.status } : {}),
@@ -59,6 +62,7 @@ export async function PATCH(request: Request, { params }: Params) {
         ...(data.notes !== undefined ? { notes: data.notes?.trim() || null } : {}),
       },
     });
+    });
 
     await refreshPlanStatus(session.planId);
 
@@ -73,12 +77,14 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const refreshed = await prisma.treatmentSession.findUnique({
       where: { id: sessionDbId },
+      include: { payments: { select: { amount: true } } },
     });
 
     return apiOk({
       session: serializeTreatmentSession(refreshed ?? session),
     });
   } catch (error) {
+    if (error instanceof BillingError) return apiError(error.message);
     if (error instanceof z.ZodError) {
       return apiError(error.issues[0]?.message ?? "بيانات غير صالحة");
     }
@@ -101,7 +107,12 @@ export async function DELETE(_request: Request, { params }: Params) {
 
   const planId = existing.planId;
 
-  await prisma.treatmentSession.delete({ where: { id: sessionDbId } });
+  try {
+    await deleteUnbilledSession(toDbId(ctx.doctorId), sessionDbId);
+  } catch (error) {
+    if (error instanceof BillingError) return apiError(error.message);
+    return apiServerError(undefined, error);
+  }
   await refreshPlanStatus(planId);
 
   return apiOk({ success: true });

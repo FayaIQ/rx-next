@@ -1,3 +1,4 @@
+import type { SessionBilling, AccountTotal } from "@/lib/finance/session-balance";
 import type { PaginationMeta } from "@/lib/pagination";
 import type {
   TreatmentPlanDto,
@@ -8,6 +9,8 @@ export type { PaginationMeta };
 export type { TreatmentPlanDto, TreatmentSessionDto };
 
 export type TodayTreatmentSessionDto = {
+  billing: SessionBilling;
+  patientAccount: AccountTotal[];
   id: number;
   planId: number;
   patientId: number;
@@ -27,6 +30,7 @@ export type PatientDto = {
   id: number;
   /** Present only for a patient created locally while offline. */
   localId?: string;
+  sessionAccount?: AccountTotal[];
   name: string;
   gender: "male" | "female";
   birthdate: string | null;
@@ -118,6 +122,7 @@ export type PrescriptionDto = {
 };
 
 export type AppointmentDto = {
+  sessionAccount?: AccountTotal[];
   id: number;
   doctorId: number;
   patientId: number;
@@ -150,6 +155,7 @@ export type FinanceSettingsDto = {
 };
 
 export type FinanceTransactionDto = {
+  treatmentSessionId?: number | null;
   id: number;
   doctorId: number;
   patientId: number | null;
@@ -484,6 +490,8 @@ export const rxApi = {
             patientName: string;
             sessionNumber: number;
             toothFdi: number | null;
+            billing: SessionBilling;
+            patientAccount: AccountTotal[];
             treatmentType?: string;
             treatmentLabel: string;
             totalSessions: number | null;

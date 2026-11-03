@@ -91,6 +91,7 @@ export function ReportsPageClient() {
                 value={data.summary.financialTotals.map((row: { currency: string; income: number }) => formatMoney(row.income, row.currency, locale)).join(" · ") || "0"}
                 icon={Wallet}
               />
+              <StatCard label={t("billing.debtsAllTime")} value={(data.summary.sessionAccount ?? []).map((row: { currency: string; remaining: number }) => formatMoney(row.remaining, row.currency, locale)).join(" · ") || "0"} icon={Wallet} />
               <StatCard
                 label={t("reports.netIncome")}
                 value={data.summary.financialTotals.map((row: { currency: string; balance: number }) => formatMoney(row.balance, row.currency, locale)).join(" · ") || "0"}

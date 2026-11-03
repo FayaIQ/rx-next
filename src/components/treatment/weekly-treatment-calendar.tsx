@@ -1,5 +1,7 @@
 "use client";
 
+import { DebtBadge, BillingStatus } from "@/components/finances/session-billing";
+
 import { tTreatmentTarget } from "@/lib/i18n-labels";
 import { treatmentChartHref } from "@/lib/treatment/constants";
 import { useMemo, useState } from "react";
@@ -163,6 +165,7 @@ export function WeeklyTreatmentCalendar() {
                             <p className="truncate text-xs font-semibold text-slate-900">
                               {s.patientName}
                             </p>
+                            <DebtBadge totals={s.patientAccount} />
                             <p className="truncate text-[0.65rem] text-slate-500">
                               {s.treatmentType
                                 ? tTreatmentType(t, s.treatmentType)
@@ -178,6 +181,7 @@ export function WeeklyTreatmentCalendar() {
                             <ExternalLink size={12} />
                           </Link>
                         </div>
+                        <BillingStatus billing={s.billing} />
                       </li>
                     ))
                   )}

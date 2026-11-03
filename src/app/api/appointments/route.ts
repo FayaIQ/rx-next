@@ -1,3 +1,4 @@
+import { loadPatientDebtMap } from "@/lib/finance/session-billing-service";
 import { prisma } from "@/lib/prisma";
 import { requireClinicApi, isClinicApiError } from "@/lib/api/clinic-auth";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
@@ -92,12 +93,13 @@ export async function GET(request: Request) {
     ? await loadTreatmentToothMap(appointments.map((a) => a.id))
     : new Map<string, number>();
 
+  const debtMap = await loadPatientDebtMap(toDbId(ctx.doctorId), [...new Set(appointments.map(a => a.patientId))]);
+
   return apiOk({
-    appointments: appointments.map((a) =>
-      serializeAppointment(a, {
-        treatmentToothFdi: toothMap.get(a.id.toString()) ?? null,
-      })
-    ),
+    appointments: appointments.map((a) => ({
+      ...serializeAppointment(a, { treatmentToothFdi: toothMap.get(a.id.toString()) ?? null }),
+      sessionAccount: debtMap.get(Number(a.patientId)) ?? [],
+    })),
     ...(paginate
       ? { pagination: buildPaginationMeta(page, pageSize, total) }
       : {}),

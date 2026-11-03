@@ -1,5 +1,7 @@
 "use client";
 
+import { AccountTotals } from "@/components/finances/patient-account";
+
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, Stethoscope } from "lucide-react";
@@ -46,6 +48,8 @@ export default function PatientPortalPage() {
           </h1>
           <p className="mt-1 text-sm text-slate-600">{t("portal.title")}</p>
         </header>
+
+        {data.sessionAccount?.length > 0 && <section className="space-y-3 rounded-2xl border bg-white p-4 shadow-sm"><h2 className="font-semibold">{t("billing.patientAccount")}</h2><AccountTotals totals={data.sessionAccount} /></section>}
 
         {data.instructions?.trim() ? (
           <section className="rounded-2xl border border-teal-200 bg-white p-4 shadow-sm">

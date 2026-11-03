@@ -81,6 +81,7 @@ export async function persistHydration(data: {
           phone: p.phone ?? undefined,
           doctorId: p.doctorId,
           fieldValues: p.fieldValues ?? [],
+          sessionAccount: p.sessionAccount,
           synced: true,
           updatedAt: p.updatedAt,
         })
@@ -536,6 +537,7 @@ export async function syncLocalPatientFromDto(patient: PatientDto): Promise<void
     phone: patient.phone ?? undefined,
     doctorId: patient.doctorId,
     fieldValues: patient.fieldValues ?? [],
+    sessionAccount: patient.sessionAccount ?? matches[0]?.sessionAccount,
     synced: true,
     updatedAt: patient.updatedAt,
   });
@@ -591,6 +593,7 @@ export function localPatientToDto(
   return {
     id: p.serverId ?? 0,
     localId: p.serverId == null ? p.id : undefined,
+    sessionAccount: p.sessionAccount,
     name: p.name,
     gender: p.gender,
     birthdate: p.birthdate ?? null,

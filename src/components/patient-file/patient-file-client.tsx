@@ -1,5 +1,9 @@
 "use client";
 
+import { PatientAccountPanel } from "@/components/finances/patient-account";
+import { SessionBillingButton } from "@/components/finances/session-billing";
+import type { TreatmentPlanDto } from "@/lib/treatment/serializer";
+
 import { treatmentChartHref } from "@/lib/treatment/constants";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -82,14 +86,7 @@ type PatientFile = {
     notes: string | null;
     teeth: Array<{ toothFdi: number; status: string; statuses?: string[]; statusLabel: string; notes: string | null }>;
   } | null;
-  treatmentPlans: Array<{
-    id: number;
-    toothFdi: number | null;
-    treatmentType: string;
-    status: string;
-    totalSessions: number | null;
-    sessions?: Array<{ sessionNumber: number; status: string; scheduledDate: string | null; notes: string | null }>;
-  }>;
+  treatmentPlans: TreatmentPlanDto[];
   visits: Array<{
     id: number;
     visitDate: string;
@@ -203,6 +200,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
 
   return (
     <div className="space-y-4">
+      <PatientAccountPanel key={`${patientId}-${tab === "finance"}`} patientId={patientId} compact={tab !== "finance"} />
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" asChild>
           <Link href={`/home?patientId=${patientId}`}>
@@ -425,6 +423,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
                           status: s.status,
                         })}
                         {s.scheduledDate ? ` · ${s.scheduledDate}` : ""}
+                        <SessionBillingButton sessionId={s.id} billing={s.billing} />
                       </li>
                     ))}
                   </ul>

@@ -1,3 +1,4 @@
+import { BillingError } from "@/lib/finance/session-billing-service";
 import { prisma } from "@/lib/prisma";
 import { requireClinicApi, isClinicApiError } from "@/lib/api/clinic-auth";
 import { apiOk, apiError, apiNotFound, apiServerError } from "@/lib/api/response";
@@ -31,7 +32,7 @@ export async function GET(request: Request, { params }: Params) {
       ...(toothFdi ? { toothFdi: toothFdi === "mouth" ? null : Number(toothFdi) } : {}),
     },
     include: {
-      sessions: { orderBy: { sessionNumber: "asc" } },
+      sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -61,11 +62,13 @@ export async function POST(request: Request, { params }: Params) {
     const plan = await createTreatmentPlanForPatient(
       ctx.doctorId,
       patientDbId,
-      data
+      data,
+      { userId: ctx.userId },
     );
 
     return apiOk({ plan });
   } catch (error) {
+    if (error instanceof BillingError) return apiError(error.message);
     if (error instanceof z.ZodError) {
       return apiError(error.issues[0]?.message ?? "بيانات غير صالحة");
     }

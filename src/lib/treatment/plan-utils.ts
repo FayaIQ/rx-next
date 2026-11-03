@@ -31,7 +31,7 @@ export async function assertPlanAccess(
 ) {
   return prisma.treatmentPlan.findFirst({
     where: { id: planId, doctorId },
-    include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+    include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
   });
 }
 

@@ -1,3 +1,4 @@
+import { loadPatientAccount } from "@/lib/finance/session-billing-service";
 import { currencyTotals } from "@/lib/finance/currency-totals";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
@@ -24,7 +25,7 @@ export async function loadPatientQueueSummary(
   });
   if (!patient) return null;
 
-  const [lastRx, activePlans, nextAppointment, finance] = await Promise.all([
+  const [lastRx, activePlans, nextAppointment, finance, account] = await Promise.all([
     prisma.prescription.findFirst({
       where: { patientId: patientDbId, doctorId: doctorDbId },
       orderBy: { prescriptionDate: "desc" },
@@ -58,6 +59,7 @@ export async function loadPatientQueueSummary(
       where: { patientId: patientDbId, doctorId: doctorDbId },
       _sum: { amount: true },
     }),
+    loadPatientAccount(doctorDbId, patientDbId),
   ]);
 
   const financeBalances = currencyTotals(finance.map((row) => ({ type: row.type, currency: row.currency, amount: Number(row._sum.amount ?? 0) })));
@@ -115,5 +117,6 @@ export async function loadPatientQueueSummary(
         }
       : null,
     financeBalances,
+    sessionAccount: account.totals,
   };
 }

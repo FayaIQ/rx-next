@@ -1,5 +1,7 @@
 "use client";
 
+import { DebtBadge } from "@/components/finances/session-billing";
+
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -470,6 +472,7 @@ function QueueCard({
           >
             {appointment.patient?.name ?? t("waitingRoom.patient")}
           </button>
+          <DebtBadge totals={appointment.sessionAccount} />
           <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-rx-muted">
             <Clock size={10} />
             {formatTime(appointment.appointmentDatetime, locale)}

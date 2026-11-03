@@ -1,3 +1,4 @@
+import { loadPatientAccount } from "@/lib/finance/session-billing-service";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
@@ -41,7 +42,7 @@ export async function loadPatientPortalByToken(token: string) {
   );
   const today = new Date(new Date().toISOString().slice(0, 10));
 
-  const [appointments, sessions] = await Promise.all([
+  const [appointments, sessions, account] = await Promise.all([
     prisma.appointment.findMany({
       where: {
         patientId: patientDbId,
@@ -65,9 +66,11 @@ export async function loadPatientPortalByToken(token: string) {
           take: 8,
         })
       : Promise.resolve([]),
+    loadPatientAccount(doctorDbId, patientDbId),
   ]);
 
   return {
+    sessionAccount: account.totals,
     patientName: patient.name,
     clinicName: patient.doctor.name,
     clinicPhone: patient.doctor.phoneNumber,

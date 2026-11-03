@@ -1,3 +1,4 @@
+import { loadPatientDebtMap } from "@/lib/finance/session-billing-service";
 import { prisma } from "@/lib/prisma";
 import { toDbId } from "@/lib/bigint";
 import { serializePatient, fetchVisitStatsMap } from "@/lib/patient-serializer";
@@ -25,13 +26,11 @@ export async function fetchSecretaryHydration(doctorId: number) {
     }),
   ]);
 
-  const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
+  const [visitStatsMap, debtMap] = await Promise.all([fetchVisitStatsMap(patients.map(p => p.id)), loadPatientDebtMap(doctorDbId, patients.map(p => p.id))]);
 
   return {
     patients: await Promise.all(
-      patients.map((patient) =>
-        serializePatient(patient, visitStatsMap.get(patient.id.toString()))
-      )
+      patients.map(async patient => ({ ...await serializePatient(patient, visitStatsMap.get(patient.id.toString())), sessionAccount: debtMap.get(Number(patient.id)) ?? [] }))
     ),
     appointments: appointments.map((a) => ({
       id: fromDbId(a.id),
@@ -80,13 +79,11 @@ export async function fetchSecretaryChanges(doctorId: number, since: Date) {
     }),
   ]);
 
-  const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
+  const [visitStatsMap, debtMap] = await Promise.all([fetchVisitStatsMap(patients.map(p => p.id)), loadPatientDebtMap(doctorDbId, patients.map(p => p.id))]);
 
   return {
     patients: await Promise.all(
-      patients.map((patient) =>
-        serializePatient(patient, visitStatsMap.get(patient.id.toString()))
-      )
+      patients.map(async patient => ({ ...await serializePatient(patient, visitStatsMap.get(patient.id.toString())), sessionAccount: debtMap.get(Number(patient.id)) ?? [] }))
     ),
     appointments: appointments.map((a) => ({
       id: fromDbId(a.id),
@@ -144,7 +141,7 @@ export async function fetchDoctorHydration(doctorId: number) {
       }),
       prisma.treatmentPlan.findMany({
         where: { doctorId: doctorDbId },
-        include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+        include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
         orderBy: { updatedAt: "desc" },
         take: 500,
       }),
@@ -157,13 +154,11 @@ export async function fetchDoctorHydration(doctorId: number) {
     take: 300,
   });
 
-  const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
+  const [visitStatsMap, debtMap] = await Promise.all([fetchVisitStatsMap(patients.map(p => p.id)), loadPatientDebtMap(doctorDbId, patients.map(p => p.id))]);
 
   return {
     patients: await Promise.all(
-      patients.map((patient) =>
-        serializePatient(patient, visitStatsMap.get(patient.id.toString()))
-      )
+      patients.map(async patient => ({ ...await serializePatient(patient, visitStatsMap.get(patient.id.toString())), sessionAccount: debtMap.get(Number(patient.id)) ?? [] }))
     ),
     medicines: medicines.map((m) => ({
       id: fromDbId(m.id),
@@ -261,17 +256,15 @@ export async function fetchDoctorChanges(doctorId: number, since: Date) {
     }),
     prisma.treatmentPlan.findMany({
       where: { doctorId: doctorDbId, updatedAt: { gt: since } },
-      include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+      include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
     }),
   ]);
 
-  const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
+  const [visitStatsMap, debtMap] = await Promise.all([fetchVisitStatsMap(patients.map(p => p.id)), loadPatientDebtMap(doctorDbId, patients.map(p => p.id))]);
 
   return {
     patients: await Promise.all(
-      patients.map((patient) =>
-        serializePatient(patient, visitStatsMap.get(patient.id.toString()))
-      )
+      patients.map(async patient => ({ ...await serializePatient(patient, visitStatsMap.get(patient.id.toString())), sessionAccount: debtMap.get(Number(patient.id)) ?? [] }))
     ),
     medicines: medicines.map((m) => ({
       id: fromDbId(m.id),

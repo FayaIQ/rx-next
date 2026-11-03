@@ -11,6 +11,7 @@ import {
 import { syncSessionAppointment } from "@/lib/treatment/session-appointment";
 import { sessionTimeInput } from "@/lib/treatment/session-datetime";
 import { z } from "zod";
+import { BillingError, deleteUnbilledPlan, saveSessionBillingInTransaction } from "@/lib/finance/session-billing-service";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -49,11 +50,12 @@ export async function PUT(request: Request, { params }: Params) {
         ...(data.status !== undefined ? { status: data.status } : {}),
         ...(data.notes !== undefined ? { notes: data.notes?.trim() || null } : {}),
       },
-      include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+      include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
     });
 
     return apiOk({ plan: serializeTreatmentPlan(plan) });
   } catch (error) {
+    if (error instanceof BillingError) return apiError(error.message);
     if (error instanceof z.ZodError) {
       return apiError(error.issues[0]?.message ?? "بيانات غير صالحة");
     }
@@ -71,7 +73,12 @@ export async function DELETE(_request: Request, { params }: Params) {
   const existing = await assertPlanAccess(planDbId, toDbId(ctx.doctorId));
   if (!existing) return apiNotFound("خطة العلاج غير موجودة");
 
-  await prisma.treatmentPlan.delete({ where: { id: planDbId } });
+  try {
+    await deleteUnbilledPlan(toDbId(ctx.doctorId), planDbId);
+  } catch (error) {
+    if (error instanceof BillingError) return apiError(error.message);
+    return apiServerError(undefined, error);
+  }
 
   return apiOk({ success: true });
 }
@@ -96,7 +103,8 @@ export async function POST(request: Request, { params }: Params) {
     );
     const sessionNumber = data.sessionNumber ?? maxNumber + 1;
 
-    const session = await prisma.treatmentSession.create({
+    const session = await prisma.$transaction(async tx => {
+      const created = await tx.treatmentSession.create({
       data: {
         planId: planDbId,
         doctorId: toDbId(ctx.doctorId),
@@ -110,6 +118,9 @@ export async function POST(request: Request, { params }: Params) {
         notes: data.notes?.trim() || null,
       },
     });
+      if (data.billing) await saveSessionBillingInTransaction(tx, toDbId(ctx.doctorId), toDbId(ctx.userId), created.id, data.billing);
+      return created;
+    });
 
     if (session.scheduledDate) {
       await syncSessionAppointment(session.id);
@@ -117,12 +128,14 @@ export async function POST(request: Request, { params }: Params) {
 
     const refreshed = await prisma.treatmentSession.findUnique({
       where: { id: session.id },
+      include: { payments: { select: { amount: true } } },
     });
 
     return apiOk({
       session: serializeTreatmentSession(refreshed ?? session),
     });
   } catch (error) {
+    if (error instanceof BillingError) return apiError(error.message);
     if (error instanceof z.ZodError) {
       return apiError(error.issues[0]?.message ?? "بيانات غير صالحة");
     }

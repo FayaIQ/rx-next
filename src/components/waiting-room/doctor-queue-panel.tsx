@@ -1,5 +1,7 @@
 "use client";
 
+import { DebtBadge } from "@/components/finances/session-billing";
+
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -317,6 +319,7 @@ function WaitingCapsuleChip({
       >
         <span className="font-mono opacity-50">{index}.</span>{" "}
         {appointment.patient?.name ?? t("queue.patient")}
+        <DebtBadge totals={appointment.sessionAccount} />
         {sessions?.length ? (
           <span className="mr-1 rounded bg-sky-100 px-1 text-[9px] text-sky-800">
             {sessions[0].treatmentLabel}

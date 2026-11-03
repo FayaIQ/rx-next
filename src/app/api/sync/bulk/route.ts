@@ -1,3 +1,4 @@
+import { deleteUnbilledPatient } from "@/lib/finance/session-billing-service";
 import { requireClinicApi, isClinicApiError } from "@/lib/api/clinic-auth";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
 import { toDbId } from "@/lib/bigint";
@@ -182,7 +183,7 @@ async function processSyncItem(
       };
     }
     if (item.action === "delete" && item.serverId) {
-      await prisma.patient.delete({ where: { id: toDbId(item.serverId) } });
+      await deleteUnbilledPatient(doctorDbId, toDbId(item.serverId));
       return { serverId: item.serverId };
     }
   }
@@ -414,6 +415,7 @@ async function processSyncItem(
             ? null
             : undefined;
 
+    if (data.billing) throw new Error("يجب تسجيل دفعات الجلسات مباشرة باتصال الإنترنت");
     const session = await prisma.treatmentSession.update({
       where: { id: sessionDbId },
       data: {
@@ -443,6 +445,7 @@ async function processSyncItem(
 
     const refreshed = await prisma.treatmentSession.findUnique({
       where: { id: sessionDbId },
+      include: { payments: { select: { amount: true } } },
     });
 
     return {
@@ -462,6 +465,7 @@ async function processSyncItem(
     if (!patient) throw new Error("المريض غير موجود");
 
     const data = treatmentPlanCreateSchema.parse(item.payload);
+    if (data.sessions?.some(s => s.billing)) throw new Error("يجب تسجيل دفعات الجلسات مباشرة باتصال الإنترنت");
     const plan = await createTreatmentPlanForPatient(
       doctorId,
       patientDbId,

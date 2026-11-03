@@ -1,3 +1,4 @@
+import { loadPatientDebtMap } from "@/lib/finance/session-billing-service";
 import { prisma } from "@/lib/prisma";
 import { requireClinicApi, isClinicApiError } from "@/lib/api/clinic-auth";
 import { apiOk, apiError, apiServerError } from "@/lib/api/response";
@@ -46,13 +47,14 @@ export async function GET(request: Request) {
     prisma.patient.count({ where }),
   ]);
 
-  const visitStatsMap = await fetchVisitStatsMap(patients.map((p) => p.id));
+  const [visitStatsMap, debtMap] = await Promise.all([fetchVisitStatsMap(patients.map((p) => p.id)), loadPatientDebtMap(toDbId(ctx.doctorId), patients.map(p => p.id))]);
 
   return apiOk({
     patients: await Promise.all(
-      patients.map((patient) =>
-        serializePatient(patient, visitStatsMap.get(patient.id.toString()))
-      )
+      patients.map(async (patient) => ({
+        ...await serializePatient(patient, visitStatsMap.get(patient.id.toString())),
+        sessionAccount: debtMap.get(Number(patient.id)) ?? [],
+      }))
     ),
     pagination: buildPaginationMeta(page, pageSize, total),
   });

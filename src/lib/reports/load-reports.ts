@@ -1,3 +1,4 @@
+import { accountTotals } from "@/lib/finance/session-balance";
 import { currencyTotals } from "@/lib/finance/currency-totals";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
@@ -30,6 +31,7 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
     finance,
     plansByType,
     recentPatients,
+    billedSessions,
   ] = await Promise.all([
     prisma.patient.count({
       where: { doctorId: doctorDbId, createdAt: { gte: from, lte: to } },
@@ -67,6 +69,7 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
       take: 5,
       select: { id: true, name: true, createdAt: true },
     }),
+    prisma.treatmentSession.findMany({ where: { doctorId: doctorDbId, fee: { not: null } }, select: { fee: true, currency: true, payments: { select: { amount: true } } } }),
   ]);
 
   const financialTotals = currencyTotals(finance.map((row) => ({ type: row.type, currency: row.currency, amount: Number(row._sum.amount ?? 0) })));
@@ -79,6 +82,7 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
       completedSessions,
       cancelledAppointments,
       financialTotals,
+      sessionAccount: accountTotals(billedSessions),
     },
     treatmentBreakdown: plansByType
       .map((row) => ({

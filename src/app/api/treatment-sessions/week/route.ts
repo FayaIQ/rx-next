@@ -1,3 +1,5 @@
+import { sessionBalance } from "@/lib/finance/session-balance";
+import { loadPatientDebtMap } from "@/lib/finance/session-billing-service";
 import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
 import { apiOk } from "@/lib/api/response";
@@ -27,6 +29,7 @@ export async function GET(request: Request) {
       ...(treatmentType ? { plan: { treatmentType } } : {}),
     },
     include: {
+      payments: { select: { amount: true } },
       patient: { select: { id: true, name: true } },
       plan: {
         select: {
@@ -49,10 +52,14 @@ export async function GET(request: Request) {
     byDate[key].push(s);
   }
 
+  const debtMap = await loadPatientDebtMap(toDbId(ctx.doctorId), [...new Set(sessions.map(s => s.patientId))]);
+
   return apiOk({
     from: fromKey,
     to: toKey,
     sessions: sessions.map((s) => ({
+      billing: sessionBalance(s),
+      patientAccount: debtMap.get(Number(s.patientId)) ?? [],
       id: Number(s.id),
       planId: Number(s.planId),
       patientId: Number(s.patientId),
@@ -73,6 +80,8 @@ export async function GET(request: Request) {
       Object.entries(byDate).map(([date, list]) => [
         date,
         list.map((s) => ({
+          billing: sessionBalance(s),
+          patientAccount: debtMap.get(Number(s.patientId)) ?? [],
           id: Number(s.id),
           patientId: Number(s.patientId),
           patientName: s.patient.name,

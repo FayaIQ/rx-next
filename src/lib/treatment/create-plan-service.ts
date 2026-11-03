@@ -1,3 +1,4 @@
+import { saveSessionBillingInTransaction } from "@/lib/finance/session-billing-service";
 import { recordClinicActivity } from "@/lib/product-analytics/server";
 import { prisma } from "@/lib/prisma";
 import { toDbId } from "@/lib/bigint";
@@ -15,12 +16,12 @@ export async function createTreatmentPlanForPatient(
   doctorId: number,
   patientDbId: bigint,
   data: PlanCreateInput,
-  options?: { clientRequestId?: string },
+  options?: { clientRequestId?: string; userId?: number },
 ) {
   const doctorDbId = toDbId(doctorId);
   const requestId = options?.clientRequestId ?? data.clientRequestId;
   if (requestId) {
-    const existing = await prisma.treatmentPlan.findFirst({ where: { doctorId: doctorDbId, clientRequestId: requestId }, include: { sessions: { orderBy: { sessionNumber: "asc" } } } });
+    const existing = await prisma.treatmentPlan.findFirst({ where: { doctorId: doctorDbId, clientRequestId: requestId }, include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } } });
     if (existing) { await syncPlanSessionAppointments(existing.id); await recordClinicActivity(doctorId, "treatment_plan", existing.id, existing.createdAt ?? new Date()); return serializeTreatmentPlan(existing); }
   }
 
@@ -45,7 +46,7 @@ export async function createTreatmentPlanForPatient(
 
   const plan = await prisma.$transaction(async (tx) => {
     if (requestId) await tx.$executeRaw`SELECT pg_advisory_xact_lock(${doctorDbId})`;
-    if (requestId) { const existing = await tx.treatmentPlan.findFirst({ where: { doctorId: doctorDbId, clientRequestId: requestId }, include: { sessions: { orderBy: { sessionNumber: "asc" } } } }); if (existing) return existing; }
+    if (requestId) { const existing = await tx.treatmentPlan.findFirst({ where: { doctorId: doctorDbId, clientRequestId: requestId }, include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } } }); if (existing) return existing; }
     const created = await tx.treatmentPlan.create({
       data: {
         doctorId: doctorDbId,
@@ -67,9 +68,16 @@ export async function createTreatmentPlanForPatient(
       scheduledTime: session.scheduledTime ?? defaultTime, notes: session.notes?.trim() || null,
     })) });
 
+    const createdSessions = await tx.treatmentSession.findMany({ where: { planId: created.id } });
+    for (const input of sessionInputs) {
+      if (!input.billing) continue;
+      const session = createdSessions.find(s => s.sessionNumber === input.sessionNumber)!;
+      await saveSessionBillingInTransaction(tx, doctorDbId, toDbId(options?.userId ?? doctorId), session.id, input.billing);
+    }
+
     return tx.treatmentPlan.findUnique({
       where: { id: created.id },
-      include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+      include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
     });
   });
 
@@ -79,7 +87,7 @@ export async function createTreatmentPlanForPatient(
 
   const refreshed = await prisma.treatmentPlan.findUnique({
     where: { id: plan.id },
-    include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+    include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
   });
 
   await recordClinicActivity(doctorId, "treatment_plan", plan.id);

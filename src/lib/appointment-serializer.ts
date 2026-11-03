@@ -1,8 +1,10 @@
+import type { AccountTotal } from "@/lib/finance/session-balance";
 import { parseToothFdiFromNotes } from "@/lib/appointment-treatment-link";
 import { fromDbId } from "@/lib/bigint";
 import { formatAge, genderLabel } from "@/lib/patient-utils";
 
 export type AppointmentDto = {
+  sessionAccount?: AccountTotal[];
   id: number;
   doctorId: number;
   patientId: number;

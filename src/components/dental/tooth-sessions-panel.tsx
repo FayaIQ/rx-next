@@ -1,5 +1,6 @@
 "use client";
 
+import { SessionBillingButton, useInvalidateBilling } from "@/components/finances/session-billing";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -37,12 +38,18 @@ type Props = {
 export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
   const { t } = useLocale();
   const wholeMouth = toothFdi === null;
+  const invalidateBilling = useInvalidateBilling();
   const queryClient = useQueryClient();
   const [showNewPlan, setShowNewPlan] = useState(false);
   const [treatmentType, setTreatmentType] =
     useState<TreatmentTypeId>(wholeMouth ? "full_mouth_cleaning" : "root_canal");
   const [totalSessions, setTotalSessions] = useState(wholeMouth ? 1 : 3);
   const [sessionTime, setSessionTime] = useState("");
+  const [initialFee, setInitialFee] = useState("");
+  const [initialPaid, setInitialPaid] = useState("");
+  const [planCurrency, setPlanCurrency] = useState("IQD");
+  const [planRequestId, setPlanRequestId] = useState("");
+  const [initialPaymentId, setInitialPaymentId] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(
     wholeMouth ? "" : TREATMENT_TEMPLATES[0].id
   );
@@ -63,6 +70,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
   const plans = data?.plans ?? [];
 
   const invalidate = () => {
+    invalidateBilling();
     queryClient.invalidateQueries({ queryKey: ["treatment-plans", patientId] });
     queryClient.invalidateQueries({ queryKey: ["treatment-sessions-today"] });
     queryClient.invalidateQueries({ queryKey: ["appointments"] });
@@ -83,10 +91,12 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
             notes: null,
           }));
       return createTreatmentPlanOffline(patientId, {
+        clientRequestId: planRequestId,
         toothFdi,
         treatmentType,
         totalSessions: count,
-        sessions: sessions.map((session) => ({
+        sessions: sessions.map((session, index) => ({
+          ...(index === 0 && initialFee !== "" ? { billing: { fee: Number(initialFee), currency: planCurrency, amount: Number(initialPaid || 0), paymentMethod: "cash", transactionDate: todayDateKey(), requestId: initialPaymentId } } : {}),
           ...session,
           scheduledTime: sessionTime || sessionTimeInput(),
         })),
@@ -153,6 +163,9 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
             variant="ghost"
             className="h-8 text-xs text-teal-700 hover:text-teal-800"
             onClick={() => {
+              setPlanRequestId(crypto.randomUUID());
+              setInitialPaymentId(crypto.randomUUID());
+              setInitialFee(""); setInitialPaid("");
               setTotalSessions(defaultSessionsForType(treatmentType));
               setSessionTime(sessionTimeInput());
               setShowNewPlan(true);
@@ -246,12 +259,21 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
             </div>
             <p className="text-xs text-rx-muted">{t("dental.sessionTimeHint")}</p>
           </div>
+          <fieldset disabled={isBusy} className="space-y-2 rounded-lg border border-rx-border bg-white p-3">
+            <legend className="px-1 text-xs font-semibold">{t("billing.firstSessionAccount")}</legend>
+            <p className="text-xs text-rx-muted">{t("billing.firstSessionHint")}</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="space-y-1"><Label htmlFor={`first-fee-${toothFdi}`} className="text-xs">{t("billing.fee")}</Label><Input id={`first-fee-${toothFdi}`} type="number" min="0" step={planCurrency === "USD" ? "0.01" : "1"} value={initialFee} onChange={e => setInitialFee(e.target.value)} placeholder={t("billing.unpriced")} /></div>
+              <div className="space-y-1"><Label htmlFor={`first-paid-${toothFdi}`} className="text-xs">{t("billing.newPayment")}</Label><Input id={`first-paid-${toothFdi}`} type="number" min="0" max={Number(initialFee || 0)} step={planCurrency === "USD" ? "0.01" : "1"} value={initialPaid} onChange={e => setInitialPaid(e.target.value)} placeholder="0" /></div>
+              <div className="space-y-1"><Label htmlFor={`first-currency-${toothFdi}`} className="text-xs">{t("finances.currency")}</Label><select id={`first-currency-${toothFdi}`} className="h-10 w-full rounded-lg border border-rx-border px-2 text-sm" value={planCurrency} onChange={e => setPlanCurrency(e.target.value)}><option value="IQD">IQD</option><option value="USD">USD</option></select></div>
+            </div>
+          </fieldset>
           <div className="flex gap-2">
             <Button
               type="button"
               size="sm"
               onClick={() => createPlanMutation.mutate()}
-              disabled={isBusy || !sessionTime}
+              disabled={isBusy || !sessionTime || Number(initialPaid || 0) > Number(initialFee || 0)}
             >
               {t("dental.create")}
             </Button>
@@ -300,15 +322,16 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
 
       <CompleteSessionNoteDialog
         open={completingSession !== null}
+        sessionId={completingSession?.id}
         title={completingSession?.title ?? ""}
         subtitle={completingSession?.subtitle}
         isPending={updateSessionMutation.isPending}
         onClose={() => setCompletingSession(null)}
-        onConfirm={(notes, performedAt) => {
+        onConfirm={(notes, performedAt, billing) => {
           if (!completingSession) return;
           updateSessionMutation.mutate({
             sessionId: completingSession.id,
-            body: { status: "completed", notes: notes || null, performedAt },
+            body: { status: "completed", notes: notes || null, performedAt, ...(billing ? { billing } : {}) },
           });
         }}
       />
@@ -452,6 +475,7 @@ function PlanBlock({
                     </>
                   )}
                 </div>
+                <SessionBillingButton sessionId={session.id} billing={session.billing} />
                 {done && session.notes?.trim() ? (
                   <p className="text-xs leading-relaxed text-slate-600">
                     {session.notes}

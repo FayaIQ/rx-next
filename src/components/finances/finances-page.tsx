@@ -1,5 +1,8 @@
 "use client";
 
+import { ClinicDebtsPanel, type PatientAccount } from "@/components/finances/patient-account";
+import { billingRequest, useInvalidateBilling } from "@/components/finances/session-billing";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useMemo,
@@ -66,6 +69,8 @@ type TransactionFormState = {
   description: string;
   transactionDate: string;
   patientId: string;
+  treatmentSessionId: string;
+  paymentRequestId: string;
 };
 
 function pad(n: number) {
@@ -126,6 +131,8 @@ function emptyForm(type: "income" | "expense"): TransactionFormState {
     description: "",
     transactionDate: todayKey(),
     patientId: "",
+    treatmentSessionId: "",
+    paymentRequestId: "",
   };
 }
 
@@ -166,6 +173,7 @@ type Props = {
 export function FinancesPage({ title, subtitle }: Props) {
   const { t, locale } = useLocale();
   const queryClient = useQueryClient();
+  const invalidateBilling = useInvalidateBilling();
   const pageTitle = title ?? t("finances.title");
   const pageSubtitle = subtitle ?? t("finances.subtitle");
   const initial = rangeForPreset("month");
@@ -289,6 +297,9 @@ export function FinancesPage({ title, subtitle }: Props) {
         transactionDate: form.transactionDate,
         patientId: form.patientId ? Number(form.patientId) : null,
       };
+      if (!editing && form.type === "income" && form.treatmentSessionId) {
+        return billingRequest(`/api/treatment-sessions/${form.treatmentSessionId}/billing`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: payload.amount, currency: payload.currency, paymentMethod: payload.paymentMethod, description: payload.description || undefined, transactionDate: payload.transactionDate, requestId: form.paymentRequestId }) });
+      }
       if (editing) {
         return rxApi.finances.updateTransaction(editing.id, payload);
       }
@@ -297,6 +308,7 @@ export function FinancesPage({ title, subtitle }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["finance-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["finance-summary"] });
+      invalidateBilling();
       setDialogOpen(false);
       setEditing(null);
       toast.success(editing ? t("finances.txUpdated") : t("finances.txCreated"));
@@ -309,6 +321,7 @@ export function FinancesPage({ title, subtitle }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["finance-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["finance-summary"] });
+      invalidateBilling();
       toast.success(t("finances.txDeleted"));
     },
     onError: (e: Error) => toast.error(e.message),
@@ -341,6 +354,7 @@ export function FinancesPage({ title, subtitle }: Props) {
   function openCreate(type: "income" | "expense") {
     const next = emptyForm(type);
     next.currency = reportCurrency;
+    next.paymentRequestId = crypto.randomUUID();
     if (settings && settings.currency === next.currency && type === "income") {
       const suggested = defaultAmountForCategory(next.category, settings);
       if (suggested != null && suggested > 0) {
@@ -363,6 +377,7 @@ export function FinancesPage({ title, subtitle }: Props) {
       description: tx.description ?? "",
       transactionDate: tx.transactionDate,
       patientId: tx.patientId ? String(tx.patientId) : "",
+      treatmentSessionId: "", paymentRequestId: "",
     });
     setDialogOpen(true);
   }
@@ -505,6 +520,7 @@ export function FinancesPage({ title, subtitle }: Props) {
           </div>
         </div>
 
+        <ClinicDebtsPanel />
         <section className="rounded-2xl border border-rx-border/80 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2">
             <Label htmlFor="report-currency">{t("finances.currency")}</Label>
@@ -990,7 +1006,7 @@ export function FinancesPage({ title, subtitle }: Props) {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => openEdit(tx)}
+                                onClick={() => { if (tx.treatmentSessionId && tx.patientId) { window.location.assign(`/patients/${tx.patientId}/record`); } else { openEdit(tx); } }}
                               >
                                 <Pencil size={14} />
                               </Button>
@@ -1314,6 +1330,12 @@ function TransactionDialog({
   onSave: () => void;
   onClose: () => void;
 }) {
+  const accountQuery = useQuery({
+    queryKey: ["patient-account", Number(form.patientId)],
+    queryFn: () => billingRequest<PatientAccount>(`/api/patients/${form.patientId}/account`),
+    enabled: !editing && form.type === "income" && Number(form.patientId) > 0,
+  });
+  const { locale } = useLocale();
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
@@ -1351,6 +1373,7 @@ function TransactionDialog({
                     const next = emptyForm(tab.id);
                     next.transactionDate = f.transactionDate;
                     next.currency = f.currency;
+                    next.paymentRequestId = f.paymentRequestId;
                     if (settings && settings.currency === next.currency && tab.id === "income") {
                       const suggested = defaultAmountForCategory(
                         next.category,
@@ -1472,7 +1495,7 @@ function TransactionDialog({
                 className="h-10 w-full rounded-lg border border-rx-border bg-white px-3 text-sm"
                 value={form.patientId}
                 onChange={(e) =>
-                  setForm((f) => ({ ...f, patientId: e.target.value }))
+                  setForm((f) => ({ ...f, patientId: e.target.value, treatmentSessionId: "" }))
                 }
               >
                 <option value="">{t("finances.noPatient")}</option>
@@ -1482,6 +1505,21 @@ function TransactionDialog({
                   </option>
                 ))}
               </select>
+            </div>
+          ) : null}
+
+          {!editing && form.type === "income" && form.patientId ? (
+            <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <Label htmlFor="payment-session">{t("billing.allocate")}</Label>
+              <select id="payment-session" disabled={saving || accountQuery.isPending || accountQuery.isError} className="h-10 w-full rounded-lg border bg-white px-2 text-sm" value={form.treatmentSessionId} onChange={event => {
+                const session = accountQuery.data?.sessions.find(s => String(s.id) === event.target.value);
+                setForm(f => ({ ...f, treatmentSessionId: event.target.value, paymentRequestId: f.paymentRequestId || crypto.randomUUID(), ...(session ? { currency: session.billing.currency, amount: String(session.billing.remaining), category: "procedure" } : {}) }));
+              }}>
+                <option value="">{t("billing.otherIncome")}</option>
+                {accountQuery.data?.sessions.filter(s => s.billing.remaining > 0).map(s => <option key={s.id} value={s.id}>{s.planTitle} · {t("treatment.session")} {s.sessionNumber} · {formatMoney(s.billing.remaining, s.billing.currency, locale)}</option>)}
+              </select>
+              <p className="text-xs text-amber-900">{t("billing.allocateHint")}</p>
+              {accountQuery.isError && <p role="alert">{t("billing.loadError")}</p>}
             </div>
           ) : null}
 

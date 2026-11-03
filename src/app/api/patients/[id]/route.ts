@@ -8,6 +8,7 @@ import { serializePatient, serializePatientLight } from "@/lib/patient-serialize
 import { upsertPatientFieldValues } from "@/lib/patient-field-value-service";
 import { toDbId } from "@/lib/bigint";
 import { z } from "zod";
+import { BillingError, deleteUnbilledPatient } from "@/lib/finance/session-billing-service";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -109,6 +110,11 @@ export async function DELETE(_request: Request, { params }: Params) {
   });
   if (!existing) return apiNotFound("المريض غير موجود");
 
-  await prisma.patient.delete({ where: { id: patientDbId } });
+  try {
+    await deleteUnbilledPatient(toDbId(ctx.doctorId), patientDbId);
+  } catch (error) {
+    if (error instanceof BillingError) return apiError(error.message);
+    return apiServerError(undefined, error);
+  }
   return apiOk({ success: true });
 }

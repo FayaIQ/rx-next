@@ -1,5 +1,9 @@
 "use client";
 
+import { AccountTotals } from "@/components/finances/patient-account";
+import { BillingStatus } from "@/components/finances/session-billing";
+import type { loadPatientAccount } from "@/lib/finance/session-billing-service";
+
 import { useEffect } from "react";
 import Link from "next/link";
 import { Printer } from "lucide-react";
@@ -20,6 +24,7 @@ type Props = {
   phone: string | null;
   timeline: TimelineItem[];
   autoPrint?: boolean;
+  account: Awaited<ReturnType<typeof loadPatientAccount>>;
 };
 
 export function PatientSummaryPrintClient({
@@ -28,6 +33,7 @@ export function PatientSummaryPrintClient({
   phone,
   timeline,
   autoPrint = true,
+  account,
 }: Props) {
   const { t, locale } = useLocale();
 
@@ -58,6 +64,11 @@ export function PatientSummaryPrintClient({
         {new Date().toLocaleDateString(locale === "en" ? "en-GB" : "ar-IQ")}
       </p>
 
+      <section className="mt-6 space-y-3">
+        <h2 className="font-bold">{t("billing.patientAccount")}</h2>
+        <AccountTotals totals={account.totals} />
+        {account.sessions.filter(s => s.billing.fee != null).map(s => <div key={s.id} className="break-inside-avoid border-b py-2 text-sm"><p>{s.planTitle} · {t("treatment.session")} {s.sessionNumber}</p><BillingStatus billing={s.billing} /></div>)}
+      </section>
       <section className="mt-6">
         <h2 className="font-bold">{t("print.recentActivity")}</h2>
         {timeline.length === 0 ? (

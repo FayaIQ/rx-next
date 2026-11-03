@@ -1,5 +1,7 @@
 "use client";
 
+import { DebtBadge } from "@/components/finances/session-billing";
+
 import { formatMoney } from "@/lib/finance/constants";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -55,6 +57,8 @@ export function PatientQueueSummary({ patientId, className }: Props) {
             </Link>
           </Button>
         </div>
+
+        <DebtBadge totals={data.sessionAccount} />
 
         {data.patient.allergies?.trim() ? (
           <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
@@ -126,7 +130,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
           <div className="rounded-lg border border-white/80 bg-white/70 px-3 py-2">
             <p className="flex items-center gap-1 font-semibold text-slate-800">
               <Wallet size={12} />
-              {t("waitingRoom.balance")}
+              {t("billing.receipts")}
             </p>
             <p className="mt-1 font-mono text-slate-600">
               {data.financeBalances.map((row: { currency: string; balance: number }) => formatMoney(row.balance, row.currency, locale)).join(" · ") || "0"}

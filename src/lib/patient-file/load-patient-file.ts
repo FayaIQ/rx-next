@@ -52,7 +52,7 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
     treatmentEnabled
       ? prisma.treatmentPlan.findMany({
           where: { patientId: patientDbId, doctorId: doctorDbId },
-          include: { sessions: { orderBy: { sessionNumber: "asc" } } },
+          include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
           orderBy: { updatedAt: "desc" },
         })
       : Promise.resolve([]),

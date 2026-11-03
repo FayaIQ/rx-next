@@ -1,5 +1,7 @@
 "use client";
 
+import { DebtBadge } from "@/components/finances/session-billing";
+
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -115,6 +117,7 @@ function AppointmentRow({
           <p className="font-semibold text-rx-text">
             {ap.patient?.name ?? t("appointments.patient")}
           </p>
+          <DebtBadge totals={ap.sessionAccount} />
           <Badge variant={ap.status ? "success" : "danger"}>
             {ap.status
               ? t("appointments.statusActive")

@@ -196,6 +196,7 @@ export async function createTreatmentPlanOffline(
   patientId: number,
   body: Record<string, unknown>
 ) {
+  if (!navigator.onLine && Array.isArray(body.sessions) && body.sessions.some(s => s.billing)) throw new Error("يتطلب تسجيل حساب الجلسة اتصالاً بالإنترنت");
   body = { ...body, clientRequestId: body.clientRequestId ?? crypto.randomUUID() };
   if (navigator.onLine) {
     const res = await rxApi.treatment.createPlan(patientId, body);
@@ -249,6 +250,7 @@ export async function updateTreatmentSessionOffline(
   sessionId: number,
   body: Record<string, unknown>
 ) {
+  if (body.billing && !navigator.onLine) throw new Error("يتطلب تسجيل الدفعة اتصالاً بالإنترنت");
   if (navigator.onLine) {
     const res = await rxApi.treatment.updateSession(sessionId, body);
     const patientId = res.session.patientId;

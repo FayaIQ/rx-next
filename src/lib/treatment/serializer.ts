@@ -1,6 +1,10 @@
+import { sessionBalance } from "@/lib/finance/session-balance";
 import { fromDbId } from "@/lib/bigint";
 
 export function serializeTreatmentSession(session: {
+  fee?: number | { toString(): string } | null;
+  currency?: string;
+  payments?: Array<{ amount: number | { toString(): string } }>;
   id: bigint;
   planId: bigint;
   doctorId: bigint;
@@ -16,6 +20,7 @@ export function serializeTreatmentSession(session: {
   updatedAt: Date | null;
 }) {
   return {
+    billing: sessionBalance(session),
     id: fromDbId(session.id),
     planId: fromDbId(session.planId),
     doctorId: fromDbId(session.doctorId),
@@ -46,20 +51,7 @@ export function serializeTreatmentPlan(plan: {
   notes: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
-  sessions?: Array<{
-    id: bigint;
-    planId: bigint;
-    doctorId: bigint;
-    patientId: bigint;
-    sessionNumber: number;
-    status: string;
-    scheduledDate: Date | null;
-    scheduledTime?: string | null;
-    performedAt: Date | null;
-    notes: string | null;
-    createdAt: Date | null;
-    updatedAt: Date | null;
-  }>;
+  sessions?: Array<Parameters<typeof serializeTreatmentSession>[0]>;
 }) {
   return {
     id: fromDbId(plan.id),

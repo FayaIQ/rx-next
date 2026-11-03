@@ -129,6 +129,9 @@ model TreatmentPlan {
 }
 
 model TreatmentSession {
+  fee           Decimal?      @db.Decimal(12, 2)
+  currency      String        @default("IQD") @db.VarChar(8)
+  payments      FinanceTransaction[]
   id            BigInt        @id @default(autoincrement())
   planId        BigInt        @map("plan_id")
   doctorId      BigInt        @map("doctor_id")
@@ -150,6 +153,7 @@ model TreatmentSession {
   @@unique([planId, sessionNumber], map: "treatment_sessions_plan_session_unique")
   @@index([doctorId, scheduledDate], map: "treatment_sessions_doctor_scheduled_index")
   @@index([doctorId, status], map: "treatment_sessions_doctor_status_index")
+  @@index([doctorId, patientId], map: "treatment_sessions_doctor_patient_index")
   @@map("treatment_sessions")
 }
 
@@ -206,6 +210,9 @@ model ClinicFinanceSettings {
 }
 
 model FinanceTransaction {
+  treatmentSessionId BigInt? @map("treatment_session_id")
+  paymentRequestId String? @unique @map("payment_request_id") @db.VarChar(64)
+  treatmentSession TreatmentSession? @relation(fields: [treatmentSessionId], references: [id], onDelete: Restrict)
   id              BigInt        @id @default(autoincrement())
   doctorId        BigInt        @map("doctor_id")
   patientId       BigInt?       @map("patient_id")
@@ -229,6 +236,7 @@ model FinanceTransaction {
 
   @@index([doctorId, transactionDate], map: "finance_transactions_doctor_date_index")
   @@index([doctorId, type], map: "finance_transactions_doctor_type_index")
+  @@index([treatmentSessionId], map: "finance_transactions_treatment_session_id_idx")
   @@index([doctorId, currency, transactionDate], map: "finance_transactions_doctor_currency_date_index")
   @@map("finance_transactions")
 }

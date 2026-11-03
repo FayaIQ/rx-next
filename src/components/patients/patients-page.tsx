@@ -1,5 +1,7 @@
 "use client";
 
+import { DebtBadge } from "@/components/finances/session-billing";
+
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Users, FileText, Smile } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -177,6 +179,7 @@ export function PatientsPageClient({
                           <p className="break-words font-semibold text-rx-text">
                             {patient.name}
                           </p>
+                          <DebtBadge totals={patient.sessionAccount} />
                           <p className="mt-1 font-mono text-xs text-rx-muted" dir="ltr">
                             {patient.phone ?? "—"}
                           </p>
@@ -291,6 +294,7 @@ export function PatientsPageClient({
                       <tr key={patient.id}>
                         <td className="px-5 py-4">
                           <p className="font-semibold text-rx-text">{patient.name}</p>
+                          <DebtBadge totals={patient.sessionAccount} />
                         </td>
                         <td className="px-5 py-4 text-rx-text-secondary">
                           {genderLabel(patient.gender, locale)}
