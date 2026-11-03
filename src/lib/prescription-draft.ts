@@ -1,7 +1,11 @@
 import type { PatientDto } from "@/lib/api/rx-client";
 import type { PrescriptionDocumentKind } from "@/lib/prescription-document-kind";
+import { decryptDraft, encryptDraft, getDraftKey, type EncryptedDraft } from "@/lib/draft-encryption";
 
-const DRAFT_STORAGE_PREFIX = "rx:prescription-draft:v1:";
+const DRAFT_STORAGE_PREFIX = "rx:prescription-draft:v2:";
+const LEGACY_STORAGE_PREFIX = "rx:prescription-draft:v1:";
+const pendingWrites = new Map<number, Promise<void>>();
+const generations = new Map<number, number>();
 
 export type NewPatientDraft = {
   name: string;
@@ -53,49 +57,73 @@ function storageKey(doctorId: number) {
   return `${DRAFT_STORAGE_PREFIX}${doctorId}`;
 }
 
-export function readPrescriptionDraft(
+export async function readPrescriptionDraft(
   doctorId: number
-): PrescriptionComposerDraft | null {
+): Promise<PrescriptionComposerDraft | null> {
   if (typeof window === "undefined") return null;
+  const generation = generations.get(doctorId) ?? 0;
+  generations.set(doctorId, generation);
   try {
+    await pendingWrites.get(doctorId);
     const raw = localStorage.getItem(storageKey(doctorId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<PrescriptionComposerDraft>;
+    const legacy = raw ? null : localStorage.getItem(`${LEGACY_STORAGE_PREFIX}${doctorId}`);
+    if (!raw && !legacy) return null;
+    const text = raw ? await decryptDraft(JSON.parse(raw) as EncryptedDraft, doctorId, await getDraftKey(doctorId)) : legacy!;
+    const parsed = JSON.parse(text) as Partial<PrescriptionComposerDraft>;
     if (parsed.version !== 1 || parsed.doctorId !== doctorId) return null;
     if (!Array.isArray(parsed.items) || typeof parsed.prescriptionDate !== "string") {
       return null;
     }
-    return parsed as PrescriptionComposerDraft;
+    const draft = parsed as PrescriptionComposerDraft;
+    if ((generations.get(doctorId) ?? 0) !== generation) return null;
+    if (legacy) await writePrescriptionDraft(draft);
+    return draft;
   } catch {
-    return null;
+    // Do not turn a temporarily unavailable encryption key into an empty draft:
+    // the composer must preserve the saved copy instead of overwriting it.
+    throw new Error("Prescription draft could not be decrypted");
   }
 }
 
-export function writePrescriptionDraft(draft: PrescriptionComposerDraft) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(storageKey(draft.doctorId), JSON.stringify(draft));
-  } catch {
-    // A draft should never interrupt prescription writing (quota/private mode).
-  }
+export function writePrescriptionDraft(draft: PrescriptionComposerDraft): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  const doctorId = draft.doctorId;
+  const generation = generations.get(doctorId) ?? 0;
+  const text = JSON.stringify(draft);
+  const pending = (pendingWrites.get(doctorId) ?? Promise.resolve()).then(async () => {
+    if ((generations.get(doctorId) ?? 0) !== generation) return;
+    const encrypted = await encryptDraft(text, doctorId, await getDraftKey(doctorId));
+    if ((generations.get(doctorId) ?? 0) !== generation) return;
+    localStorage.setItem(storageKey(doctorId), JSON.stringify(encrypted));
+    // Remove the older plaintext only after its encrypted replacement is saved.
+    localStorage.removeItem(`${LEGACY_STORAGE_PREFIX}${doctorId}`);
+  }).catch(() => {
+    // Quota/private mode must not interrupt writing or create a plaintext fallback.
+  });
+  pendingWrites.set(doctorId, pending);
+  void pending.finally(() => { if (pendingWrites.get(doctorId) === pending) pendingWrites.delete(doctorId); });
+  return pending;
 }
 
 export function clearPrescriptionDraft(doctorId: number) {
+  generations.set(doctorId, (generations.get(doctorId) ?? 0) + 1);
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(storageKey(doctorId));
+    localStorage.removeItem(`${LEGACY_STORAGE_PREFIX}${doctorId}`);
   } catch {
     // Storage may be disabled by the browser; saving must still continue.
   }
 }
 
 export function clearAllPrescriptionDrafts() {
+  for (const doctorId of new Set([...generations.keys(), ...pendingWrites.keys()])) generations.set(doctorId, (generations.get(doctorId) ?? 0) + 1);
   if (typeof window === "undefined") return;
   try {
     const keys: string[] = [];
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
-      if (key?.startsWith(DRAFT_STORAGE_PREFIX)) keys.push(key);
+      if (key?.startsWith(DRAFT_STORAGE_PREFIX) || key?.startsWith(LEGACY_STORAGE_PREFIX)) keys.push(key);
     }
     keys.forEach((key) => localStorage.removeItem(key));
   } catch {

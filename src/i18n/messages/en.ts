@@ -1255,6 +1255,7 @@ export const en: MessageCatalog = {
     editMessageSubtitle: "Edit message",
   },
   composer: {
+    draftRestoreFailed: "The saved draft could not be opened. It has been preserved; try reloading the page.",
     save: "Save",
     print: "Print",
     saveAndPrint: "Save & print",

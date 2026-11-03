@@ -1235,6 +1235,7 @@ export const ar = {
     editMessageSubtitle: "تعديل رسالة",
   },
   composer: {
+    draftRestoreFailed: "تعذر فتح المسودة المحفوظة. احتفظنا بها بدون تغيير؛ جرّب إعادة فتح الصفحة.",
     save: "حفظ",
     print: "طباعة",
     saveAndPrint: "حفظ وطباعة",

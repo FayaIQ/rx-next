@@ -15,7 +15,7 @@ export function buildReleaseId(root = process.cwd()) {
       else if (entry.isFile() && /\.(?:ts|tsx|js|jsx|mjs|cjs|json|sql|prisma)$/.test(name)) files.push(name);
     }
   }
-  for (const directory of ["src", "prisma", "scripts"]) collect(directory);
+  for (const directory of ["src", "prisma", "scripts", "vendor"]) collect(directory);
   for (const name of ["package.json", "pnpm-lock.yaml", "next.config.ts", "public/offline.html"]) {
     if (existsSync(path.join(root, name))) files.push(name);
   }

@@ -77,10 +77,15 @@ function clampNum(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }
 
-function sanitizeEmail(value: string | null | undefined): string | null {
+export function sanitizeEmail(value: string | null | undefined): string | null {
+  if (!value || value.length > 1024) return null;
   const trimmed = value?.trim();
-  if (!trimmed) return null;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
+  if (!trimmed || trimmed.length > 254 || /\s/u.test(trimmed)) return null;
+  const at = trimmed.indexOf("@");
+  if (at <= 0 || at !== trimmed.lastIndexOf("@")) return null;
+  const domain = trimmed.slice(at + 1);
+  const dot = domain.lastIndexOf(".");
+  return dot > 0 && dot < domain.length - 1 ? trimmed : null;
 }
 
 function nonEmptyStr(value: string | null | undefined, fallback: string): string {

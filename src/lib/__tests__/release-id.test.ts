@@ -18,5 +18,9 @@ test("release identity changes with shipped source but excludes credentials and 
     assert.equal(buildReleaseId(directory), original);
     writeFileSync(path.join(directory, "src", "app.ts"), "export const version = 2;");
     assert.notEqual(buildReleaseId(directory), original);
+    const beforeVendor = buildReleaseId(directory);
+    mkdirSync(path.join(directory, "vendor"));
+    writeFileSync(path.join(directory, "vendor", "compat.cjs"), "module.exports = 1;");
+    assert.notEqual(buildReleaseId(directory), beforeVendor);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });

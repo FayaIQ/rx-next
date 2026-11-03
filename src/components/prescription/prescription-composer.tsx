@@ -413,37 +413,46 @@ export function PrescriptionComposer() {
       return;
     }
 
-    const draft = readPrescriptionDraft(doctorId);
-    if (draft) {
-      setCurrentPrescriptionId(draft.currentPrescriptionId);
-      setPrescriptionNumber(draft.prescriptionNumber);
-      setPrescriptionDate(draft.prescriptionDate);
-      setPatientSearch(draft.patientSearch);
-      setSelectedPatient(draft.selectedPatient);
-      setShowNewPatient(draft.showNewPatient);
-      setNewPatientInitialName(draft.newPatientInitialName);
-      setNewPatientDraft(draft.newPatientDraft);
-      setDiagnosis(draft.diagnosis);
-      setDocumentKind(draft.documentKind ?? "prescription");
-      setMessageText(draft.messageText ?? "");
-      setConsultationFee(draft.consultationFee);
-      setConsultationCurrency(draft.consultationCurrency ?? "IQD");
-      setConsultationFeeWaived(draft.consultationFeeWaived);
-      setItems(draft.items.length ? draft.items : [emptyRow()]);
-      setFieldValues(draft.fieldValues);
-      setXrayImage(draft.xrayImage);
-      setAnalysisImage(draft.analysisImage);
+    let active = true;
+    void readPrescriptionDraft(doctorId).then(draft => {
+      if (!active) return;
+      if (draft) {
+        setCurrentPrescriptionId(draft.currentPrescriptionId);
+        setPrescriptionNumber(draft.prescriptionNumber);
+        setPrescriptionDate(draft.prescriptionDate);
+        setPatientSearch(draft.patientSearch);
+        setSelectedPatient(draft.selectedPatient);
+        setShowNewPatient(draft.showNewPatient);
+        setNewPatientInitialName(draft.newPatientInitialName);
+        setNewPatientDraft(draft.newPatientDraft);
+        setDiagnosis(draft.diagnosis);
+        setDocumentKind(draft.documentKind ?? "prescription");
+        setMessageText(draft.messageText ?? "");
+        setConsultationFee(draft.consultationFee);
+        setConsultationCurrency(draft.consultationCurrency ?? "IQD");
+        setConsultationFeeWaived(draft.consultationFeeWaived);
+        setItems(draft.items.length ? draft.items : [emptyRow()]);
+        setFieldValues(draft.fieldValues);
+        setXrayImage(draft.xrayImage);
+        setAnalysisImage(draft.analysisImage);
 
-      const highestRowNumber = draft.items.reduce((highest, item) => {
-        const match = item.key.match(/^medicine-row-(\d+)$/);
-        return match ? Math.max(highest, Number(match[1])) : highest;
-      }, 0);
-      nextRowKeyRef.current = highestRowNumber + 1;
-      toast.info(t("composer.draftRestored"));
-    }
+        const highestRowNumber = draft.items.reduce((highest, item) => {
+          const match = item.key.match(/^medicine-row-(\d+)$/);
+          return match ? Math.max(highest, Number(match[1])) : highest;
+        }, 0);
+        nextRowKeyRef.current = highestRowNumber + 1;
+        toast.info(t("composer.draftRestored"));
+      }
 
-    draftPersistencePausedRef.current = false;
-    setDraftReadyDoctorId(doctorId);
+      draftPersistencePausedRef.current = false;
+      setDraftReadyDoctorId(doctorId);
+    }).catch(() => {
+      if (!active) return;
+      draftPersistencePausedRef.current = true;
+      setDraftReadyDoctorId(doctorId);
+      toast.error(t("composer.draftRestoreFailed"));
+    });
+    return () => { active = false; };
   }, [
     doctorId,
     draftReadyDoctorId,
@@ -484,7 +493,7 @@ export function PrescriptionComposer() {
 
     const timer = window.setTimeout(() => {
       if (prescriptionDraftHasContent(draft)) {
-        writePrescriptionDraft(draft);
+        void writePrescriptionDraft(draft);
       } else {
         clearPrescriptionDraft(doctorId);
       }
@@ -521,7 +530,7 @@ export function PrescriptionComposer() {
       const draft = latestDraftRef.current;
       if (!draft || draftPersistencePausedRef.current) return;
       if (prescriptionDraftHasContent(draft)) {
-        writePrescriptionDraft(draft);
+        void writePrescriptionDraft(draft);
       } else {
         clearPrescriptionDraft(doctorId);
       }

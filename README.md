@@ -2,13 +2,15 @@
 
 نظام إدارة العيادات والوصفات الطبية (نسخة Next.js 15)
 
+مدير الحزم المعتمد هو pnpm بالإصدار المحدد في `package.json`، وملف التثبيت المعتمد هو `pnpm-lock.yaml`.
+
 ## التشغيل السريع
 
 ```bash
-npm install
-npm run db:push
-npm run db:seed
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run db:push
+pnpm run db:seed
+pnpm run dev
 ```
 
 افتح [http://localhost:3000](http://localhost:3000)
@@ -69,9 +71,9 @@ DATABASE_URL="postgresql://rxuser:***@188.245.154.191:5432/rxdb?schema=public"
 ## أوامر مفيدة
 
 ```bash
-npm run dev        # تشغيل التطوير
-npm run build      # بناء الإنتاج
-npm run db:studio  # واجهة قاعدة البيانات
+pnpm run dev        # تشغيل التطوير
+pnpm run build      # بناء الإنتاج
+pnpm run db:studio  # واجهة قاعدة البيانات
 ```
 
 ## OTP التسجيل

@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -29,6 +32,8 @@ jobs:
       - run: pnpm run fonts:sync
 
       - run: pnpm run lint
+
+      - run: pnpm run security:audit
 
       - run: pnpm run test
 

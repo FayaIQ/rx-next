@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/i18n/locale-provider";
 import { trackAnalyticsEvent } from "@/lib/analytics";
-import { resolveImageUrl } from "@/lib/image-url";
+import { isRasterLogo, storedLogoPreview } from "@/lib/logo-preview";
 import { PrescriptionSystemCredit } from "@/components/prescription/prescription-system-credit";
 
 type OnboardingData = {
@@ -183,7 +184,7 @@ export function DoctorOnboardingForm() {
   }, [copy.loadError, loadAttempt]);
 
   useEffect(() => {
-    if (!logoFile) {
+    if (!logoFile || !isRasterLogo(logoFile)) {
       setLocalLogoUrl(null);
       return;
     }
@@ -192,7 +193,7 @@ export function DoctorOnboardingForm() {
     return () => URL.revokeObjectURL(url);
   }, [logoFile]);
 
-  const logoUrl = localLogoUrl ?? resolveImageUrl(form.logoPath);
+  const logoUrl = localLogoUrl ?? storedLogoPreview(form.logoPath);
   const services = useMemo(
     () =>
       (form.services ?? "")
@@ -350,12 +351,19 @@ export function DoctorOnboardingForm() {
                 </div>
                 <div className="space-y-3 sm:col-span-2">
                   <Label>{copy.logo}</Label>
-                  <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
+                  <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && !isRasterLogo(file)) {
+                      toast.error(locale === "ar" ? "اختر صورة PNG أو JPEG أو WebP بحجم لا يتجاوز 10 ميغابايت" : "Choose a PNG, JPEG or WebP image up to 10 MB");
+                      e.target.value = "";
+                      return;
+                    }
+                    setLogoFile(file ?? null);
+                  }} />
                   <button type="button" onClick={() => fileInputRef.current?.click()} className="flex w-full items-center gap-4 rounded-2xl border border-dashed border-rx-border bg-rx-bg-subtle/50 p-4 text-start transition hover:border-rx-primary/50 hover:bg-cyan-50/50">
                     <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-rx-border bg-white text-rx-primary">
                       {logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" />
+                        <Image src={logoUrl} alt="" width={56} height={56} unoptimized className="h-full w-full object-contain p-1" />
                       ) : (
                         <ImagePlus size={23} />
                       )}
@@ -412,8 +420,7 @@ export function DoctorOnboardingForm() {
 
                     <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white text-sky-800 shadow-sm sm:h-20 sm:w-20">
                       {logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={logoUrl} alt="" className="h-full w-full object-contain p-2" />
+                        <Image src={logoUrl} alt="" width={80} height={80} unoptimized className="h-full w-full object-contain p-2" />
                       ) : (
                         <Stethoscope size={28} strokeWidth={1.7} />
                       )}
