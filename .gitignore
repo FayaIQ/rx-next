@@ -57,3 +57,6 @@ prisma/dev.db-journal
 # Local Python helper caches
 __pycache__/
 *.pyc
+
+# Offline Swift note-decoder build artifacts
+/.build/

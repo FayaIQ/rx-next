@@ -113,7 +113,11 @@ async function materialize(db, { doctorId, protectedDoctorId, sourceSha256, back
     for (const [temp, sourceEntity, targetTable, id] of [["import_patients", "Patients", "patients", "target_id"], ["import_visits", "Visits", "patient_visits", "target_id"], ["import_prescriptions", "Visits", "prescriptions", "prescription_id"], ["import_items", "PrescribedDrugs", "prescription_items", "target_id"], ["import_appointments", "Appointments", "appointments", "target_id"], ["import_medicines", "DrugTemplates", "medicines", "target_id"]]) {
       await db.query(`INSERT INTO legacy_native_links(doctor_id,batch_id,source_entity,source_id,target_table,target_id) SELECT $1,$2,$3,source_id,$4,${id} FROM ${temp}`, [doctorId, batch.id, sourceEntity, targetTable]);
     }
+    const importedPrescriptionCount=Number((await db.query('SELECT count(*)::int AS n FROM import_prescriptions')).rows[0].n);
+    const numberConflicts=Number((await db.query('SELECT count(*)::int AS n FROM import_prescriptions i JOIN prescriptions p ON p.doctor_id=$1 AND p.prescription_number=i.number+$2::int AND p.id<>i.prescription_id',[doctorId,numberOffset])).rows[0].n);
+    assert.equal(numberConflicts,0,"Concurrent prescription numbering changed; retry without overwriting records");
     const counts = (await existingClinical(db, doctorId));
+    assert.equal(counts.prescriptions.count,before.prescriptions.count+importedPrescriptionCount);
     assert.equal(counts.patients.count, before.patients.count + expected.Patients);
     assert.equal(counts.patient_visits.count, before.patient_visits.count + expected.Visits);
     assert.equal(counts.appointments.count, before.appointments.count + expected.Appointments);
