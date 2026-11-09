@@ -480,7 +480,7 @@ function QueueCard({
               <>
                 <span>·</span>
                 {genderLabel(
-                  appointment.patient.gender as "male" | "female",
+                  appointment.patient.gender as "male" | "female" | "unknown",
                   locale
                 )}
               </>

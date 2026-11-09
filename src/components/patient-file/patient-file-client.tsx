@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+const ImportedMedicalHistory = dynamic(() => import("@/components/patient-file/imported-medical-history").then(m => m.ImportedMedicalHistory));
 import { PatientAccountPanel } from "@/components/finances/patient-account";
 import { SessionBillingButton } from "@/components/finances/session-billing";
 import type { TreatmentPlanDto } from "@/lib/treatment/serializer";
@@ -39,6 +41,7 @@ import { tToothStatus, tTreatmentType } from "@/lib/i18n-labels";
 import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-provider";
 
 type TabId =
+  | "history"
   | "overview"
   | "prescriptions"
   | "appointments"
@@ -49,6 +52,7 @@ type TabId =
   | "finance";
 
 const TAB_DEFS: { id: TabId; labelKey: string }[] = [
+  { id: "history", labelKey: "التاريخ الطبي" },
   { id: "overview", labelKey: "patientFile.tabOverview" },
   { id: "prescriptions", labelKey: "patientFile.tabPrescriptions" },
   { id: "appointments", labelKey: "patientFile.tabAppointments" },
@@ -60,10 +64,11 @@ const TAB_DEFS: { id: TabId; labelKey: string }[] = [
 ];
 
 type PatientFile = {
+  medicalSource?: { batchId: string; patientId: string } | null;
   patient: {
     id: number;
     name: string;
-    gender?: "male" | "female";
+    gender?: "male" | "female" | "unknown";
     phone?: string | null;
     diagnosis?: string | null;
     allergies?: string | null;
@@ -82,6 +87,7 @@ type PatientFile = {
     appointmentDatetime: string;
     notes: string | null;
     visitStatus: string;
+    timeUnknown?: boolean;
   }>;
   dentalChart: {
     notes: string | null;
@@ -164,6 +170,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
   });
 
   const visibleTabs = TAB_DEFS.filter((item) => {
+    if (item.id === "history") return !!data?.medicalSource;
     if (item.id === "dental" || item.id === "images") return dentalEnabled;
     if (item.id === "treatment") return treatmentEnabled;
     return true;
@@ -238,10 +245,12 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
                 : "text-slate-600 hover:bg-slate-100"
             )}
           >
-            {t(item.labelKey)}
+            {item.id === "history" ? (locale === "ar" ? "التاريخ الطبي والفحوصات" : "Medical history & tests") : t(item.labelKey)}
           </button>
         ))}
       </div>
+
+      {tab === "history" && data.medicalSource ? <ImportedMedicalHistory source={data.medicalSource} /> : null}
 
       {tab === "overview" ? (
         <div className="grid gap-4 lg:grid-cols-3">
@@ -258,7 +267,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
                     key={`${item.kind}-${item.id}`}
                     className="border-r-2 border-slate-200 pr-3"
                   >
-                    <p className="text-xs text-rx-muted">{item.date}</p>
+                    <p className="text-xs text-rx-muted">{item.date ? new Date(`${item.date}T12:00:00+03:00`).toLocaleDateString(dateLocale, { timeZone: "Asia/Baghdad" }) : ""}</p>
                     <p className="text-sm font-semibold">{item.title}</p>
                     {item.notes ? (
                       <p className="text-xs text-slate-600">{item.notes}</p>
@@ -355,11 +364,11 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
             >
               <div>
                 <p className="font-medium">
-                  {new Date(a.appointmentDatetime).toLocaleString(dateLocale)}
+                  {new Date(a.appointmentDatetime).toLocaleString(dateLocale, { timeZone: "Asia/Baghdad", ...(a.timeUnknown ? { year: "numeric", month: "2-digit", day: "2-digit" } : {}) })}
                 </p>
                 <p className="text-xs text-rx-muted">{a.notes}</p>
               </div>
-              <span className="text-xs text-slate-500">{a.visitStatus}</span>
+              <span className="text-xs text-slate-500">{a.visitStatus === "archived" ? (locale === "ar" ? "موعد سابق" : "Past appointment") : a.visitStatus}</span>
             </div>
           ))}
           <Button size="sm" variant="outline" asChild>
@@ -667,6 +676,8 @@ function VisitLogSection({
   isPending: boolean;
   t: TranslateFn;
 }) {
+  const { locale } = useLocale();
+  const dateLocale = locale === "ar" ? "ar-IQ" : "en-GB";
   const [visitDate, setVisitDate] = useState(
     new Date().toISOString().slice(0, 10)
   );
@@ -731,7 +742,7 @@ function VisitLogSection({
         {visits.map((v) => (
           <div key={v.id} className="rounded-lg border px-3 py-2 text-sm">
             <p className="font-semibold">
-              {v.visitDate} — {v.summary ?? t("patientFile.visitFallback")}
+              {new Date(v.visitDate).toLocaleDateString(dateLocale, { timeZone: "Asia/Baghdad" })} — {v.summary ?? t("patientFile.visitFallback")}
             </p>
             {v.notes ? <p className="text-xs text-slate-600">{v.notes}</p> : null}
           </div>

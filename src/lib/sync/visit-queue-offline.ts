@@ -26,6 +26,7 @@ function localAppointmentToDto(
     notes: row.notes ?? null,
     status: row.status,
     visitStatus: row.visitStatus ?? "scheduled",
+    timeUnknown: row.timeUnknown ?? false,
     checkedInAt: row.checkedInAt ?? null,
     createdAt: row.updatedAt,
     updatedAt: row.updatedAt,

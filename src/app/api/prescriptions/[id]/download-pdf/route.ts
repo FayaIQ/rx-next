@@ -100,7 +100,7 @@ export async function GET(req: Request, { params }: Params) {
 
   const ageGenderHtml =
     s.printAge || s.printGender
-      ? `<div class="pos center age-row${academicCoreClass}${sidebarDemographicsClass}" style="left:${corePositions.designAgeX}%;top:${corePositions.designAgeY}%">${s.printAge && data.patientBirthdate ? `<span>${usesBlueSidebarTemplate ? "العمر: " : ""}${formatAge(data.patientBirthdate)}</span>` : ""}${s.printGender ? `<span>${usesBlueSidebarTemplate ? "الجنس: " : ""}${genderLabel(data.patientGender as "male" | "female")}</span>` : ""}</div>`
+      ? `<div class="pos center age-row${academicCoreClass}${sidebarDemographicsClass}" style="left:${corePositions.designAgeX}%;top:${corePositions.designAgeY}%">${s.printAge && data.patientBirthdate ? `<span>${usesBlueSidebarTemplate ? "العمر: " : ""}${formatAge(data.patientBirthdate)}</span>` : ""}${s.printGender ? `<span>${usesBlueSidebarTemplate ? "الجنس: " : ""}${genderLabel(data.patientGender as "male" | "female" | "unknown")}</span>` : ""}</div>`
       : "";
 
   const phoneHtml =

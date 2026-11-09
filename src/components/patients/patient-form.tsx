@@ -79,7 +79,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
     },
     ref
   ) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const queryClient = useQueryClient();
   const nameRef = useRef<HTMLInputElement>(null);
   const genderRef = useRef<HTMLSelectElement>(null);
@@ -90,7 +90,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
   const [name, setName] = useState(
     patient?.name ?? initialDraft?.name ?? initialName ?? ""
   );
-  const [gender, setGender] = useState<"male" | "female">(
+  const [gender, setGender] = useState<"male" | "female" | "unknown">(
     patient?.gender ?? initialDraft?.gender ?? "male"
   );
   const [birthdateInput, setBirthdateInput] = useState(() =>
@@ -502,11 +502,12 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
             ref={genderRef}
             className={compact ? "rx-select" : "flex h-10 w-full rounded-lg border border-rx-border bg-rx-surface px-3 text-sm"}
             value={gender}
-            onChange={(e) => setGender(e.target.value as "male" | "female")}
+            onChange={(e) => setGender(e.target.value as "male" | "female" | "unknown")}
             onKeyDown={handleGenderKeyDown}
           >
             <option value="male">{t("patients.male")}</option>
             <option value="female">{t("patients.female")}</option>
+            <option value="unknown">{locale === "ar" ? "غير محدد" : "Unspecified"}</option>
           </select>
         </div>
       )}

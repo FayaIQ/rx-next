@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     ...(status === "active"
       ? { status: true }
       : status === "cancelled"
-        ? { status: false }
+        ? { status: false, visitStatus: { not: "archived" } }
         : {}),
   };
 

@@ -37,4 +37,6 @@ jobs:
 
       - run: pnpm run test
 
+      - run: pnpm run test:curex
+
       - run: pnpm run build

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { parsePatientPhoneInput } from "@/lib/patient-utils";
 
-export const genderSchema = z.enum(["male", "female"]);
+export const genderSchema = z.enum(["male", "female", "unknown"]);
 
 const patientPhoneSchema = z
   .union([z.string(), z.null()])

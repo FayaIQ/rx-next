@@ -170,7 +170,7 @@ export function RecipePreviewEditor({
                     {s.printGender && (
                       <span>
                         {usesBlueSidebarTemplate && `${t("recipe.labelGender")}: `}
-                        {genderLabel(data.patientGender as "male" | "female")}
+                        {genderLabel(data.patientGender as "male" | "female" | "unknown")}
                       </span>
                     )}
                   </span>

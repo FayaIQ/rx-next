@@ -142,12 +142,12 @@ function DayCell({
                 )}
                 dir="ltr"
               >
-                {formatTime(ap.appointmentDatetime, locale)}
+                {ap.timeUnknown ? (locale === "ar" ? "وقت غير محدد" : "Time unspecified") : formatTime(ap.appointmentDatetime, locale)}
               </span>
               <span
                 className={cn(
                   "min-w-0 flex-1 truncate font-medium",
-                  !ap.status && "line-through opacity-70"
+                  !ap.status && ap.visitStatus !== "archived" && "line-through opacity-70"
                 )}
               >
                 {firstName(ap.patient?.name ?? t("appointments.patient"))}

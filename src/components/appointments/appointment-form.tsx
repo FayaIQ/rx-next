@@ -32,7 +32,7 @@ function appointmentPatientToDto(
   return {
     id: patient.id,
     name: patient.name,
-    gender: patient.gender as "male" | "female",
+    gender: patient.gender as "male" | "female" | "unknown",
     birthdate: null,
     diagnosis: null,
     phone: patient.phone,
@@ -83,7 +83,7 @@ export function AppointmentForm({
   );
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [date, setDate] = useState(initial.date);
-  const [time, setTime] = useState(initial.time);
+  const [time, setTime] = useState(appointment?.timeUnknown ? "" : initial.time);
   const [notes, setNotes] = useState(appointment?.notes ?? "");
   const [status, setStatus] = useState(appointment?.status ?? true);
 

@@ -118,7 +118,7 @@ export function formatAge(birthdate: Date | string | null | undefined): string {
 
 export function buildOptimisticPatient(body: {
   name: string;
-  gender: "male" | "female";
+  gender: "male" | "female" | "unknown";
   birthdate: string | null;
   diagnosis?: string | null;
   phone?: string | null;
@@ -143,9 +143,10 @@ export function buildOptimisticPatient(body: {
 }
 
 export function genderLabel(
-  gender: "male" | "female",
+  gender: "male" | "female" | "unknown",
   locale: "ar" | "en" = "ar"
 ): string {
+  if (gender !== "male" && gender !== "female") return locale === "ar" ? "غير محدد" : "Unspecified";
   if (locale === "en") return gender === "male" ? "Male" : "Female";
   return gender === "male" ? "ذكر" : "أنثى";
 }

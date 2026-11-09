@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { formatAge, countVisitsFromDates, prescriptionDayKey } from "@/lib/patient-utils";
+import { formatAge, prescriptionDayKey } from "@/lib/patient-utils";
 import { fromDbId, toDbId } from "@/lib/bigint";
 import { serializePatientFieldValues } from "@/lib/patient-field-value-service";
 
@@ -46,36 +46,29 @@ export async function fetchVisitStatsMap(
 ): Promise<Map<string, PatientVisitStats>> {
   if (patientIds.length === 0) return new Map();
 
-  const rows = await prisma.prescription.findMany({
-    where: { patientId: { in: patientIds } },
-    select: { patientId: true, prescriptionDate: true },
-    orderBy: { prescriptionDate: "desc" },
-  });
-
-  return buildVisitStatsMap(
-    rows.filter(
-      (row): row is { patientId: bigint; prescriptionDate: Date } =>
-        row.prescriptionDate != null
-    )
-  );
+  const [rows, visits] = await Promise.all([
+    prisma.prescription.findMany({ where: { patientId: { in: patientIds } }, select: { patientId: true, prescriptionDate: true } }),
+    prisma.patientVisit.findMany({ where: { patientId: { in: patientIds } }, select: { patientId: true, visitDate: true } }),
+  ]);
+  const result = buildVisitStatsMap(rows.filter((r): r is { patientId: bigint; prescriptionDate: Date } => r.prescriptionDate != null));
+  const episodes = new Map<string, { count: number; dates: Set<string>; last: string }>();
+  for (const visit of visits) {
+    const key = visit.patientId.toString(), date = visit.visitDate.toISOString();
+    const entry = episodes.get(key) ?? { count: 0, dates: new Set<string>(), last: date };
+    entry.count++; entry.dates.add(prescriptionDayKey(visit.visitDate));
+    if (date > entry.last) entry.last = date;
+    episodes.set(key, entry);
+  }
+  for (const [key, entry] of episodes) {
+    const additional = new Set(rows.filter(r => r.patientId.toString() === key && r.prescriptionDate && !entry.dates.has(prescriptionDayKey(r.prescriptionDate))).map(r => prescriptionDayKey(r.prescriptionDate!)));
+    result.set(key, { visitCount: entry.count + additional.size, lastVisit: [entry.last, result.get(key)?.lastVisit ?? ""].sort().at(-1) ?? null });
+  }
+  return result;
 }
 
-export async function getPatientVisitStats(
-  patientDbId: bigint | number
-): Promise<PatientVisitStats> {
+export async function getPatientVisitStats(patientDbId: bigint | number): Promise<PatientVisitStats> {
   const id = typeof patientDbId === "bigint" ? patientDbId : toDbId(patientDbId);
-  const prescriptions = await prisma.prescription.findMany({
-    where: { patientId: id },
-    select: { prescriptionDate: true },
-    orderBy: { prescriptionDate: "desc" },
-  });
-
-  return {
-    visitCount: countVisitsFromDates(
-      prescriptions.map((p) => p.prescriptionDate)
-    ),
-    lastVisit: prescriptions[0]?.prescriptionDate?.toISOString() ?? null,
-  };
+  return (await fetchVisitStatsMap([id])).get(id.toString()) ?? { visitCount: 0, lastVisit: null };
 }
 
 export function serializePatientLight(
@@ -102,7 +95,7 @@ export function serializePatientLight(
   return {
     id: fromDbId(patient.id),
     name: patient.name,
-    gender: patient.gender as "male" | "female",
+    gender: patient.gender as "male" | "female" | "unknown",
     birthdate: patient.birthdate?.toISOString() ?? null,
     diagnosis: patient.diagnosis,
     phone: patient.phone,
@@ -151,7 +144,7 @@ export async function serializePatient(
   return {
     id: fromDbId(patient.id),
     name: patient.name,
-    gender: patient.gender as "male" | "female",
+    gender: patient.gender as "male" | "female" | "unknown",
     birthdate: patient.birthdate?.toISOString() ?? null,
     diagnosis: patient.diagnosis,
     phone: patient.phone,

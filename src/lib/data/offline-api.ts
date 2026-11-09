@@ -286,7 +286,7 @@ export async function createPatientOffline(
   const localPatient = {
     id: localId,
     name: String(body.name),
-    gender: body.gender as "male" | "female",
+    gender: body.gender as "male" | "female" | "unknown",
     birthdate,
     diagnosis: (body.diagnosis as string) ?? undefined,
     phone: (normalizedBody.phone as string) ?? undefined,
@@ -343,7 +343,7 @@ export async function updatePatientOffline(
     id: localId,
     serverId: id,
     name: String(body.name),
-    gender: body.gender as "male" | "female",
+    gender: body.gender as "male" | "female" | "unknown",
     birthdate,
     diagnosis: (body.diagnosis as string) ?? undefined,
     phone: (normalizedBody.phone as string) ?? undefined,
@@ -585,7 +585,7 @@ export async function fetchAppointmentsOfflineFirst(
     if (params?.status === "active") {
       filtered = filtered.filter((a) => a.status);
     } else if (params?.status === "cancelled") {
-      filtered = filtered.filter((a) => !a.status);
+      filtered = filtered.filter((a) => !a.status && a.visitStatus !== "archived");
     }
     return filtered;
   };

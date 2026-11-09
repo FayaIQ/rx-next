@@ -13,6 +13,7 @@ export type AppointmentDto = {
   notes: string | null;
   status: boolean;
   visitStatus: string;
+  timeUnknown?: boolean;
   checkedInAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
@@ -37,6 +38,7 @@ export function serializeAppointment(
     notes: string | null;
     status: boolean;
     visitStatus?: string | null;
+    timeUnknown?: boolean;
     checkedInAt?: Date | null;
     createdAt?: Date | null;
     updatedAt?: Date | null;
@@ -62,6 +64,7 @@ export function serializeAppointment(
     notes: appointment.notes,
     status: appointment.status,
     visitStatus: appointment.visitStatus ?? "scheduled",
+    timeUnknown: appointment.timeUnknown ?? false,
     checkedInAt: appointment.checkedInAt?.toISOString() ?? null,
     createdAt: appointment.createdAt?.toISOString() ?? null,
     updatedAt: appointment.updatedAt?.toISOString() ?? null,
@@ -80,5 +83,5 @@ export function serializeAppointment(
 
 export function appointmentPatientLabel(dto: AppointmentDto): string {
   if (!dto.patient) return "—";
-  return `${dto.patient.name} — ${genderLabel(dto.patient.gender as "male" | "female")}`;
+  return `${dto.patient.name} — ${genderLabel(dto.patient.gender as "male" | "female" | "unknown")}`;
 }

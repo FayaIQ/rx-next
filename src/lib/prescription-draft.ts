@@ -9,7 +9,7 @@ const generations = new Map<number, number>();
 
 export type NewPatientDraft = {
   name: string;
-  gender: "male" | "female";
+  gender: "male" | "female" | "unknown";
   birthdateInput: string;
   phone: string;
   diagnosis: string;

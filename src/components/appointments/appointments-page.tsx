@@ -100,12 +100,12 @@ function AppointmentRow({
     <li
       className={cn(
         "flex items-start gap-3 p-4 transition-colors hover:bg-rx-bg-subtle/40",
-        !ap.status && "opacity-75"
+        !ap.status && ap.visitStatus !== "archived" && "opacity-75"
       )}
     >
       <div className="w-14 shrink-0 pt-0.5 text-center">
         <p className="font-mono text-lg font-bold leading-none text-rx-primary">
-          {formatTime(ap.appointmentDatetime, locale)}
+          {ap.timeUnknown ? "—" : formatTime(ap.appointmentDatetime, locale)}
         </p>
       </div>
 
@@ -115,8 +115,8 @@ function AppointmentRow({
             {ap.patient?.name ?? t("appointments.patient")}
           </p>
           <DebtBadge totals={ap.sessionAccount} />
-          <Badge variant={ap.status ? "success" : "danger"}>
-            {ap.status
+          <Badge variant={ap.visitStatus === "archived" ? "secondary" : ap.status ? "success" : "danger"}>
+            {ap.visitStatus === "archived" ? (locale === "ar" ? "موعد سابق" : "Past appointment") : ap.status
               ? t("appointments.statusActive")
               : t("appointments.statusCancelled")}
           </Badge>
@@ -124,7 +124,7 @@ function AppointmentRow({
 
         {ap.patient && (
           <p className="text-xs text-rx-muted">
-            {genderLabel(ap.patient.gender as "male" | "female", locale)}
+            {genderLabel(ap.patient.gender as "male" | "female" | "unknown", locale)}
             {" · "}
             {ap.patient.age}
             {ap.patient.phone && (

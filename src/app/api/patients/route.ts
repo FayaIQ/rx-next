@@ -29,6 +29,7 @@ export async function GET(request: Request) {
           OR: [
             { name: { contains: q, mode: "insensitive" as const } },
             { phone: { contains: q, mode: "insensitive" as const } },
+            { fieldValues: { some: { value: { contains: q, mode: "insensitive" as const }, patientField: { doctorId: toDbId(ctx.doctorId), name: "رقم الملف" } } } },
           ],
         }
       : {}),
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
   const [patients, total] = await Promise.all([
     prisma.patient.findMany({
       where,
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ updatedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }],
       skip,
       take: pageSize,
       include: {

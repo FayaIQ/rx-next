@@ -64,6 +64,7 @@ export async function PUT(request: Request, { params }: Params) {
       data: {
         patientId: toDbId(data.patientId),
         appointmentDatetime,
+        timeUnknown: false,
         bookingDate,
         notes: data.notes ?? null,
         status: data.status ?? true,

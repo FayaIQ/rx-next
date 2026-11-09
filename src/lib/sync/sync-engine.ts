@@ -261,7 +261,7 @@ async function applySyncedItem(
     const p = data as {
       id: number;
       name: string;
-      gender: "male" | "female";
+      gender: "male" | "female" | "unknown";
       birthdate: string | null;
       diagnosis: string | null;
       phone: string | null;

@@ -24,6 +24,11 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
   });
   if (!patient) return null;
 
+  const medicalSource = await prisma.legacyNativeLink.findFirst({
+    where: { doctorId: doctorDbId, targetTable: "patients", targetId: patientDbId, sourceEntity: "Patients", batch: { nativeCompletedAt: { not: null } } },
+    select: { batchId: true, sourceId: true },
+  });
+
   const [
     prescriptions,
     appointments,
@@ -37,12 +42,12 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
       where: { patientId: patientDbId, doctorId: doctorDbId },
       include: { items: true, fieldValues: true },
       orderBy: { prescriptionDate: "desc" },
-      take: 30,
+      ...(medicalSource ? {} : { take: 30 }),
     }),
     prisma.appointment.findMany({
       where: { patientId: patientDbId, doctorId: doctorDbId },
       orderBy: { appointmentDatetime: "desc" },
-      take: 30,
+      ...(medicalSource ? {} : { take: 30 }),
     }),
     dentalEnabled
       ? prisma.dentalChart.findUnique({
@@ -60,7 +65,7 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
     prisma.patientVisit.findMany({
       where: { patientId: patientDbId, doctorId: doctorDbId },
       orderBy: [{ visitDate: "desc" }, { createdAt: "desc" }],
-      take: 50,
+      ...(medicalSource ? {} : { take: 50 }),
     }),
     dentalEnabled
       ? prisma.dentalToothImage.findMany({
@@ -111,6 +116,7 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
   ].sort((a, b) => b.date.localeCompare(a.date));
 
   return {
+    medicalSource: medicalSource ? { batchId: String(medicalSource.batchId), patientId: medicalSource.sourceId } : null,
     patient: patientDto,
     prescriptions: prescriptions.map(serializePrescription),
     appointments: appointments.map((a) => ({
@@ -120,6 +126,7 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
       notes: a.notes,
       status: a.status,
       visitStatus: a.visitStatus,
+      timeUnknown: a.timeUnknown,
     })),
     dentalChart: dentalChart
       ? {

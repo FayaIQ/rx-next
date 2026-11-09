@@ -38,9 +38,11 @@ import { useClinicFeatureEnabled } from "@/components/clinic/clinic-features-pro
 export function PatientsPageClient({
   title,
   showRecordLink = true,
+  archiveCount = 0,
 }: {
   title?: string;
   showRecordLink?: boolean;
+  archiveCount?: number;
 }) {
   const { t, locale } = useLocale();
   const dentalEnabled = useClinicFeatureEnabled("dental");
@@ -97,6 +99,9 @@ export function PatientsPageClient({
     <>
       <AppHeader title={pageTitle} />
       <PageContent>
+        {archiveCount > 0 && <Link href="/patients/imports" className="mb-5 block rounded-2xl border border-teal-200 bg-teal-50 p-5 font-medium text-teal-900">
+          {locale === "ar" ? `السجلات الطبية — ${archiveCount.toLocaleString("en-US")} مريض · عرض الملفات والزيارات والوصفات` : `Medical records — ${archiveCount.toLocaleString("en-US")} patients · View records, visits and prescriptions`}
+        </Link>}
         <PageHeader
           title={pageTitle}
           description={t("patients.subtitle")}

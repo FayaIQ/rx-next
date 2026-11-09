@@ -33,7 +33,7 @@ export type PatientDto = {
   localId?: string;
   sessionAccount?: AccountTotal[];
   name: string;
-  gender: "male" | "female";
+  gender: "male" | "female" | "unknown";
   birthdate: string | null;
   diagnosis: string | null;
   phone: string | null;
@@ -132,6 +132,7 @@ export type AppointmentDto = {
   notes: string | null;
   status: boolean;
   visitStatus: string;
+  timeUnknown?: boolean;
   checkedInAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;

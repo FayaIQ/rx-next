@@ -37,6 +37,7 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
       where: {
         doctorId: doctorDbId,
         status: false,
+        visitStatus: { not: "archived" },
         updatedAt: timestampRange,
       },
     }),

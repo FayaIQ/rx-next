@@ -165,6 +165,7 @@ export async function persistHydration(data: {
             notes?: string;
             status: boolean;
             visitStatus?: string;
+            timeUnknown?: boolean;
             checkedInAt?: string | null;
             updatedAt: string;
           };
@@ -179,6 +180,7 @@ export async function persistHydration(data: {
             notes: ap.notes,
             status: ap.status,
             visitStatus: ap.visitStatus ?? "scheduled",
+            timeUnknown: ap.timeUnknown ?? false,
             checkedInAt: ap.checkedInAt ?? null,
             synced: true,
             updatedAt: ap.updatedAt,
@@ -410,6 +412,7 @@ export async function mergePartialHydration(data: {
           notes?: string;
           status: boolean;
           visitStatus?: string;
+            timeUnknown?: boolean;
           checkedInAt?: string | null;
           updatedAt: string;
         };
@@ -424,6 +427,7 @@ export async function mergePartialHydration(data: {
           notes: ap.notes,
           status: ap.status,
           visitStatus: ap.visitStatus ?? "scheduled",
+          timeUnknown: ap.timeUnknown ?? false,
           checkedInAt: ap.checkedInAt ?? null,
           synced: true,
           updatedAt: ap.updatedAt,
@@ -862,6 +866,7 @@ export async function getLocalAppointments(date?: string): Promise<import("@/lib
       notes: a.notes ?? null,
       status: a.status,
       visitStatus: a.visitStatus ?? "scheduled",
+      timeUnknown: a.timeUnknown ?? false,
       checkedInAt: a.checkedInAt ?? null,
       createdAt: a.updatedAt,
       updatedAt: a.updatedAt,
@@ -1032,6 +1037,7 @@ export async function syncLocalAppointmentFromDto(
     notes: appointment.notes ?? undefined,
     status: appointment.status,
     visitStatus: appointment.visitStatus ?? "scheduled",
+    timeUnknown: appointment.timeUnknown ?? false,
     checkedInAt: appointment.checkedInAt ?? null,
     synced: true,
     updatedAt: appointment.updatedAt ?? new Date().toISOString(),

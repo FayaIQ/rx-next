@@ -37,7 +37,7 @@ export interface LocalPatient {
   id: string;
   serverId?: number;
   name: string;
-  gender: "male" | "female";
+  gender: "male" | "female" | "unknown";
   birthdate?: string;
   diagnosis?: string;
   phone?: string;
@@ -104,6 +104,7 @@ export interface LocalAppointment {
   notes?: string;
   status: boolean;
   visitStatus?: string;
+  timeUnknown?: boolean;
   checkedInAt?: string | null;
   synced: boolean;
   updatedAt: string;

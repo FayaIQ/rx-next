@@ -21,6 +21,7 @@
     "fonts:sync": "node scripts/sync-recipe-fonts.mjs",
     "test:clarity-review": "node --experimental-test-module-mocks --import tsx --test src/lib/__tests__/clarity-review.test.mts",
     "test:product-analytics": "tsx --test src/lib/__tests__/product-analytics.integration.test.ts src/lib/__tests__/meta-pixel.test.ts",
+    "test:curex": "python3 -m unittest discover -s scripts/curex -p 'test_*.py' && tsx --test src/lib/__tests__/legacy-import.integration.test.ts src/lib/__tests__/medical-display.test.ts src/lib/__tests__/native-history.integration.test.ts",
     "security:audit": "pnpm audit --audit-level=low"
   },
   "dependencies": {

@@ -7,6 +7,7 @@ datasource db {
 }
 
 model User {
+  legacyImports         LegacyImportBatch[]
   id                    BigInt                 @id @default(autoincrement())
   doctorId              BigInt?                @map("doctor_id")
   activeSessionId       String?                @map("active_session_id") @db.VarChar(255)
@@ -45,6 +46,74 @@ model User {
 
   @@index([activeSessionId], map: "users_active_session_id_index")
   @@map("users")
+}
+
+model LegacyImportBatch {
+  nativeCompletedAt DateTime? @map("native_completed_at") @db.Timestamptz(6)
+  nativeCounts      Json? @map("native_counts")
+  nativeLinks       LegacyNativeLink[]
+  id              BigInt @id @default(autoincrement())
+  doctorId        BigInt @map("doctor_id")
+  sourceSha256    String @map("source_sha256") @db.VarChar(64)
+  sourceName      String @map("source_name") @db.VarChar(255)
+  sourceCreatedAt String? @map("source_created_at") @db.VarChar(40)
+  status          String @default("staging") @db.VarChar(16)
+  metadata        Json @default("{}")
+  stats           Json @default("{}")
+  importedAt      DateTime @default(now()) @map("imported_at") @db.Timestamptz(6)
+  doctor          User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  records         LegacyClinicalRecord[]
+
+  @@unique([doctorId, sourceSha256])
+  @@unique([id, doctorId])
+  @@map("legacy_import_batches")
+}
+
+model LegacyNativeLink {
+  id           BigInt @id @default(autoincrement())
+  doctorId     BigInt @map("doctor_id")
+  batchId      BigInt @map("batch_id")
+  sourceEntity String @map("source_entity") @db.VarChar(64)
+  sourceId     String @map("source_id") @db.VarChar(80)
+  targetTable  String @map("target_table") @db.VarChar(64)
+  targetId     BigInt @map("target_id")
+  batch LegacyImportBatch @relation(fields: [batchId,doctorId],references: [id,doctorId],onDelete: Cascade)
+  @@unique([batchId,sourceEntity,sourceId,targetTable])
+  @@unique([targetTable,targetId])
+  @@index([doctorId,targetTable,targetId],map: "legacy_native_target_idx")
+  @@map("legacy_native_links")
+}
+
+model LegacyClinicalRecord {
+  id              BigInt @id @default(autoincrement())
+  doctorId        BigInt @map("doctor_id")
+  batchId         BigInt @map("batch_id")
+  entity          String @db.VarChar(64)
+  sourceId        String @map("source_id") @db.VarChar(80)
+  sourcePatientId String? @map("source_patient_id") @db.VarChar(80)
+  sourceVisitId   String? @map("source_visit_id") @db.VarChar(80)
+  sourceDate      String? @map("source_date") @db.VarChar(40)
+  eventDay        DateTime? @map("event_day") @db.Date
+  displayName     String @default("") @map("display_name")
+  searchText      String @default("") @map("search_text")
+  sourceDeleted   Boolean @default(false) @map("source_deleted")
+  state           String @db.VarChar(16)
+  reviewReasons   Json @default("[]") @map("review_reasons")
+  rawJson         String @map("raw_json")
+  rawSha256       String @map("raw_sha256") @db.VarChar(64)
+  presentation    Json @default("{}")
+  reviewDecision  String? @map("review_decision") @db.VarChar(32)
+  reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  reviewNote      String? @map("review_note")
+  reviewOperation String? @map("review_operation") @db.VarChar(36)
+  batch           LegacyImportBatch @relation(fields: [batchId, doctorId], references: [id, doctorId], onDelete: Cascade)
+
+  @@unique([batchId, entity, sourceId])
+  @@index([doctorId, batchId, entity, sourcePatientId, eventDay(sort: Desc), id], map: "legacy_archive_patient_idx")
+  @@index([doctorId, batchId, entity, sourceVisitId], map: "legacy_archive_visit_idx")
+  @@index([doctorId, batchId, state, entity, id], map: "legacy_archive_state_idx")
+  @@index([doctorId, batchId, entity, displayName, id], map: "legacy_archive_name_idx")
+  @@map("legacy_clinical_records")
 }
 
 model Patient {
@@ -279,6 +348,7 @@ model Prescription {
 }
 
 model PrescriptionItem {
+  notes          String?
   id             BigInt       @id @default(autoincrement())
   prescriptionId BigInt       @map("prescription_id")
   name           String       @db.VarChar(255)
@@ -331,6 +401,7 @@ model MedicinePreset {
 }
 
 model Appointment {
+  timeUnknown         Boolean @default(false) @map("time_unknown")
   id                  BigInt               @id @default(autoincrement())
   doctorId            BigInt               @map("doctor_id")
   patientId           BigInt               @map("patient_id")
