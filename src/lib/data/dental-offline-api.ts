@@ -8,6 +8,7 @@ import {
 import type { DentalChartDto } from "@/lib/dental/serializer";
 import { getRxDb } from "@/lib/db/rx-db";
 import { enqueueSyncItem } from "@/lib/sync/offline-store";
+import { planIncludesTooth, treatmentPlanTeeth } from "@/lib/treatment/plan-teeth";
 import { processSyncQueue } from "@/lib/sync/sync-engine";
 
 type ChartResponse = {
@@ -146,8 +147,8 @@ export async function fetchTreatmentPlansOfflineFirst(
     try {
       const res = await rxApi.treatment.listPlans(patientId, opts);
       const cached = opts?.toothFdi !== undefined ? await getRxDb().treatment_cache.get(patientId) : null;
-      const otherTeeth = (cached?.plans as unknown as TreatmentPlanDto[] | undefined)?.filter((plan) => plan.toothFdi !== opts?.toothFdi) ?? [];
-      await cacheTreatmentPlansLocally(patientId, [...otherTeeth, ...res.plans]);
+      const otherTeeth = (cached?.plans as unknown as TreatmentPlanDto[] | undefined)?.filter((plan) => !planIncludesTooth(plan, opts?.toothFdi ?? null)) ?? [];
+      await cacheTreatmentPlansLocally(patientId, [...new Map([...otherTeeth, ...res.plans].map(plan => [plan.id, plan])).values()]);
       return res;
     } catch {
       // fall through
@@ -158,7 +159,7 @@ export async function fetchTreatmentPlansOfflineFirst(
   if (cached) {
     let plans = cached.plans as unknown as TreatmentPlanDto[];
     if (opts?.toothFdi !== undefined) {
-      plans = plans.filter((p) => p.toothFdi === opts.toothFdi);
+      plans = plans.filter((p) => planIncludesTooth(p, opts.toothFdi ?? null));
     }
     return { plans };
   }
@@ -196,7 +197,7 @@ export async function createTreatmentPlanOffline(
   patientId: number,
   body: Record<string, unknown>
 ) {
-  if (!navigator.onLine && Array.isArray(body.sessions) && body.sessions.some(s => s.billing)) throw new Error("يتطلب تسجيل حساب الجلسة اتصالاً بالإنترنت");
+  if (!navigator.onLine && (body.billing || (Array.isArray(body.sessions) && body.sessions.some(s => s.billing)))) throw new Error("يتطلب تسجيل حساب العلاج اتصالاً بالإنترنت");
   body = { ...body, clientRequestId: body.clientRequestId ?? crypto.randomUUID() };
   if (navigator.onLine) {
     const res = await rxApi.treatment.createPlan(patientId, body);
@@ -212,11 +213,15 @@ export async function createTreatmentPlanOffline(
   const localId = String(body.clientRequestId);
   const tempId = -Date.now();
   const now = new Date().toISOString();
+  const toothFdis = treatmentPlanTeeth({ toothFdi: body.toothFdi == null ? null : Number(body.toothFdi), toothFdis: Array.isArray(body.toothFdis) ? body.toothFdis as number[] : undefined });
   const optimisticPlan: TreatmentPlanDto = {
+    toothFdis,
+    pricingMode: body.pricingMode === "plan" ? "plan" : "per_session",
+    billing: undefined,
     id: tempId,
     doctorId: 0,
     patientId,
-    toothFdi: body.toothFdi == null ? null : Number(body.toothFdi),
+    toothFdi: body.toothFdi == null ? toothFdis[0] ?? null : Number(body.toothFdi),
     treatmentType: String(body.treatmentType),
     title: typeof body.title === "string" ? body.title : null,
     totalSessions:

@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { rxApi } from "@/lib/api/rx-client";
-import { TREATMENT_TYPES } from "@/lib/treatment/constants";
+import { TREATMENT_TYPES, todayDateKey } from "@/lib/treatment/constants";
 import {
   currentWeekRange,
   shiftWeek,
@@ -125,7 +125,7 @@ export function WeeklyTreatmentCalendar() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {week.days.map((day) => {
             const sessions = byDate[day] ?? [];
-            const todayKey = new Date().toISOString().slice(0, 10);
+            const todayKey = todayDateKey();
             const highlight = day === todayKey;
 
             return (
@@ -170,11 +170,11 @@ export function WeeklyTreatmentCalendar() {
                               {s.treatmentType
                                 ? tTreatmentType(t, s.treatmentType)
                                 : s.treatmentLabel}{" "}
-                              · {tTreatmentTarget(t, s.toothFdi)}
+                              · {tTreatmentTarget(t, s.toothFdi, s.toothFdis)}
                             </p>
                           </div>
                           <Link
-                            href={treatmentChartHref(s.patientId, s.toothFdi)}
+                            href={treatmentChartHref(s.patientId, s.toothFdi, s.toothFdis)}
                             className="shrink-0 rounded p-0.5 text-slate-400 opacity-0 transition-opacity hover:text-teal-700 group-hover:opacity-100"
                             title={t("treatment.openChart")}
                           >

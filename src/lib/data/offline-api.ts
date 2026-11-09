@@ -291,6 +291,7 @@ export async function createPatientOffline(
     diagnosis: (body.diagnosis as string) ?? undefined,
     phone: (normalizedBody.phone as string) ?? undefined,
     doctorId: 0,
+    createdAt: now,
     fieldValues:
       (body.fieldValues as Array<{ patientFieldId: number; value: string }>) ??
       [],
@@ -347,6 +348,7 @@ export async function updatePatientOffline(
     diagnosis: (body.diagnosis as string) ?? undefined,
     phone: (normalizedBody.phone as string) ?? undefined,
     doctorId: existing?.doctorId ?? 0,
+    createdAt: existing?.createdAt,
     fieldValues,
     synced: false,
     updatedAt: now,

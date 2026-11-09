@@ -20,3 +20,9 @@ After applying SQL, always run `npx prisma generate`.
 10. `add-full-mouth-treatment.sql` — allow whole-mouth cleaning plans without an individual tooth. Only relaxes nullability; existing plans and sessions remain unchanged. Apply before deploying, then regenerate Prisma.
 
 11. `add-session-billing.sql` — session prices and partial/full payments linked to income transactions. Apply before deploying and regenerate Prisma. Existing session prices stay NULL (unpriced), with no invented debts or historical payments. Debt is all-time, separated by currency; only actual payment transactions count as income. Priced sessions and plans cannot be deleted until their financial account is resolved. Recording a price explicitly adds the charge regardless of the clinical completion status. Payments require an online connection and a unique request ID, reused on retry.
+
+12. `add-plan-billing.sql` — whole-plan pricing and plan receipts. Existing plans retain independent session pricing and all existing charges/payments. Apply before deploying the updated app.
+13. `add-multi-tooth-plans.sql` — shared plans for selected teeth. Backfills each existing single-tooth plan's selection from its primary tooth; whole-mouth plans retain an empty selection.
+14. `add-patient-created-at-default.sql` — default registration timestamps for future patients. Historical NULL registration dates remain unknown and are not backfilled from modification dates.
+
+Regenerate Prisma after these migrations. Operational repair of historical session calendar entries is documented in `docs/session-calendar-repair.md`; it is a separate backed-up transaction, not an automatic deployment migration.

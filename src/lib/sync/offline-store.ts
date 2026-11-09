@@ -83,6 +83,7 @@ export async function persistHydration(data: {
           fieldValues: p.fieldValues ?? [],
           sessionAccount: p.sessionAccount,
           synced: true,
+          createdAt: p.createdAt,
           updatedAt: p.updatedAt,
         })
       );
@@ -310,6 +311,7 @@ export async function mergePartialHydration(data: {
           doctorId: p.doctorId,
           fieldValues: p.fieldValues ?? [],
           synced: true,
+          createdAt: p.createdAt,
           updatedAt: p.updatedAt,
         })
       )
@@ -539,6 +541,7 @@ export async function syncLocalPatientFromDto(patient: PatientDto): Promise<void
     fieldValues: patient.fieldValues ?? [],
     sessionAccount: patient.sessionAccount ?? matches[0]?.sessionAccount,
     synced: true,
+    createdAt: patient.createdAt,
     updatedAt: patient.updatedAt,
   });
 
@@ -603,7 +606,7 @@ export function localPatientToDto(
     age: formatAge(p.birthdate),
     visitCount: visits.visitCount,
     lastVisit: visits.lastVisit,
-    createdAt: p.updatedAt,
+    createdAt: p.createdAt ?? p.updatedAt,
     updatedAt: p.updatedAt,
     fieldValues: p.fieldValues ?? [],
   };

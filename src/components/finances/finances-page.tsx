@@ -298,7 +298,8 @@ export function FinancesPage({ title, subtitle }: Props) {
         patientId: form.patientId ? Number(form.patientId) : null,
       };
       if (!editing && form.type === "income" && form.treatmentSessionId) {
-        return billingRequest(`/api/treatment-sessions/${form.treatmentSessionId}/billing`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: payload.amount, currency: payload.currency, paymentMethod: payload.paymentMethod, description: payload.description || undefined, transactionDate: payload.transactionDate, requestId: form.paymentRequestId }) });
+        const target = form.treatmentSessionId.startsWith("plan:") ? `/api/treatment-plans/${form.treatmentSessionId.slice(5)}/billing` : `/api/treatment-sessions/${form.treatmentSessionId}/billing`;
+        return billingRequest(target, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: payload.amount, currency: payload.currency, paymentMethod: payload.paymentMethod, description: payload.description || undefined, transactionDate: payload.transactionDate, requestId: form.paymentRequestId }) });
       }
       if (editing) {
         return rxApi.finances.updateTransaction(editing.id, payload);
@@ -1006,7 +1007,7 @@ export function FinancesPage({ title, subtitle }: Props) {
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => { if (tx.treatmentSessionId && tx.patientId) { window.location.assign(`/patients/${tx.patientId}/record`); } else { openEdit(tx); } }}
+                                onClick={() => { if ((tx.treatmentSessionId || tx.treatmentPlanId) && tx.patientId) { window.location.assign(`/patients/${tx.patientId}/record`); } else { openEdit(tx); } }}
                               >
                                 <Pencil size={14} />
                               </Button>
@@ -1512,10 +1513,11 @@ function TransactionDialog({
             <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-3">
               <Label htmlFor="payment-session">{t("billing.allocate")}</Label>
               <select id="payment-session" disabled={saving || accountQuery.isPending || accountQuery.isError} className="h-10 w-full rounded-lg border bg-white px-2 text-sm" value={form.treatmentSessionId} onChange={event => {
-                const session = accountQuery.data?.sessions.find(s => String(s.id) === event.target.value);
+                const session = event.target.value.startsWith("plan:") ? accountQuery.data?.plans?.find(p => `plan:${p.id}` === event.target.value) : accountQuery.data?.sessions.find(s => String(s.id) === event.target.value);
                 setForm(f => ({ ...f, treatmentSessionId: event.target.value, paymentRequestId: f.paymentRequestId || crypto.randomUUID(), ...(session ? { currency: session.billing.currency, amount: String(session.billing.remaining), category: "procedure" } : {}) }));
               }}>
                 <option value="">{t("billing.otherIncome")}</option>
+                {accountQuery.data?.plans?.filter(p => p.billing.remaining > 0).map(p => <option key={`plan-${p.id}`} value={`plan:${p.id}`}>{p.planTitle} · {t("billing.wholePlanPrice")} · {formatMoney(p.billing.remaining, p.billing.currency, locale)}</option>)}
                 {accountQuery.data?.sessions.filter(s => s.billing.remaining > 0).map(s => <option key={s.id} value={s.id}>{s.planTitle} · {t("treatment.session")} {s.sessionNumber} · {formatMoney(s.billing.remaining, s.billing.currency, locale)}</option>)}
               </select>
               <p className="text-xs text-amber-900">{t("billing.allocateHint")}</p>

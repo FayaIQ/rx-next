@@ -141,7 +141,7 @@ export async function fetchDoctorHydration(doctorId: number) {
       }),
       prisma.treatmentPlan.findMany({
         where: { doctorId: doctorDbId },
-        include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
+        include: { payments: { select: { amount: true } }, sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
         orderBy: { updatedAt: "desc" },
         take: 500,
       }),
@@ -256,7 +256,7 @@ export async function fetchDoctorChanges(doctorId: number, since: Date) {
     }),
     prisma.treatmentPlan.findMany({
       where: { doctorId: doctorDbId, updatedAt: { gt: since } },
-      include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
+      include: { payments: { select: { amount: true } }, sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
     }),
   ]);
 

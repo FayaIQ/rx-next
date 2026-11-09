@@ -72,7 +72,7 @@ export async function loadPatientQueueSummary(
           status: "planned",
           scheduledDate: { not: null },
         },
-        include: { plan: { select: { toothFdi: true, treatmentType: true } } },
+        include: { plan: { select: { toothFdi: true, toothFdis: true, treatmentType: true } } },
         orderBy: { scheduledDate: "asc" },
       })
     : null;
@@ -95,7 +95,7 @@ export async function loadPatientQueueSummary(
       : null,
     activeTreatments: activePlans.map((p) => ({
       id: fromDbId(p.id),
-      toothFdi: p.toothFdi,
+      toothFdi: p.toothFdi, toothFdis: p.toothFdis,
       label: treatmentTypeLabel(p.treatmentType),
       completed: p.sessions.filter((s) => s.status === "completed").length,
       total: p.totalSessions ?? p.sessions.length,
@@ -105,7 +105,7 @@ export async function loadPatientQueueSummary(
           id: fromDbId(nextSession.id),
           sessionNumber: nextSession.sessionNumber,
           scheduledDate: nextSession.scheduledDate?.toISOString().slice(0, 10) ?? null,
-          toothFdi: nextSession.plan.toothFdi,
+          toothFdi: nextSession.plan.toothFdi, toothFdis: nextSession.plan.toothFdis,
           label: treatmentTypeLabel(nextSession.plan.treatmentType),
         }
       : null,

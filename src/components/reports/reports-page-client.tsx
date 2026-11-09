@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney } from "@/lib/finance/constants";
+import { todayDateKey } from "@/lib/treatment/constants";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, Users, FileText, Smile, Wallet, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,13 +38,15 @@ function StatCard({
 export function ReportsPageClient() {
   const { t, locale } = useLocale();
   const treatmentEnabled = useClinicFeatureEnabled("treatment");
-  const month = new Date().toISOString().slice(0, 7);
+  const month = todayDateKey().slice(0, 7);
   const numberLocale = locale === "en" ? "en-GB" : "ar-IQ";
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["reports", month],
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
-      const res = await fetch(`/api/reports/overview?month=${month}`);
+      const res = await fetch(`/api/reports/overview?month=${month}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       return json;

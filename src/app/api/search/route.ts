@@ -65,7 +65,7 @@ export async function GET(request: Request) {
           },
           include: {
             patient: { select: { id: true, name: true } },
-            plan: { select: { toothFdi: true, treatmentType: true } },
+            plan: { select: { toothFdi: true, toothFdis: true, treatmentType: true } },
           },
           take: 8,
           orderBy: { updatedAt: "desc" },
@@ -99,9 +99,9 @@ export async function GET(request: Request) {
       id: fromDbId(s.id),
       patientId: fromDbId(s.patientId),
       patientName: s.patient.name,
-      toothFdi: s.plan.toothFdi,
+      toothFdi: s.plan.toothFdi, toothFdis: s.plan.toothFdis,
       label: treatmentTypeLabel(s.plan.treatmentType),
-      href: treatmentChartHref(fromDbId(s.patientId), s.plan.toothFdi),
+      href: treatmentChartHref(fromDbId(s.patientId), s.plan.toothFdi, s.plan.toothFdis),
     })),
   });
 }

@@ -48,7 +48,7 @@ export async function GET() {
         plan: {
           select: {
             id: true,
-            toothFdi: true,
+            toothFdi: true, toothFdis: true,
             treatmentType: true,
             title: true,
             createdAt: true,
@@ -88,23 +88,23 @@ export async function GET() {
       type: "unscheduled_session" as const,
       severity: "warning" as const,
       title: "جلسة بدون موعد",
-      message: `${s.patient.name} — ${treatmentTypeLabel(s.plan.treatmentType)} · ${treatmentTargetLabel(s.plan.toothFdi)} · جلسة ${s.sessionNumber}`,
+      message: `${s.patient.name} — ${treatmentTypeLabel(s.plan.treatmentType)} · ${treatmentTargetLabel(s.plan.toothFdi, s.plan.toothFdis)} · جلسة ${s.sessionNumber}`,
       patientId: Number(s.patient.id),
-      toothFdi: s.plan.toothFdi,
+      toothFdi: s.plan.toothFdi, toothFdis: s.plan.toothFdis,
       planId: Number(s.plan.id),
       sessionId: Number(s.id),
-      href: treatmentChartHref(Number(s.patient.id), s.plan.toothFdi),
+      href: treatmentChartHref(Number(s.patient.id), s.plan.toothFdi, s.plan.toothFdis),
     })),
     ...stalledPlans.map((p) => ({
       id: `stalled-plan-${p.id}`,
       type: "incomplete_plan" as const,
       severity: "info" as const,
       title: "خطة علاج غير مكتملة",
-      message: `${p.patient.name} — ${p.title ?? treatmentTypeLabel(p.treatmentType)} · ${treatmentTargetLabel(p.toothFdi)}`,
+      message: `${p.patient.name} — ${p.title ?? treatmentTypeLabel(p.treatmentType)} · ${treatmentTargetLabel(p.toothFdi, p.toothFdis)}`,
       patientId: Number(p.patient.id),
-      toothFdi: p.toothFdi,
+      toothFdi: p.toothFdi, toothFdis: p.toothFdis,
       planId: Number(p.id),
-      href: treatmentChartHref(Number(p.patient.id), p.toothFdi),
+      href: treatmentChartHref(Number(p.patient.id), p.toothFdi, p.toothFdis),
     })),
   ];
 

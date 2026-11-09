@@ -34,6 +34,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const body = await request.json();
     const data = treatmentSessionUpdateSchema.parse(body);
+    if ((data.status ?? existing.status) === "completed" && data.performedAt === null) return apiError("حدد تاريخ إجراء الجلسة المكتملة");
 
     const performedAt =
       data.status === "completed" && !data.performedAt
@@ -66,18 +67,16 @@ export async function PATCH(request: Request, { params }: Params) {
 
     await refreshPlanStatus(session.planId);
 
-    if (data.scheduledDate !== undefined || data.scheduledTime !== undefined) {
+    if (session.status === "completed" && (data.status === "completed" || data.performedAt !== undefined)) {
       await syncSessionAppointment(session.id);
-    }
-
-    if (data.status === "completed") {
       await recordSessionVisit(session.id);
+    } else if (data.scheduledDate !== undefined || data.scheduledTime !== undefined) {
       await syncSessionAppointment(session.id);
     }
 
     const refreshed = await prisma.treatmentSession.findUnique({
       where: { id: sessionDbId },
-      include: { payments: { select: { amount: true } } },
+      include: { payments: { select: { amount: true } }, plan: { include: { payments: { select: { amount: true } } } } },
     });
 
     return apiOk({

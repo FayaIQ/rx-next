@@ -96,8 +96,8 @@ describe("medicine library searches", () => {
 });
 
 describe("treatment session date and time", () => {
-  it("initializes datetime-local with the doctor's current local day and time", () => {
-    assert.equal(sessionDateTimeInput(new Date(2026, 9, 8, 0, 30)), "2026-10-08T00:30");
+  it("initializes datetime-local with the clinic Baghdad day and time", () => {
+    assert.equal(sessionDateTimeInput(new Date("2026-10-07T21:30:00Z")), "2026-10-08T00:30");
   });
 
   it("keeps the clinic visit on the selected Baghdad day after midnight", () => {

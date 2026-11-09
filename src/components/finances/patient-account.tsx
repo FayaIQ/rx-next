@@ -12,7 +12,8 @@ import { tTreatmentTarget, tTreatmentType } from "@/lib/i18n-labels";
 
 export type PatientAccount = {
   totals: AccountTotal[];
-  sessions: Array<{ id: number; sessionNumber: number; status: string; planTitle: string | null; toothFdi: number | null; treatmentType: string; billing: SessionBilling }>;
+  plans: Array<{ id: number; planTitle: string | null; toothFdi: number | null; toothFdis?: number[]; treatmentType: string; billing: SessionBilling }>;
+  sessions: Array<{ id: number; sessionNumber: number; status: string; planTitle: string | null; toothFdi: number | null; toothFdis?: number[]; treatmentType: string; billing: SessionBilling }>;
 };
 
 export function AccountTotals({ totals }: { totals: AccountTotal[] }) {
@@ -29,13 +30,13 @@ export function PatientAccountPanel({ patientId, compact = false }: { patientId:
   if (patientId <= 0) return null;
   if (query.isPending) return <p className="text-xs text-rx-muted">{t("billing.loading")}</p>;
   if (query.isError) return <div role="alert" className="rounded-lg border border-red-200 p-3 text-xs text-red-700">{t("billing.loadError")} <Button size="sm" variant="ghost" onClick={() => query.refetch()}>{t("billing.retry")}</Button></div>;
-  const { totals, sessions } = query.data;
+  const { totals, sessions, plans = [] } = query.data;
   return <section aria-label={t("billing.patientAccount")} className="space-y-3 rounded-xl border border-rx-border bg-slate-50/60 p-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">{t("billing.patientAccount")}</h3><DebtBadge totals={totals} /><Button type="button" size="sm" variant="ghost" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{t(expanded ? "billing.hide" : "billing.details")}</Button></div>
     <AccountTotals totals={totals} />
     {totals.length === 0 && <p className="text-xs text-rx-muted">{t("billing.noPrices")}</p>}
-    {expanded && <div className="space-y-3">{sessions.length === 0 ? <p className="text-xs text-rx-muted">{t("treatment.noSessions")}</p> : sessions.map(session => <div key={session.id} className="space-y-2 rounded-lg border border-rx-border border-rx-border bg-white p-3">
-      <p className="text-sm font-semibold">{tTreatmentType(t, session.treatmentType)} · {tTreatmentTarget(t, session.toothFdi)} · {t("treatment.session")} {session.sessionNumber}</p>
+    {expanded && <div className="space-y-3">{plans.map(plan => <div key={`plan-${plan.id}`} className="space-y-2 rounded-lg border border-rx-border bg-white p-3"><p className="text-sm font-semibold">{tTreatmentType(t, plan.treatmentType)} · {tTreatmentTarget(t, plan.toothFdi, plan.toothFdis)} · {t("billing.wholePlanPrice")}</p><SessionBillingButton planId={plan.id} billing={plan.billing} /></div>)}{sessions.length === 0 && plans.length === 0 ? <p className="text-xs text-rx-muted">{t("treatment.noSessions")}</p> : sessions.map(session => <div key={session.id} className="space-y-2 rounded-lg border border-rx-border border-rx-border bg-white p-3">
+      <p className="text-sm font-semibold">{tTreatmentType(t, session.treatmentType)} · {tTreatmentTarget(t, session.toothFdi, session.toothFdis)} · {t("treatment.session")} {session.sessionNumber}</p>
       <SessionBillingButton sessionId={session.id} billing={session.billing} />
     </div>)}</div>}
   </section>;

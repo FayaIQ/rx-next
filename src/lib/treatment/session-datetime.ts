@@ -1,7 +1,13 @@
-/** datetime-local uses the doctor's local clock, rather than UTC. */
+/** All session date/time inputs use the clinic's Baghdad clock. */
 export function sessionDateTimeInput(date = new Date()): string {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${sessionVisitDate(date).toISOString().slice(0, 10)}T${sessionTimeInput(date)}`;
+}
+
+/** datetime-local has no offset: interpret the chosen value in Baghdad, not the device zone. */
+export function sessionDateTimeFromInput(value: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return new Date(NaN);
+  const date = new Date(`${value}:00+03:00`);
+  return Number.isFinite(date.getTime()) && sessionDateTimeInput(date) === value ? date : new Date(NaN);
 }
 
 /** Scheduled session times use the clinic's Baghdad clock on client and server. */

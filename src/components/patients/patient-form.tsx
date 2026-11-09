@@ -336,6 +336,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
           notifyPhoneDuplicate(result.duplicatePatientName);
         }
         void queryClient.invalidateQueries({ queryKey: ["patients"] });
+        void queryClient.invalidateQueries({ queryKey: ["reports"] });
         onSuccess(result.patient);
         return result.patient;
       }
@@ -357,6 +358,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
               notifyPhoneDuplicate(result.duplicatePatientName);
             }
             void queryClient.invalidateQueries({ queryKey: ["patients"] });
+            void queryClient.invalidateQueries({ queryKey: ["reports"] });
           })
           .catch((e: Error) => toast.error(e.message));
         return optimistic;
@@ -371,6 +373,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
           notifyPhoneDuplicate(result.duplicatePatientName);
         }
         void queryClient.invalidateQueries({ queryKey: ["patients"] });
+        void queryClient.invalidateQueries({ queryKey: ["reports"] });
         onSuccess(result.patient);
         return result.patient;
       }
@@ -407,6 +410,7 @@ export const PatientForm = forwardRef<PatientFormHandle, PatientFormProps>(
       notifyPhoneDuplicate(duplicate.duplicatePatientName);
     }
     void queryClient.invalidateQueries({ queryKey: ["patients"] });
+    void queryClient.invalidateQueries({ queryKey: ["reports"] });
     if (savedPatient.id > 0) {
       void queryClient.invalidateQueries({
         queryKey: ["patient", savedPatient.id],

@@ -1,5 +1,6 @@
 "use client";
 
+import { tTreatmentTarget } from "@/lib/i18n-labels";
 import { AccountTotals } from "@/components/finances/patient-account";
 
 import { useParams } from "next/navigation";
@@ -114,14 +115,11 @@ export default function PatientPortalPage() {
                   sessionNumber: number;
                   date: string | null;
                   toothFdi: number | null;
+                  toothFdis?: number[];
                   label: string;
                 }) => (
                   <li key={s.id} className="rounded-lg border px-3 py-2">
-                    {t(s.toothFdi == null ? "portal.mouthSessionLine" : "portal.sessionLine", {
-                      label: s.label,
-                      fdi: s.toothFdi ?? "",
-                      number: s.sessionNumber,
-                    })}
+                    {s.label} · {tTreatmentTarget(t, s.toothFdi, s.toothFdis)} · {t("treatment.session")} {s.sessionNumber}
                     {s.date ? ` · ${s.date}` : ""}
                   </li>
                 )

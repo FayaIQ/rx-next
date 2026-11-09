@@ -1,7 +1,9 @@
-import { sessionBalance } from "@/lib/finance/session-balance";
+import { sessionBalance, treatmentSessionBalance } from "@/lib/finance/session-balance";
 import { fromDbId } from "@/lib/bigint";
+import { treatmentPlanTeeth } from "@/lib/treatment/plan-teeth";
 
 export function serializeTreatmentSession(session: {
+  plan?: Parameters<typeof treatmentSessionBalance>[0]["plan"];
   fee?: number | { toString(): string } | null;
   currency?: string;
   payments?: Array<{ amount: number | { toString(): string } }>;
@@ -20,7 +22,7 @@ export function serializeTreatmentSession(session: {
   updatedAt: Date | null;
 }) {
   return {
-    billing: sessionBalance(session),
+    billing: treatmentSessionBalance(session),
     id: fromDbId(session.id),
     planId: fromDbId(session.planId),
     doctorId: fromDbId(session.doctorId),
@@ -40,6 +42,11 @@ export function serializeTreatmentSession(session: {
 }
 
 export function serializeTreatmentPlan(plan: {
+  toothFdis?: number[];
+  pricingMode?: string;
+  fee?: Parameters<typeof sessionBalance>[0]["fee"];
+  currency?: string;
+  payments?: Parameters<typeof sessionBalance>[0]["payments"];
   id: bigint;
   doctorId: bigint;
   patientId: bigint;
@@ -54,10 +61,13 @@ export function serializeTreatmentPlan(plan: {
   sessions?: Array<Parameters<typeof serializeTreatmentSession>[0]>;
 }) {
   return {
+    pricingMode: plan.pricingMode ?? "per_session",
+    billing: plan.pricingMode === "plan" ? { ...sessionBalance(plan), scope: "plan" as const } : undefined,
     id: fromDbId(plan.id),
     doctorId: fromDbId(plan.doctorId),
     patientId: fromDbId(plan.patientId),
     toothFdi: plan.toothFdi,
+    toothFdis: treatmentPlanTeeth(plan),
     treatmentType: plan.treatmentType,
     title: plan.title,
     totalSessions: plan.totalSessions,
@@ -68,7 +78,7 @@ export function serializeTreatmentPlan(plan: {
     sessions: plan.sessions
       ?.slice()
       .sort((a, b) => a.sessionNumber - b.sessionNumber)
-      .map(serializeTreatmentSession),
+      .map(session => serializeTreatmentSession({ ...session, plan })),
   };
 }
 

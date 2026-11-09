@@ -1,3 +1,4 @@
+import { sessionVisitDate } from "@/lib/treatment/session-datetime";
 import { treatmentTargetLabel, treatmentTypeLabel } from "@/lib/treatment/constants";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
@@ -52,7 +53,7 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
     treatmentEnabled
       ? prisma.treatmentPlan.findMany({
           where: { patientId: patientDbId, doctorId: doctorDbId },
-          include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
+          include: { payments: { select: { amount: true } }, sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
           orderBy: { updatedAt: "desc" },
         })
       : Promise.resolve([]),
@@ -97,12 +98,12 @@ export async function loadPatientFile(doctorId: number, patientId: number) {
         .map((s) => ({
           kind: "session" as const,
           date:
-            s.performedAt?.toISOString().slice(0, 10) ??
+            (s.performedAt ? sessionVisitDate(s.performedAt).toISOString().slice(0, 10) : undefined) ??
             s.scheduledDate?.toISOString().slice(0, 10) ??
             "",
           title: plan.toothFdi == null
             ? `${treatmentTypeLabel(plan.treatmentType)} — ${treatmentTargetLabel(null)}`
-            : `جلسة علاج — سن ${plan.toothFdi}`,
+            : `جلسة علاج — ${treatmentTargetLabel(plan.toothFdi, plan.toothFdis)}`,
           notes: s.notes,
           id: fromDbId(s.id),
         }))

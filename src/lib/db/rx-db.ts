@@ -32,6 +32,7 @@ export interface MetaRecord {
 }
 
 export interface LocalPatient {
+  createdAt?: string;
   sessionAccount?: AccountTotal[];
   id: string;
   serverId?: number;

@@ -99,7 +99,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
                 </p>
                 <DebtBadge totals={session.patientAccount} />
                 <p className="truncate text-xs text-slate-500">
-                  {session.treatmentLabel} · {tTreatmentTarget(t, session.toothFdi)} · {t("treatment.session")}{" "}
+                  {session.treatmentLabel} · {tTreatmentTarget(t, session.toothFdi, session.toothFdis)} · {t("treatment.session")}{" "}
                   {session.sessionNumber}
                   {session.totalSessions ? `/${session.totalSessions}` : ""}
                 </p>
@@ -114,7 +114,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
                 title={t("treatment.openChart")}
               >
                 <Link
-                  href={treatmentChartHref(session.patientId, session.toothFdi)}
+                  href={treatmentChartHref(session.patientId, session.toothFdi, session.toothFdis)}
                 >
                   <ExternalLink size={14} />
                 </Link>
@@ -143,7 +143,7 @@ export function TodayTreatmentSessionsPanel({ onSelectPatient }: Props) {
         }
         subtitle={
           completingSession
-            ? `${completingSession.treatmentLabel} · ${tTreatmentTarget(t, completingSession.toothFdi)} · ${t("treatment.session")} ${completingSession.sessionNumber}${completingSession.totalSessions ? `/${completingSession.totalSessions}` : ""}`
+            ? `${completingSession.treatmentLabel} · ${tTreatmentTarget(t, completingSession.toothFdi, completingSession.toothFdis)} · ${t("treatment.session")} ${completingSession.sessionNumber}${completingSession.totalSessions ? `/${completingSession.totalSessions}` : ""}`
             : undefined
         }
         isPending={completeMutation.isPending}

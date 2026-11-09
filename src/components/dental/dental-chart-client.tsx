@@ -64,6 +64,8 @@ export function DentalChartClient({ patientId }: Props) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedFdi, setSelectedFdi] = useState<number | null>(null);
+  const [multiSelect, setMultiSelect] = useState(false);
+  const [selectedFdis, setSelectedFdis] = useState<number[]>([]);
   const [chartNotes, setChartNotes] = useState("");
   const [toothMap, setToothMap] = useState<
     Record<number, { status: ToothStatusId; statuses: ToothStatusId[]; notes: string }>
@@ -89,6 +91,16 @@ export function DentalChartClient({ patientId }: Props) {
   );
 
   useEffect(() => {
+    const group = searchParams.get("teeth");
+    if (group) {
+      const teeth = [...new Set(group.split(",").map(Number))].filter(fdi => (FDI_ALL as readonly number[]).includes(fdi)).sort((a, b) => a - b);
+      if (teeth.length) {
+        setMultiSelect(true);
+        setSelectedFdis(teeth);
+        return;
+      }
+    }
+    setMultiSelect(false);
     if (searchParams.get("scope") === "mouth") setSelectedFdi(null);
     const tooth = searchParams.get("tooth");
     if (tooth) {
@@ -96,6 +108,11 @@ export function DentalChartClient({ patientId }: Props) {
       if (Number.isFinite(fdi)) setSelectedFdi(fdi);
     }
   }, [searchParams]);
+
+  const selectTooth = (fdi: number) => {
+    if (multiSelect) setSelectedFdis(teeth => teeth.includes(fdi) ? teeth.filter(tooth => tooth !== fdi) : [...teeth, fdi].sort((a, b) => a - b));
+    else setSelectedFdi(fdi);
+  };
 
   useEffect(() => {
     if (!data?.chart) return;
@@ -210,12 +227,18 @@ export function DentalChartClient({ patientId }: Props) {
                 <Smile size={18} className="text-rx-primary" />
                 {t("dental.archTitle")}
               </CardTitle>
+              {treatmentEnabled && <Button type="button" size="sm" variant={multiSelect ? "default" : "outline"} aria-pressed={multiSelect} onClick={() => {
+                if (!multiSelect) setSelectedFdis(selectedFdi == null ? [] : [selectedFdi]);
+                setMultiSelect(value => !value);
+              }}>{t(multiSelect ? "dental.singleSelect" : "dental.multiSelect")}</Button>}
             </CardHeader>
             <CardContent className="p-3 pt-0">
+              {multiSelect && <p className="mb-3 text-sm text-teal-800">{t("dental.multiSelectHint")}</p>}
               <DentalViewerShell
                 teeth={teethList}
-                selectedFdi={selectedFdi}
-                onSelect={setSelectedFdi}
+                selectedFdi={multiSelect ? null : selectedFdi}
+                selectedFdis={multiSelect ? selectedFdis : undefined}
+                onSelect={selectTooth}
                 showAnnotations={recordedCount > 0}
                 treatmentPlanMarkers={treatmentPlanMarkers}
               />
@@ -223,7 +246,18 @@ export function DentalChartClient({ patientId }: Props) {
           </Card>
 
           <div className="space-y-4">
-            {treatmentEnabled ? (
+            {treatmentEnabled && multiSelect && <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">{t("dental.sharedPlan")}</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm font-semibold" aria-live="polite">{t("dental.selectedTeeth", { count: selectedFdis.length })}</p>
+                <div className="flex flex-wrap gap-2">{selectedFdis.map(fdi => <Button key={fdi} type="button" size="sm" variant="outline" aria-label={t("dental.removeTooth", { fdi })} onClick={() => selectTooth(fdi)}>{fdi} ×</Button>)}</div>
+                {selectedFdis.length ? <>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setSelectedFdis([])}>{t("dental.clearSelection")}</Button>
+                  <ToothSessionsPanel key={`multi-${patientId}`} patientId={patientId} toothFdi={selectedFdis[0]} toothFdis={selectedFdis} />
+                </> : <p className="text-sm text-rx-muted">{t("dental.selectTeethHint")}</p>}
+              </CardContent>
+            </Card>}
+            {treatmentEnabled && !multiSelect ? (
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">{t("treatment.typeFullMouthCleaning")}</CardTitle>
@@ -233,7 +267,7 @@ export function DentalChartClient({ patientId }: Props) {
                 </CardContent>
               </Card>
             ) : null}
-            <Card>
+            {!multiSelect && <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
                   {selectedFdi
@@ -305,7 +339,7 @@ export function DentalChartClient({ patientId }: Props) {
                   <p className="text-sm text-rx-muted">{t("dental.selectHint")}</p>
                 )}
               </CardContent>
-            </Card>
+            </Card>}
 
             <Card>
               <CardHeader className="pb-2">

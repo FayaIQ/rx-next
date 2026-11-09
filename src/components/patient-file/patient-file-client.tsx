@@ -4,6 +4,7 @@ import { PatientAccountPanel } from "@/components/finances/patient-account";
 import { SessionBillingButton } from "@/components/finances/session-billing";
 import type { TreatmentPlanDto } from "@/lib/treatment/serializer";
 
+import { tTreatmentTarget } from "@/lib/i18n-labels";
 import { treatmentChartHref } from "@/lib/treatment/constants";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -409,11 +410,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
               <Card key={plan.id}>
                 <CardContent className="p-4 text-sm">
                   <p className="font-semibold">
-                    {plan.toothFdi == null ? `${tTreatmentType(t, plan.treatmentType)} — ${t("treatment.wholeMouth")} · ${plan.status}` : t("patientFile.planLine", {
-                      fdi: plan.toothFdi,
-                      type: tTreatmentType(t, plan.treatmentType),
-                      status: plan.status,
-                    })}
+                    {tTreatmentType(t, plan.treatmentType)} — {tTreatmentTarget(t, plan.toothFdi, plan.toothFdis)} · {plan.status}
                   </p>
                   <ul className="mt-2 space-y-1 text-xs text-slate-600">
                     {(plan.sessions ?? []).map((s) => (
@@ -428,7 +425,7 @@ export function PatientFileClient({ patientId }: { patientId: number }) {
                     ))}
                   </ul>
                   <Button size="sm" variant="ghost" className="mt-2 h-auto p-0" asChild>
-                    <Link href={treatmentChartHref(patientId, plan.toothFdi)}>
+                    <Link href={treatmentChartHref(patientId, plan.toothFdi, plan.toothFdis)}>
                       {t("patientFile.openInChart")}
                     </Link>
                   </Button>

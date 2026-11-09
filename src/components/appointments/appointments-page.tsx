@@ -1,5 +1,6 @@
 "use client";
 
+import { todayDateKey } from "@/lib/treatment/constants";
 import { DebtBadge } from "@/components/finances/session-billing";
 
 import { useEffect, useMemo, useState } from "react";
@@ -48,13 +49,8 @@ type Props = {
 
 type FilterKey = "all" | "active" | "cancelled";
 
-function toDateKey(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 function appointmentDayKey(ap: AppointmentDto): string {
-  return ap.bookingDate?.slice(0, 10) ?? ap.appointmentDatetime.slice(0, 10);
+  return ap.bookingDate?.slice(0, 10) ?? todayDateKey(new Date(ap.appointmentDatetime));
 }
 
 function dateLocale(locale: Locale) {
@@ -63,6 +59,7 @@ function dateLocale(locale: Locale) {
 
 function formatTime(iso: string, locale: Locale): string {
   return new Date(iso).toLocaleTimeString(dateLocale(locale), {
+    timeZone: "Asia/Baghdad",
     hour: "2-digit",
     minute: "2-digit",
     numberingSystem: "latn",
@@ -227,10 +224,10 @@ export function AppointmentsPageClient({
   const treatmentLinksVisible = showTreatmentLinks && treatmentEnabled;
   const pageTitle = title ?? t("appointments.title");
   const queryClient = useQueryClient();
-  const todayKey = toDateKey(new Date());
+  const todayKey = todayDateKey();
   const [visibleMonth, setVisibleMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+    const [year, month] = todayDateKey().split("-").map(Number);
+    return new Date(year, month - 1, 1);
   });
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [formOpen, setFormOpen] = useState(false);
@@ -341,8 +338,8 @@ export function AppointmentsPageClient({
   }
 
   function goToToday() {
-    const now = new Date();
-    setVisibleMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    const [year, month] = todayKey.split("-").map(Number);
+    setVisibleMonth(new Date(year, month - 1, 1));
     setSelectedDate(todayKey);
   }
 

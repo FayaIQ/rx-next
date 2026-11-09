@@ -53,6 +53,7 @@ function formatMonthLabel(month: Date, locale: Locale): string {
 
 function formatTime(iso: string, locale: Locale): string {
   return new Date(iso).toLocaleTimeString(dateLocale(locale), {
+    timeZone: "Asia/Baghdad",
     hour: "2-digit",
     minute: "2-digit",
     numberingSystem: "latn",

@@ -10,7 +10,7 @@ import { toDbId } from "@/lib/bigint";
 import { serializeFinanceTransaction } from "@/lib/finance/serializer";
 import { financeTransactionUpdateSchema } from "@/lib/validations/finance";
 import { z } from "zod";
-import { deleteSessionPayment } from "@/lib/finance/session-billing-service";
+import { deleteSessionPayment, deletePlanPayment } from "@/lib/finance/session-billing-service";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -27,7 +27,7 @@ export async function PUT(request: Request, { params }: Params) {
       },
     });
     if (!existing) return apiNotFound("الحركة غير موجودة");
-    if (existing.treatmentSessionId) return apiError("عدّل دفعة الجلسة من حساب المريض: احذف الدفعة الخاطئة ثم سجل الصحيحة");
+    if (existing.treatmentSessionId || existing.treatmentPlanId) return apiError("عدّل دفعة العلاج من حساب المريض: احذف الدفعة الخاطئة ثم سجل الصحيحة");
 
     const body = await request.json();
     const data = financeTransactionUpdateSchema.parse(body);
@@ -98,7 +98,9 @@ export async function DELETE(_request: Request, { params }: Params) {
   });
   if (!existing) return apiNotFound("الحركة غير موجودة");
 
-  if (existing.treatmentSessionId) {
+  if (existing.treatmentPlanId) {
+    await deletePlanPayment(toDbId(ctx.doctorId), existing.treatmentPlanId, existing.id);
+  } else if (existing.treatmentSessionId) {
     await deleteSessionPayment(toDbId(ctx.doctorId), existing.treatmentSessionId, existing.id);
   } else {
     await prisma.financeTransaction.delete({ where: { id: existing.id } });

@@ -78,6 +78,7 @@ export function tRecipeTemplate(
   return { name: t(keys.name), description: t(keys.desc) };
 }
 
-export function tTreatmentTarget(t: TranslateFn, toothFdi: number | null): string {
+export function tTreatmentTarget(t: TranslateFn, toothFdi: number | null, toothFdis?: readonly number[]): string {
+  if (toothFdis && toothFdis.length > 1) return t("treatment.teethGroup", { teeth: toothFdis.join("، ") });
   return toothFdi == null ? t("treatment.wholeMouth") : t("treatment.toothDot", { fdi: toothFdi });
 }

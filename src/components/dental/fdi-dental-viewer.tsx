@@ -14,6 +14,7 @@ import { tToothStatus, tToothQuadrant } from "@/lib/i18n-labels";
 type Props = {
   teeth: Array<{ toothFdi: number; status: string; statuses?: string[]; notes?: string | null }>;
   selectedFdi: number | null;
+  selectedFdis?: number[];
   onSelect: (fdi: number) => void;
   treatmentPlanMarkers?: TreatmentPlanMarker[];
 };
@@ -24,7 +25,7 @@ class SceneBoundary extends Component<{ children: ReactNode; fallback: ReactNode
   render() { return this.state.failed ? this.props.fallback : this.props.children; }
 }
 
-export function FdiDentalViewer({ teeth, selectedFdi, onSelect, treatmentPlanMarkers = [] }: Props) {
+export function FdiDentalViewer({ teeth, selectedFdi, selectedFdis, onSelect, treatmentPlanMarkers = [] }: Props) {
   const { t } = useLocale();
   const [hovered, setHovered] = useState<number | null>(null);
   const toothMap = new Map(teeth.map((tooth) => [tooth.toothFdi, tooth]));
@@ -33,7 +34,8 @@ export function FdiDentalViewer({ teeth, selectedFdi, onSelect, treatmentPlanMar
     const tooth = toothMap.get(fdi);
     return `${fdi} · ${tToothQuadrant(t, fdi)} · ${(tooth?.statuses ?? [tooth?.status ?? "healthy"]).map((status) => tToothStatus(t, status)).join(" · ")}`;
   };
-  const color = (fdi: number) => hovered === fdi ? "#fb923c" : selectedFdi === fdi ? "#6366f1" : toothStatusColor(toothMap.get(fdi)?.status ?? "healthy");
+  const isSelected = (fdi: number) => selectedFdis ? selectedFdis.includes(fdi) : selectedFdi === fdi;
+  const color = (fdi: number) => hovered === fdi ? "#fb923c" : isSelected(fdi) ? "#6366f1" : toothStatusColor(toothMap.get(fdi)?.status ?? "healthy");
 
   return (
     <div className="space-y-3">
@@ -47,7 +49,7 @@ export function FdiDentalViewer({ teeth, selectedFdi, onSelect, treatmentPlanMar
             <ambientLight intensity={1.1} />
             <directionalLight position={[2, 5, 5]} intensity={2} />
             <Suspense fallback={null}>
-              <DundeeTeeth color={color} toothMap={toothMap} selectedFdi={selectedFdi} hovered={hovered} setHovered={setHovered} onSelect={onSelect} />
+              <DundeeTeeth color={color} toothMap={toothMap} isSelected={isSelected} hovered={hovered} setHovered={setHovered} onSelect={onSelect} />
             </Suspense>
             <OrbitControls enablePan={false} minDistance={3} maxDistance={7} />
           </Canvas>
@@ -55,9 +57,9 @@ export function FdiDentalViewer({ teeth, selectedFdi, onSelect, treatmentPlanMar
       </SceneBoundary>
       <div dir="ltr" className="space-y-1.5" aria-label="FDI / ISO 3950">
         {rows.map((row, index) => <div key={index} className="grid grid-cols-16 gap-0.5" style={{ gridTemplateColumns: "repeat(16, minmax(0, 1fr))" }}>
-          {row.map((fdi) => <button key={fdi} type="button" title={title(fdi)} aria-label={title(fdi)} aria-pressed={selectedFdi === fdi} onClick={() => onSelect(fdi)}
+          {row.map((fdi) => <button key={fdi} type="button" title={title(fdi)} aria-label={title(fdi)} aria-pressed={isSelected(fdi)} onClick={() => onSelect(fdi)}
             onPointerEnter={() => setHovered(fdi)} onPointerLeave={() => setHovered(null)} onFocus={() => setHovered(fdi)} onBlur={() => setHovered(null)}
-            className="rounded border px-0 py-2 text-[10px] font-bold sm:text-xs" style={{ borderColor: color(fdi), background: hovered === fdi ? "#ffedd5" : selectedFdi === fdi ? "#e0e7ff" : "white" }}>{fdi}</button>)}
+            className="rounded border px-0 py-2 text-[10px] font-bold sm:text-xs" style={{ borderColor: color(fdi), background: hovered === fdi ? "#ffedd5" : isSelected(fdi) ? "#e0e7ff" : "white" }}>{fdi}</button>)}
         </div>)}
       </div>
       {treatmentPlanMarkers.length ? <div className="flex flex-wrap gap-2">{treatmentPlanMarkers.map((marker) => <button type="button" key={marker.toothFdi} onClick={() => onSelect(marker.toothFdi)} className="rounded bg-teal-50 px-2 py-1 text-xs text-teal-800">{marker.toothFdi} · {marker.completedSessions}/{marker.totalSessions}</button>)}</div> : null}
@@ -66,9 +68,9 @@ export function FdiDentalViewer({ teeth, selectedFdi, onSelect, treatmentPlanMar
   );
 }
 
-function DundeeTeeth({ color, toothMap, selectedFdi, hovered, setHovered, onSelect }: {
+function DundeeTeeth({ color, toothMap, isSelected, hovered, setHovered, onSelect }: {
   color: (fdi: number) => string;
-  toothMap: Map<number, Props["teeth"][number]>; selectedFdi: number | null; hovered: number | null;
+  toothMap: Map<number, Props["teeth"][number]>; isSelected: (fdi: number) => boolean; hovered: number | null;
   setHovered: (fdi: number | null) => void; onSelect: (fdi: number) => void;
 }) {
   const { scene } = useGLTF(ANATOMICAL_MODEL_PATH);
@@ -99,7 +101,7 @@ function DundeeTeeth({ color, toothMap, selectedFdi, hovered, setHovered, onSele
   return <group>{model.map(({ fdi, geometry, material }) => <group key={fdi}>
     <mesh geometry={geometry} onClick={(event) => { event.stopPropagation(); onSelect(fdi); }}
       onPointerOver={(event) => { event.stopPropagation(); setHovered(fdi); }} onPointerOut={() => setHovered(null)}>
-      <meshStandardMaterial map={material.map} color={hovered !== fdi && selectedFdi !== fdi && (!toothMap.get(fdi) || toothMap.get(fdi)?.status === "healthy") ? material.color : color(fdi)}
+      <meshStandardMaterial map={material.map} color={hovered !== fdi && !isSelected(fdi) && (!toothMap.get(fdi) || toothMap.get(fdi)?.status === "healthy") ? material.color : color(fdi)}
         roughness={material.roughness} metalness={material.metalness} normalMap={material.normalMap} side={material.side}
         emissive={hovered === fdi ? "#fb923c" : "#000000"} emissiveIntensity={0.2} transparent opacity={toothMap.get(fdi)?.status === "missing" ? 0.3 : 1} />
     </mesh>

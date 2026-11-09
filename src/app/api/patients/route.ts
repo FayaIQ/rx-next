@@ -78,6 +78,7 @@ export async function POST(request: Request) {
     const patient = await prisma.$transaction(async (tx) => {
       const created = await tx.patient.create({
         data: {
+          createdAt: new Date(),
           name: data.name,
           gender: data.gender,
           birthdate,

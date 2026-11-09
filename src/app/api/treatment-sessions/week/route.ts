@@ -1,4 +1,4 @@
-import { sessionBalance } from "@/lib/finance/session-balance";
+import { treatmentSessionBalance } from "@/lib/finance/session-balance";
 import { loadPatientDebtMap } from "@/lib/finance/session-billing-service";
 import { prisma } from "@/lib/prisma";
 import { requireDoctorApi, isApiError } from "@/lib/api/doctor-auth";
@@ -33,8 +33,9 @@ export async function GET(request: Request) {
       patient: { select: { id: true, name: true } },
       plan: {
         select: {
+          pricingMode: true, fee: true, currency: true, payments: { select: { amount: true } },
           id: true,
-          toothFdi: true,
+          toothFdi: true, toothFdis: true,
           treatmentType: true,
           title: true,
           totalSessions: true,
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
     from: fromKey,
     to: toKey,
     sessions: sessions.map((s) => ({
-      billing: sessionBalance(s),
+      billing: treatmentSessionBalance(s),
       patientAccount: debtMap.get(Number(s.patientId)) ?? [],
       id: Number(s.id),
       planId: Number(s.planId),
@@ -70,7 +71,7 @@ export async function GET(request: Request) {
         ? s.scheduledDate.toISOString().slice(0, 10)
         : null,
       notes: s.notes,
-      toothFdi: s.plan.toothFdi,
+      toothFdi: s.plan.toothFdi, toothFdis: s.plan.toothFdis,
       treatmentType: s.plan.treatmentType,
       treatmentLabel: treatmentTypeLabel(s.plan.treatmentType),
       planTitle: s.plan.title,
@@ -80,13 +81,13 @@ export async function GET(request: Request) {
       Object.entries(byDate).map(([date, list]) => [
         date,
         list.map((s) => ({
-          billing: sessionBalance(s),
+          billing: treatmentSessionBalance(s),
           patientAccount: debtMap.get(Number(s.patientId)) ?? [],
           id: Number(s.id),
           patientId: Number(s.patientId),
           patientName: s.patient.name,
           sessionNumber: s.sessionNumber,
-          toothFdi: s.plan.toothFdi,
+          toothFdi: s.plan.toothFdi, toothFdis: s.plan.toothFdis,
           treatmentType: s.plan.treatmentType,
           treatmentLabel: treatmentTypeLabel(s.plan.treatmentType),
           totalSessions: s.plan.totalSessions,

@@ -50,7 +50,7 @@ export async function PUT(request: Request, { params }: Params) {
         ...(data.status !== undefined ? { status: data.status } : {}),
         ...(data.notes !== undefined ? { notes: data.notes?.trim() || null } : {}),
       },
-      include: { sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
+      include: { payments: { select: { amount: true } }, sessions: { orderBy: { sessionNumber: "asc" }, include: { payments: { select: { amount: true } } } } },
     });
 
     return apiOk({ plan: serializeTreatmentPlan(plan) });
@@ -97,6 +97,8 @@ export async function POST(request: Request, { params }: Params) {
     const body = await request.json();
     const data = treatmentSessionCreateSchema.parse(body);
 
+    if (existing.pricingMode === "plan" && data.billing) return apiError("سعر الخطة يشمل الجلسة الجديدة؛ سجل الدفعات من حساب الخطة");
+
     const maxNumber = existing.sessions.reduce(
       (max, s) => Math.max(max, s.sessionNumber),
       0
@@ -128,7 +130,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const refreshed = await prisma.treatmentSession.findUnique({
       where: { id: session.id },
-      include: { payments: { select: { amount: true } } },
+      include: { payments: { select: { amount: true } }, plan: { include: { payments: { select: { amount: true } } } } },
     });
 
     return apiOk({

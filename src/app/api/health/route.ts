@@ -24,6 +24,7 @@ export async function GET() {
     `;
     if (columns[0]?.is_nullable !== "YES") throw new Error("Whole-mouth treatment schema is not ready");
     await prisma.$queryRaw`SELECT s.fee, s.currency, f.treatment_session_id, f.payment_request_id FROM treatment_sessions s, finance_transactions f WHERE false`;
+    await prisma.$queryRaw`SELECT t.pricing_mode, t.fee, t.currency, t.tooth_fdis, f.treatment_plan_id FROM treatment_plans t, finance_transactions f WHERE false`;
     return Response.json({ status: "ok", release }, { headers });
   } catch {
     return Response.json({ status: "not_ready", release }, { status: 503, headers });

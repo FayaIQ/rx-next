@@ -1,5 +1,6 @@
 "use client";
 
+import { tTreatmentTarget } from "@/lib/i18n-labels";
 import { DebtBadge } from "@/components/finances/session-billing";
 
 import { formatMoney } from "@/lib/finance/constants";
@@ -101,11 +102,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
                 {t("waitingRoom.nextSession")}
               </p>
               <p className="mt-1 text-slate-600">
-                {t(data.nextSession.toothFdi == null ? "waitingRoom.mouthSession" : "waitingRoom.toothSession", {
-                  tooth: data.nextSession.toothFdi ?? "",
-                  label: data.nextSession.label,
-                  session: data.nextSession.sessionNumber,
-                })}
+                {data.nextSession.label} · {tTreatmentTarget(t, data.nextSession.toothFdi, data.nextSession.toothFdis)} · {t("treatment.session")} {data.nextSession.sessionNumber}
                 {data.nextSession.scheduledDate
                   ? ` · ${data.nextSession.scheduledDate}`
                   : ""}
@@ -144,6 +141,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
               (treatment: {
                 id: number;
                 toothFdi: number | null;
+                toothFdis?: number[];
                 label: string;
                 completed: number;
                 total: number;
@@ -152,12 +150,7 @@ export function PatientQueueSummary({ patientId, className }: Props) {
                   key={treatment.id}
                   className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-900"
                 >
-                  {t(treatment.toothFdi == null ? "waitingRoom.mouthTreatment" : "waitingRoom.toothTreatment", {
-                    tooth: treatment.toothFdi ?? "",
-                    label: treatment.label,
-                    completed: treatment.completed,
-                    total: treatment.total,
-                  })}
+                  {treatment.label} · {tTreatmentTarget(t, treatment.toothFdi, treatment.toothFdis)} · {treatment.completed}/{treatment.total}
                 </span>
               )
             )}

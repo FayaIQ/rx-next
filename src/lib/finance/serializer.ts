@@ -33,6 +33,7 @@ export function serializeFinanceTransaction(row: TransactionRow) {
     appointmentId: row.appointmentId ? fromDbId(row.appointmentId) : null,
     prescriptionId: row.prescriptionId ? fromDbId(row.prescriptionId) : null,
     treatmentSessionId: row.treatmentSessionId ? fromDbId(row.treatmentSessionId) : null,
+    treatmentPlanId: row.treatmentPlanId ? fromDbId(row.treatmentPlanId) : null,
     type: row.type as "income" | "expense",
     category: row.category,
     amount: decimalToNumber(row.amount),

@@ -10,6 +10,7 @@ const INVALIDATE_KEYS = [
   ["secretary-desk"],
   ["appointments"],
   ["patients"],
+  ["reports"],
   ["prescriptions"],
   ["medicines"],
   ["medicine-presets"],

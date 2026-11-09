@@ -61,7 +61,7 @@ export async function loadPatientPortalByToken(token: string) {
             status: "planned",
             scheduledDate: { gte: today },
           },
-          include: { plan: { select: { toothFdi: true, treatmentType: true } } },
+          include: { plan: { select: { toothFdi: true, toothFdis: true, treatmentType: true } } },
           orderBy: { scheduledDate: "asc" },
           take: 8,
         })
@@ -85,7 +85,7 @@ export async function loadPatientPortalByToken(token: string) {
       id: fromDbId(s.id),
       sessionNumber: s.sessionNumber,
       date: s.scheduledDate?.toISOString().slice(0, 10) ?? null,
-      toothFdi: s.plan.toothFdi,
+      toothFdi: s.plan.toothFdi, toothFdis: s.plan.toothFdis,
       label: treatmentTypeLabel(s.plan.treatmentType),
     })),
   };

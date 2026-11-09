@@ -13,6 +13,7 @@ type ToothRecord = {
 type Props = {
   teeth: ToothRecord[];
   selectedFdi: number | null;
+  selectedFdis?: number[];
   onSelect: (fdi: number) => void;
   showAnnotations?: boolean;
   treatmentPlanMarkers?: TreatmentPlanMarker[];
@@ -23,6 +24,7 @@ export function DentalViewerShell(props: Props) {
     <FdiDentalViewer
       teeth={props.teeth}
       selectedFdi={props.selectedFdi}
+      selectedFdis={props.selectedFdis}
       onSelect={props.onSelect}
       treatmentPlanMarkers={props.treatmentPlanMarkers}
     />

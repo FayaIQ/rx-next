@@ -24,7 +24,7 @@ export async function billingRequest<T>(url: string, init?: RequestInit): Promis
 export function useInvalidateBilling() {
   const client = useQueryClient();
   return () => {
-    for (const key of ["session-billing", "patient-account", "finance-debts", "finance-summary", "finance-transactions", "patient-file", "queue-summary", "patients", "treatment-plans", "treatment-sessions-today", "treatment-sessions-week", "appointments", "doctor-queue", "waiting-room", "secretary-desk", "reports", "patient-portal"]) {
+    for (const key of ["plan-billing", "session-billing", "patient-account", "finance-debts", "finance-summary", "finance-transactions", "patient-file", "queue-summary", "patients", "treatment-plans", "treatment-sessions-today", "treatment-sessions-week", "appointments", "doctor-queue", "waiting-room", "secretary-desk", "reports", "patient-portal"]) {
       void client.invalidateQueries({ queryKey: [key] });
     }
   };
@@ -44,35 +44,36 @@ export function BillingStatus({ billing }: { billing?: SessionBilling }) {
   const { t, locale } = useLocale();
   if (!billing || billing.status === "unpriced") return <span className="text-xs text-rx-muted">{t("billing.unpriced")}</span>;
   return <span className={`text-xs ${billing.remaining > 0 ? "text-amber-800" : "text-emerald-700"}`}>
-    {t(`billing.${billing.status}`)} · {t("billing.fee")}: {formatMoney(billing.fee ?? 0, billing.currency, locale)} · {t("billing.paidAmount")}: {formatMoney(billing.paid, billing.currency, locale)} · {t("billing.remaining")}: {formatMoney(billing.remaining, billing.currency, locale)}
+    {t(`billing.${billing.status}`)} · {t(billing.scope === "plan" ? "billing.planFee" : "billing.fee")}: {formatMoney(billing.fee ?? 0, billing.currency, locale)} · {t("billing.paidAmount")}: {formatMoney(billing.paid, billing.currency, locale)} · {t("billing.remaining")}: {formatMoney(billing.remaining, billing.currency, locale)}
   </span>;
 }
 
-export function SessionBillingButton({ sessionId, billing }: { sessionId: number; billing?: SessionBilling }) {
+export function SessionBillingButton({ sessionId, planId, billing }: { sessionId?: number; planId?: number; billing?: SessionBilling }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
   return <div className="flex flex-wrap items-center gap-2">
     <BillingStatus billing={billing} />
-    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" disabled={sessionId <= 0} onClick={() => setOpen(true)}>{t("billing.manage")}</Button>
-    {open && <SessionBillingDialog sessionId={sessionId} onClose={() => setOpen(false)} />}
+    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" disabled={(planId ?? sessionId ?? 0) <= 0} onClick={() => setOpen(true)}>{t(planId || billing?.scope === "plan" ? "billing.planAccount" : "billing.manage")}</Button>
+    {open && <SessionBillingDialog sessionId={sessionId ?? planId ?? 0} planId={planId} onClose={() => setOpen(false)} />}
   </div>;
 }
 
 type BillResponse = { billing: SessionBilling; payments: FinanceTransactionDto[] };
 
-function SessionBillingDialog({ sessionId, onClose }: { sessionId: number; onClose: () => void }) {
+function SessionBillingDialog({ sessionId, planId, onClose }: { sessionId: number; planId?: number; onClose: () => void }) {
   const { t } = useLocale();
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { const element = dialog.current; element?.showModal(); return () => element?.close(); }, []);
-  const query = useQuery({ queryKey: ["session-billing", sessionId], networkMode: "always", retry: false, queryFn: () => billingRequest<BillResponse>(`/api/treatment-sessions/${sessionId}/billing`) });
+  const accountUrl = planId ? `/api/treatment-plans/${planId}/billing` : `/api/treatment-sessions/${sessionId}/billing`;
+  const query = useQuery({ queryKey: [planId ? "plan-billing" : "session-billing", planId ?? sessionId], networkMode: "always", retry: false, queryFn: () => billingRequest<BillResponse>(accountUrl) });
   return <dialog ref={dialog} aria-labelledby={`billing-title-${sessionId}`} onCancel={event => event.preventDefault()} className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-5 text-rx-text shadow-xl backdrop:bg-black/40">
-      <h3 id={`billing-title-${sessionId}`} className="mb-4 text-lg font-bold">{t("billing.sessionAccount")}</h3>
-      {query.isPending || query.isFetching ? <p>{t("common.loading")}</p> : query.isError ? <div role="alert"><p>{query.error.message}</p><Button onClick={() => query.refetch()}>{t("billing.retry")}</Button></div> : <BillingForm sessionId={sessionId} data={query.data} onClose={onClose} />}
+      <h3 id={`billing-title-${sessionId}`} className="mb-4 text-lg font-bold">{t(planId || query.data?.billing.scope === "plan" ? "billing.planAccount" : "billing.sessionAccount")}</h3>
+      {query.isPending || query.isFetching ? <p>{t("common.loading")}</p> : query.isError ? <div role="alert"><p>{query.error.message}</p><Button onClick={() => query.refetch()}>{t("billing.retry")}</Button></div> : <BillingForm accountUrl={accountUrl} sessionId={sessionId} data={query.data} onClose={onClose} />}
       {!query.data && <Button variant="outline" className="mt-3" onClick={onClose}>{t("common.close")}</Button>}
   </dialog>;
 }
 
-function BillingForm({ sessionId, data, onClose }: { sessionId: number; data: BillResponse; onClose: () => void }) {
+function BillingForm({ sessionId, accountUrl, data, onClose }: { sessionId: number; accountUrl: string; data: BillResponse; onClose: () => void }) {
   const { t, locale } = useLocale();
   const invalidate = useInvalidateBilling();
   const [fee, setFee] = useState(data.billing.fee == null ? "" : String(data.billing.fee));
@@ -86,7 +87,7 @@ function BillingForm({ sessionId, data, onClose }: { sessionId: number; data: Bi
     networkMode: "always",
     mutationFn: () => {
       requestId.current ??= crypto.randomUUID();
-      return billingRequest(`/api/treatment-sessions/${sessionId}/billing`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+      return billingRequest(accountUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         fee: fee === "" ? null : Number(fee), currency, amount: amount === "" ? 0 : Number(amount),
         transactionDate: date, paymentMethod: method, description, requestId: requestId.current,
       }) });
@@ -106,10 +107,10 @@ function BillingForm({ sessionId, data, onClose }: { sessionId: number; data: Bi
   const remaining = Math.round((Number(fee || 0) - data.billing.paid - Number(amount || 0)) * 100) / 100;
   return <form className="space-y-4" onSubmit={event => { event.preventDefault(); save.mutate(); }}>
     <BillingStatus billing={data.billing} />
-    <p className="text-xs leading-relaxed text-rx-muted">{t("billing.hint")}</p>
+    <p className="text-xs leading-relaxed text-rx-muted">{t(data.billing.scope === "plan" ? "billing.planAccountHint" : "billing.hint")}</p>
     <fieldset disabled={locked} className="space-y-3 disabled:opacity-60">
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1"><Label htmlFor={`fee-${sessionId}`}>{t("billing.fee")}</Label><Input id={`fee-${sessionId}`} type="number" min="0" max="9999999999.99" step={currency === "USD" ? "0.01" : "1"} placeholder={t("billing.unpriced")} value={fee} onChange={e => setFee(e.target.value)} /></div>
+        <div className="space-y-1"><Label htmlFor={`fee-${sessionId}`}>{t(data.billing.scope === "plan" ? "billing.planFee" : "billing.fee")}</Label><Input id={`fee-${sessionId}`} type="number" min="0" max="9999999999.99" step={currency === "USD" ? "0.01" : "1"} placeholder={t("billing.unpriced")} value={fee} onChange={e => setFee(e.target.value)} /></div>
         <div className="space-y-1"><Label htmlFor={`currency-${sessionId}`}>{t("finances.currency")}</Label><select id={`currency-${sessionId}`} className="h-10 w-full rounded-lg border border-rx-border px-2" disabled={data.billing.paid > 0} value={currency} onChange={e => setCurrency(e.target.value)}><option value="IQD">IQD</option><option value="USD">USD</option></select></div>
       </div>
       <div className="space-y-1"><Label htmlFor={`payment-${sessionId}`}>{t("billing.newPayment")}</Label><Input id={`payment-${sessionId}`} type="number" min="0" max={Math.max(0, Number(fee || 0) - data.billing.paid)} step={currency === "USD" ? "0.01" : "1"} value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" /></div>

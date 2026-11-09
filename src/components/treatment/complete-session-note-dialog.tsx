@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { sessionDateTimeInput } from "@/lib/treatment/session-datetime";
+import { sessionDateTimeInput, sessionDateTimeFromInput } from "@/lib/treatment/session-datetime";
 import { todayDateKey } from "@/lib/treatment/constants";
 import { useLocale } from "@/i18n/locale-provider";
 import { useSyncStore } from "@/stores/sync-store";
@@ -52,7 +52,7 @@ function CompleteSessionForm({ onConfirm, onClose, isPending, financial, initial
   const [performedAt, setPerformedAt] = useState(sessionDateTimeInput);
   const [fee, setFee] = useState(initialBilling?.fee == null ? "" : String(initialBilling.fee));
   const [currency, setCurrency] = useState(initialBilling?.currency ?? "IQD");
-  const [mode, setMode] = useState("full");
+  const [mode, setMode] = useState(initialBilling?.scope === "plan" ? "debt" : "full");
   const [partial, setPartial] = useState("");
   const [method, setMethod] = useState<"cash" | "card" | "transfer">("cash");
   const [paymentDate, setPaymentDate] = useState(todayDateKey);
@@ -60,17 +60,18 @@ function CompleteSessionForm({ onConfirm, onClose, isPending, financial, initial
   const paid = initialBilling?.paid ?? 0;
   const remaining = Math.round((Number(fee || 0) - paid) * 100) / 100;
   const amount = mode === "full" ? remaining : mode === "debt" ? 0 : Number(partial || 0);
-  const date = new Date(performedAt);
+  const date = sessionDateTimeFromInput(performedAt);
   const invalid = Number.isNaN(date.getTime()) || (financial && (fee === "" || remaining < 0 || amount < 0 || amount > remaining || (mode === "partial" && !partial)));
   return <form className="space-y-4" onSubmit={event => {
     event.preventDefault();
     if (invalid) return;
     onConfirm(notes.trim(), date.toISOString(), financial ? { fee: Number(fee), currency: currency as "IQD" | "USD", amount, requestId, paymentMethod: method, transactionDate: paymentDate } : undefined);
   }}>
-    <div className="space-y-1.5"><Label htmlFor="session-performed-at">{t("treatment.performedAt")}</Label><Input id="session-performed-at" type="datetime-local" value={performedAt} onChange={e => setPerformedAt(e.target.value)} disabled={isPending} required /></div>
+    <div className="space-y-1.5"><Label htmlFor="session-performed-at">{t("treatment.performedAt")}</Label><Input id="session-performed-at" type="datetime-local" value={performedAt} onChange={e => setPerformedAt(e.target.value)} disabled={isPending} required /><p className="text-xs text-rx-muted">{t("treatment.performedAtHint")}</p></div>
     {financial ? <fieldset disabled={isPending} className="space-y-3 rounded-xl border border-rx-border bg-slate-50 p-3">
-      <legend className="px-1 text-sm font-semibold">{t("billing.sessionAccount")}</legend>
-      <div className="grid grid-cols-2 gap-3"><div className="space-y-1"><Label htmlFor="complete-fee">{t("billing.fee")}</Label><Input id="complete-fee" type="number" min={paid} max="9999999999.99" step={currency === "USD" ? "0.01" : "1"} value={fee} onChange={e => setFee(e.target.value)} required /></div><div className="space-y-1"><Label htmlFor="complete-currency">{t("finances.currency")}</Label><select id="complete-currency" className="h-10 w-full rounded-lg border border-rx-border bg-white px-2" disabled={paid > 0} value={currency} onChange={e => setCurrency(e.target.value)}><option value="IQD">IQD</option><option value="USD">USD</option></select></div></div>
+      <legend className="px-1 text-sm font-semibold">{t(initialBilling?.scope === "plan" ? "billing.planAccount" : "billing.sessionAccount")}</legend>
+      {initialBilling?.scope === "plan" && <p className="text-xs text-rx-muted">{t("billing.planAccountHint")}</p>}
+      <div className="grid grid-cols-2 gap-3"><div className="space-y-1"><Label htmlFor="complete-fee">{t(initialBilling?.scope === "plan" ? "billing.planFee" : "billing.fee")}</Label><Input id="complete-fee" type="number" min={paid} max="9999999999.99" step={currency === "USD" ? "0.01" : "1"} value={fee} onChange={e => setFee(e.target.value)} required /></div><div className="space-y-1"><Label htmlFor="complete-currency">{t("finances.currency")}</Label><select id="complete-currency" className="h-10 w-full rounded-lg border border-rx-border bg-white px-2" disabled={paid > 0} value={currency} onChange={e => setCurrency(e.target.value)}><option value="IQD">IQD</option><option value="USD">USD</option></select></div></div>
       {paid > 0 && <p className="text-xs">{t("billing.alreadyPaid")}: {formatMoney(paid, currency, locale)}</p>}
       <div className="space-y-1"><Label htmlFor="complete-payment-mode">{t("billing.paymentState")}</Label><select id="complete-payment-mode" className="h-10 w-full rounded-lg border border-rx-border bg-white px-2 text-sm" value={mode} onChange={e => setMode(e.target.value)}><option value="full">{t("billing.receiveFull")}</option><option value="partial">{t("billing.receivePartial")}</option><option value="debt">{t("billing.receiveNone")}</option></select></div>
       {mode === "partial" && <div className="space-y-1"><Label htmlFor="complete-partial">{t("billing.newPayment")}</Label><Input id="complete-partial" type="number" min="0" max={Math.max(0, remaining)} step={currency === "USD" ? "0.01" : "1"} value={partial} onChange={e => setPartial(e.target.value)} required /></div>}

@@ -20,6 +20,7 @@ export type TodayTreatmentSessionDto = {
   scheduledDate: string | null;
   notes: string | null;
   toothFdi: number | null;
+  toothFdis?: number[];
   treatmentType: string;
   treatmentLabel: string;
   planTitle: string | null;
@@ -155,6 +156,7 @@ export type FinanceSettingsDto = {
 };
 
 export type FinanceTransactionDto = {
+  treatmentPlanId?: number | null;
   treatmentSessionId?: number | null;
   id: number;
   doctorId: number;
@@ -490,6 +492,7 @@ export const rxApi = {
             patientName: string;
             sessionNumber: number;
             toothFdi: number | null;
+            toothFdis?: number[];
             billing: SessionBilling;
             patientAccount: AccountTotal[];
             treatmentType?: string;

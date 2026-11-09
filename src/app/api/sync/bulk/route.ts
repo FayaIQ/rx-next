@@ -30,8 +30,10 @@ import {
 } from "@/lib/treatment/session-appointment";
 import { serializeTreatmentSession } from "@/lib/treatment/serializer";
 import { z } from "zod";
+import { patientRegistrationTime } from "@/lib/patient-registration";
 
 const bulkItemSchema = z.object({
+  createdAt: z.iso.datetime().optional(),
   id: z.string(),
   entity: z.enum([
     "patient",
@@ -111,6 +113,7 @@ async function processSyncItem(
       const patient = await prisma.$transaction(async (tx) => {
         const created = await tx.patient.create({
           data: {
+            createdAt: patientRegistrationTime(item.createdAt),
             name: data.name,
             gender: data.gender,
             birthdate,
@@ -405,6 +408,7 @@ async function processSyncItem(
     if (!existing) throw new Error("الجلسة غير موجودة");
 
     const data = treatmentSessionUpdateSchema.parse(item.payload);
+    if ((data.status ?? existing.status) === "completed" && data.performedAt === null) throw new Error("حدد تاريخ إجراء الجلسة المكتملة");
 
     const performedAt =
       data.status === "completed" && !data.performedAt
@@ -435,11 +439,10 @@ async function processSyncItem(
 
     await refreshPlanStatus(session.planId);
 
-    if (data.scheduledDate !== undefined || data.scheduledTime !== undefined) {
+    if (session.status === "completed" && (data.status === "completed" || data.performedAt !== undefined)) {
       await syncSessionAppointment(session.id);
-    }
-    if (data.status === "completed") {
       await recordSessionVisit(session.id);
+    } else if (data.scheduledDate !== undefined || data.scheduledTime !== undefined) {
       await syncSessionAppointment(session.id);
     }
 
@@ -465,7 +468,7 @@ async function processSyncItem(
     if (!patient) throw new Error("المريض غير موجود");
 
     const data = treatmentPlanCreateSchema.parse(item.payload);
-    if (data.sessions?.some(s => s.billing)) throw new Error("يجب تسجيل دفعات الجلسات مباشرة باتصال الإنترنت");
+    if (data.billing || data.sessions?.some(s => s.billing)) throw new Error("يجب تسجيل حساب العلاج مباشرة باتصال الإنترنت");
     const plan = await createTreatmentPlanForPatient(
       doctorId,
       patientDbId,

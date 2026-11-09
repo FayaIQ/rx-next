@@ -1,4 +1,5 @@
 import { toothStatusLabel, type ToothStatusId } from "@/lib/dental/constants";
+import { sessionVisitDate } from "@/lib/treatment/session-datetime";
 
 export const TREATMENT_TYPES = [
   { id: "root_canal", label: "علاج جذر", defaultSessions: 3 },
@@ -61,15 +62,16 @@ export function defaultSessionsForType(type: string): number {
 }
 
 export function todayDateKey(d = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return sessionVisitDate(d).toISOString().slice(0, 10);
 }
 
 /** A missing tooth identifies a treatment for the entire mouth. */
-export function treatmentTargetLabel(toothFdi: number | null): string {
+export function treatmentTargetLabel(toothFdi: number | null, toothFdis?: readonly number[]): string {
+  if (toothFdis && toothFdis.length > 1) return `الأسنان ${toothFdis.join("، ")}`;
   return toothFdi == null ? "الفم بالكامل" : `سن ${toothFdi}`;
 }
 
-export function treatmentChartHref(patientId: number, toothFdi: number | null): string {
+export function treatmentChartHref(patientId: number, toothFdi: number | null, toothFdis?: readonly number[]): string {
+  if (toothFdis && toothFdis.length > 1) return `/dental/${patientId}?teeth=${toothFdis.join(",")}`;
   return `/dental/${patientId}?${toothFdi == null ? "scope=mouth" : `tooth=${toothFdi}`}`;
 }

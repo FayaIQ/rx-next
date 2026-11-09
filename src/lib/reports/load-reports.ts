@@ -2,26 +2,12 @@ import { accountTotals } from "@/lib/finance/session-balance";
 import { currencyTotals } from "@/lib/finance/currency-totals";
 import { prisma } from "@/lib/prisma";
 import { toDbId, fromDbId } from "@/lib/bigint";
-import { treatmentTypeLabel } from "@/lib/treatment/constants";
-
-function monthRange(monthKey?: string) {
-  const now = new Date();
-  let y = now.getFullYear();
-  let m = now.getMonth();
-  if (monthKey && /^\d{4}-\d{2}$/.test(monthKey)) {
-    const [yy, mm] = monthKey.split("-").map(Number);
-    y = yy;
-    m = mm - 1;
-  }
-  const from = new Date(Date.UTC(y, m, 1));
-  const to = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
-  const key = `${y}-${String(m + 1).padStart(2, "0")}`;
-  return { from, to, key };
-}
+import { reportMonthRange } from "./month-range";
+import { todayDateKey, treatmentTypeLabel } from "@/lib/treatment/constants";
 
 export async function loadDoctorReports(doctorId: number, monthKey?: string) {
   const doctorDbId = toDbId(doctorId);
-  const { from, to, key } = monthRange(monthKey);
+  const { timestampRange, dateRange, key } = reportMonthRange(monthKey);
 
   const [
     newPatients,
@@ -32,35 +18,36 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
     plansByType,
     recentPatients,
     billedSessions,
+    billedPlans,
   ] = await Promise.all([
     prisma.patient.count({
-      where: { doctorId: doctorDbId, createdAt: { gte: from, lte: to } },
+      where: { doctorId: doctorDbId, createdAt: timestampRange },
     }),
     prisma.prescription.count({
-      where: { doctorId: doctorDbId, prescriptionDate: { gte: from, lte: to } },
+      where: { doctorId: doctorDbId, prescriptionDate: dateRange },
     }),
     prisma.treatmentSession.count({
       where: {
         doctorId: doctorDbId,
         status: "completed",
-        performedAt: { gte: from, lte: to },
+        performedAt: timestampRange,
       },
     }),
     prisma.appointment.count({
       where: {
         doctorId: doctorDbId,
         status: false,
-        updatedAt: { gte: from, lte: to },
+        updatedAt: timestampRange,
       },
     }),
     prisma.financeTransaction.groupBy({
       by: ["currency", "type"],
-      where: { doctorId: doctorDbId, transactionDate: { gte: from, lte: to } },
+      where: { doctorId: doctorDbId, transactionDate: dateRange },
       _sum: { amount: true },
     }),
     prisma.treatmentPlan.groupBy({
       by: ["treatmentType"],
-      where: { doctorId: doctorDbId, createdAt: { gte: from, lte: to } },
+      where: { doctorId: doctorDbId, createdAt: timestampRange },
       _count: { id: true },
     }),
     prisma.patient.findMany({
@@ -69,7 +56,8 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
       take: 5,
       select: { id: true, name: true, createdAt: true },
     }),
-    prisma.treatmentSession.findMany({ where: { doctorId: doctorDbId, fee: { not: null } }, select: { fee: true, currency: true, payments: { select: { amount: true } } } }),
+    prisma.treatmentSession.findMany({ where: { doctorId: doctorDbId, plan: { pricingMode: "per_session" }, fee: { not: null } }, select: { fee: true, currency: true, payments: { select: { amount: true } } } }),
+    prisma.treatmentPlan.findMany({ where: { doctorId: doctorDbId, pricingMode: "plan", fee: { not: null } }, select: { fee: true, currency: true, payments: { select: { amount: true } } } }),
   ]);
 
   const financialTotals = currencyTotals(finance.map((row) => ({ type: row.type, currency: row.currency, amount: Number(row._sum.amount ?? 0) })));
@@ -82,7 +70,7 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
       completedSessions,
       cancelledAppointments,
       financialTotals,
-      sessionAccount: accountTotals(billedSessions),
+      sessionAccount: accountTotals([...billedSessions, ...billedPlans]),
     },
     treatmentBreakdown: plansByType
       .map((row) => ({
@@ -94,7 +82,7 @@ export async function loadDoctorReports(doctorId: number, monthKey?: string) {
     recentPatients: recentPatients.map((p) => ({
       id: fromDbId(p.id),
       name: p.name,
-      createdAt: p.createdAt?.toISOString().slice(0, 10) ?? null,
+      createdAt: p.createdAt ? todayDateKey(p.createdAt) : null,
     })),
   };
 }

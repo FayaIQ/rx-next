@@ -29,13 +29,16 @@ import { CompleteSessionNoteDialog } from "@/components/treatment/complete-sessi
 import { useLocale, type TranslateFn } from "@/i18n/locale-provider";
 import { tTreatmentTemplate, tTreatmentType, tTreatmentTarget } from "@/lib/i18n-labels";
 import { sessionTimeInput } from "@/lib/treatment/session-datetime";
+import { treatmentPlanCreateSchema } from "@/lib/validations/treatment";
+import { planIncludesTooth } from "@/lib/treatment/plan-teeth";
 
 type Props = {
   patientId: number;
   toothFdi: number | null;
+  toothFdis?: number[];
 };
 
-export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
+export function ToothSessionsPanel({ patientId, toothFdi, toothFdis }: Props) {
   const { t } = useLocale();
   const wholeMouth = toothFdi === null;
   const invalidateBilling = useInvalidateBilling();
@@ -47,6 +50,10 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
   const [sessionTime, setSessionTime] = useState("");
   const [initialFee, setInitialFee] = useState("");
   const [initialPaid, setInitialPaid] = useState("");
+  const [pricingMode, setPricingMode] = useState<"plan" | "per_session">("plan");
+  const [sessionFees, setSessionFees] = useState<string[]>([]);
+  const [sessionPayments, setSessionPayments] = useState<string[]>([]);
+  const [sessionPaymentIds, setSessionPaymentIds] = useState<string[]>([]);
   const [planCurrency, setPlanCurrency] = useState("IQD");
   const [planRequestId, setPlanRequestId] = useState("");
   const [initialPaymentId, setInitialPaymentId] = useState("");
@@ -59,15 +66,15 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
     subtitle: string;
   } | null>(null);
 
-  const queryKey = ["treatment-plans", patientId, toothFdi];
+  const queryKey = ["treatment-plans", patientId, toothFdis ? "selection" : toothFdi];
 
   const { data, isLoading } = useQuery({
     queryKey,
     networkMode: "always",
-    queryFn: () => fetchTreatmentPlansOfflineFirst(patientId, { toothFdi }),
+    queryFn: () => fetchTreatmentPlansOfflineFirst(patientId, toothFdis ? undefined : { toothFdi }),
   });
 
-  const plans = data?.plans ?? [];
+  const plans = (data?.plans ?? []).filter(plan => !toothFdis || toothFdis.some(tooth => planIncludesTooth(plan, tooth)));
 
   const invalidate = () => {
     invalidateBilling();
@@ -90,17 +97,26 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
             scheduledDate: i === 0 ? todayDateKey() : null,
             notes: null,
           }));
-      return createTreatmentPlanOffline(patientId, {
+      const payment = (fee: string, paid: string, requestId: string) => ({
+        fee: fee === "" ? null : Number(fee), currency: planCurrency, amount: Number(paid || 0),
+        paymentMethod: "cash" as const, transactionDate: todayDateKey(), requestId,
+      });
+      const parsed = treatmentPlanCreateSchema.safeParse({
         clientRequestId: planRequestId,
+        pricingMode,
+        ...(pricingMode === "plan" && (initialFee !== "" || initialPaid !== "") ? { billing: payment(initialFee, initialPaid, initialPaymentId) } : {}),
         toothFdi,
+        ...(toothFdis ? { toothFdis } : {}),
         treatmentType,
         totalSessions: count,
         sessions: sessions.map((session, index) => ({
-          ...(index === 0 && initialFee !== "" ? { billing: { fee: Number(initialFee), currency: planCurrency, amount: Number(initialPaid || 0), paymentMethod: "cash", transactionDate: todayDateKey(), requestId: initialPaymentId } } : {}),
+          ...(pricingMode === "per_session" && (sessionFees[index]?.trim() || sessionPayments[index]?.trim()) ? { billing: payment(sessionFees[index] ?? "", sessionPayments[index], sessionPaymentIds[index]) } : {}),
           ...session,
           scheduledTime: sessionTime || sessionTimeInput(),
         })),
       });
+      if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? t("common.error"));
+      return createTreatmentPlanOffline(patientId, parsed.data);
     },
     onSuccess: () => {
       invalidate();
@@ -166,6 +182,9 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
               setPlanRequestId(crypto.randomUUID());
               setInitialPaymentId(crypto.randomUUID());
               setInitialFee(""); setInitialPaid("");
+              setPricingMode("plan");
+              setSessionFees([]); setSessionPayments([]);
+              setSessionPaymentIds(Array.from({ length: 20 }, () => crypto.randomUUID()));
               setTotalSessions(defaultSessionsForType(treatmentType));
               setSessionTime(sessionTimeInput());
               setShowNewPlan(true);
@@ -179,6 +198,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
 
       {showNewPlan ? (
         <div className="space-y-3 rounded-lg border border-teal-200 bg-teal-50/40 p-3">
+          <p className="text-sm font-semibold text-teal-900">{tTreatmentTarget(t, toothFdi, toothFdis)}</p>
           {!wholeMouth ? <div className="space-y-1">
             <Label className="text-xs">{t("dental.readyTemplate")}</Label>
             <select
@@ -237,7 +257,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
                 className="h-9"
                 value={totalSessions}
                 onChange={(e) =>
-                  setTotalSessions(Math.max(1, Number(e.target.value) || 1))
+                  setTotalSessions(Math.min(20, Math.max(1, Math.trunc(Number(e.target.value)) || 1)))
                 }
               />
             </div>
@@ -260,20 +280,33 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
             <p className="text-xs text-rx-muted">{t("dental.sessionTimeHint")}</p>
           </div>
           <fieldset disabled={isBusy} className="space-y-2 rounded-lg border border-rx-border bg-white p-3">
-            <legend className="px-1 text-xs font-semibold">{t("billing.firstSessionAccount")}</legend>
-            <p className="text-xs text-rx-muted">{t("billing.firstSessionHint")}</p>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <div className="space-y-1"><Label htmlFor={`first-fee-${toothFdi}`} className="text-xs">{t("billing.fee")}</Label><Input id={`first-fee-${toothFdi}`} type="number" min="0" step={planCurrency === "USD" ? "0.01" : "1"} value={initialFee} onChange={e => setInitialFee(e.target.value)} placeholder={t("billing.unpriced")} /></div>
-              <div className="space-y-1"><Label htmlFor={`first-paid-${toothFdi}`} className="text-xs">{t("billing.newPayment")}</Label><Input id={`first-paid-${toothFdi}`} type="number" min="0" max={Number(initialFee || 0)} step={planCurrency === "USD" ? "0.01" : "1"} value={initialPaid} onChange={e => setInitialPaid(e.target.value)} placeholder="0" /></div>
-              <div className="space-y-1"><Label htmlFor={`first-currency-${toothFdi}`} className="text-xs">{t("finances.currency")}</Label><select id={`first-currency-${toothFdi}`} className="h-10 w-full rounded-lg border border-rx-border px-2 text-sm" value={planCurrency} onChange={e => setPlanCurrency(e.target.value)}><option value="IQD">IQD</option><option value="USD">USD</option></select></div>
+            <legend className="px-1 text-xs font-semibold">{t("billing.planPricing")}</legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(["plan", "per_session"] as const).map(mode => <label key={mode} className={cn("flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm", pricingMode === mode ? "border-teal-600 bg-teal-50 text-teal-900" : "border-rx-border")}>
+                <input type="radio" name={`pricing-mode-${toothFdi}`} value={mode} checked={pricingMode === mode} onChange={() => setPricingMode(mode)} />
+                {t(mode === "plan" ? "billing.wholePlanPrice" : "billing.perSessionPrice")}
+              </label>)}
             </div>
+            <p className="text-xs leading-relaxed text-rx-muted">{t(pricingMode === "plan" ? "billing.planPriceHint" : "billing.sessionPricesHint")}</p>
+            {pricingMode === "plan" && <p className="text-xs text-rx-muted">{t("billing.cashPaymentHint")}</p>}
+            <div className="space-y-1"><Label htmlFor={`first-currency-${toothFdi}`} className="text-xs">{t("finances.currency")}</Label><select id={`first-currency-${toothFdi}`} className="h-10 w-full rounded-lg border border-rx-border px-2 text-sm" value={planCurrency} onChange={e => setPlanCurrency(e.target.value)}><option value="IQD">IQD</option><option value="USD">USD</option></select></div>
+            {pricingMode === "plan" ? <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-1"><Label htmlFor={`first-fee-${toothFdi}`} className="text-xs">{t("billing.planFee")}</Label><Input id={`first-fee-${toothFdi}`} type="number" min="0" max="9999999999.99" step={planCurrency === "USD" ? "0.01" : "1"} value={initialFee} onChange={e => setInitialFee(e.target.value)} placeholder={t("billing.unpriced")} /></div>
+              <div className="space-y-1"><Label htmlFor={`first-paid-${toothFdi}`} className="text-xs">{t("billing.newPayment")}</Label><Input id={`first-paid-${toothFdi}`} type="number" min="0" max={Number(initialFee || 0)} step={planCurrency === "USD" ? "0.01" : "1"} value={initialPaid} onChange={e => setInitialPaid(e.target.value)} placeholder="0" /></div>
+            </div> : <div className="max-h-96 space-y-3 overflow-y-auto">{Array.from({ length: totalSessions }, (_, index) => <div key={index} className="space-y-2 rounded-lg border border-rx-border p-2">
+              <p className="text-xs font-semibold">{t("dental.sessionTitle", { number: index + 1 })}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1"><Label htmlFor={`session-fee-${toothFdi}-${index}`} className="text-xs">{t("billing.fee")}</Label><Input id={`session-fee-${toothFdi}-${index}`} type="number" min="0" max="9999999999.99" step={planCurrency === "USD" ? "0.01" : "1"} value={sessionFees[index] ?? ""} placeholder={t("billing.unpriced")} onChange={e => setSessionFees(values => { const next = [...values]; next[index] = e.target.value; return next; })} /></div>
+                <div className="space-y-1"><Label htmlFor={`session-paid-${toothFdi}-${index}`} className="text-xs">{t("billing.newPayment")}</Label><Input id={`session-paid-${toothFdi}-${index}`} type="number" min="0" max={Number(sessionFees[index] || 0)} step={planCurrency === "USD" ? "0.01" : "1"} value={sessionPayments[index] ?? ""} placeholder="0" onChange={e => setSessionPayments(values => { const next = [...values]; next[index] = e.target.value; return next; })} /></div>
+              </div>
+            </div>)}</div>}
           </fieldset>
           <div className="flex gap-2">
             <Button
               type="button"
               size="sm"
               onClick={() => createPlanMutation.mutate()}
-              disabled={isBusy || !sessionTime || Number(initialPaid || 0) > Number(initialFee || 0)}
+              disabled={isBusy || !sessionTime || (pricingMode === "plan" ? Number(initialPaid || 0) > Number(initialFee || 0) : Array.from({ length: totalSessions }, (_, i) => Number(sessionPayments[i] || 0) > Number(sessionFees[i] || 0)).some(Boolean))}
             >
               {t("dental.create")}
             </Button>
@@ -292,7 +325,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
       {isLoading ? (
         <div className="h-16 animate-pulse rounded-lg bg-slate-100" />
       ) : plans.length === 0 ? (
-        <p className="text-xs text-rx-muted">{wholeMouth ? t("dental.noMouthPlanHint") : t("dental.noPlanHint")}</p>
+        <p className="text-xs text-rx-muted">{t(wholeMouth ? "dental.noMouthPlanHint" : toothFdis ? "dental.noSharedPlanHint" : "dental.noPlanHint")}</p>
       ) : (
         <div className="space-y-3">
           {plans.map((plan) => (
@@ -307,7 +340,7 @@ export function ToothSessionsPanel({ patientId, toothFdi }: Props) {
                   title: t("dental.sessionTitle", {
                     number: session.sessionNumber,
                   }),
-                  subtitle: `${tTreatmentType(t, plan.treatmentType)} — ${tTreatmentTarget(t, plan.toothFdi)}`,
+                  subtitle: `${tTreatmentType(t, plan.treatmentType)} — ${tTreatmentTarget(t, plan.toothFdi, plan.toothFdis)}`,
                 })
               }
               onUpdateSession={(sessionId, body) =>
@@ -375,6 +408,7 @@ function PlanBlock({
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-900">{label}</p>
+          <p className="mt-0.5 text-xs text-slate-600">{tTreatmentTarget(t, plan.toothFdi, plan.toothFdis)}</p>
           <p className="mt-0.5 text-xs text-slate-500">
             {t("dental.sessionsProgress", { completed, total })}
           </p>
@@ -397,6 +431,7 @@ function PlanBlock({
         </Button>
       </div>
 
+      {plan.pricingMode === "plan" && <div className="mb-3"><SessionBillingButton planId={plan.id} billing={plan.billing} /></div>}
       <ol className="space-y-0">
         {sessions.map((session, index) => {
           const done = session.status === "completed";
@@ -440,7 +475,7 @@ function PlanBlock({
                   {done && session.performedAt ? (
                     <time dateTime={session.performedAt} className="text-xs text-slate-600">
                       {new Date(session.performedAt).toLocaleString(locale === "ar" ? "ar-IQ" : "en-GB", {
-                        year: "numeric", month: "2-digit", day: "2-digit",
+                        timeZone: "Asia/Baghdad", year: "numeric", month: "2-digit", day: "2-digit",
                         hour: "2-digit", minute: "2-digit",
                       })}
                     </time>
@@ -475,7 +510,7 @@ function PlanBlock({
                     </>
                   )}
                 </div>
-                <SessionBillingButton sessionId={session.id} billing={session.billing} />
+                {plan.pricingMode !== "plan" && <SessionBillingButton sessionId={session.id} billing={session.billing} />}
                 {done && session.notes?.trim() ? (
                   <p className="text-xs leading-relaxed text-slate-600">
                     {session.notes}

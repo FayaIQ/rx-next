@@ -1,12 +1,21 @@
 type Money = number | { toString(): string };
 
 export type SessionBilling = {
+  scope?: "plan" | "session";
   fee: number | null;
   currency: string;
   paid: number;
   remaining: number;
   status: "unpriced" | "unpaid" | "partial" | "paid";
 };
+
+export function treatmentSessionBalance(session: Parameters<typeof sessionBalance>[0] & {
+  plan?: Parameters<typeof sessionBalance>[0] & { pricingMode?: string };
+}): SessionBilling {
+  return session.plan?.pricingMode === "plan"
+    ? { ...sessionBalance(session.plan), scope: "plan" }
+    : sessionBalance(session);
+}
 
 export type AccountTotal = { currency: string; total: number; paid: number; remaining: number };
 
